@@ -2,12 +2,10 @@ import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   Download,
-  File,
   FileImage,
   FileText,
   FolderOpen,
   Loader2,
-  Trash2,
   UploadCloud,
   X,
 } from 'lucide-react';
@@ -344,9 +342,7 @@ export default function Documents() {
         err?.message ||
         'Your file could not be uploaded right now.';
 
-      setError(
-        `Upload failed: ${message}`
-      );
+      setError(`Upload failed: ${message}`);
     } finally {
       setUploading(false);
     }
@@ -387,17 +383,6 @@ export default function Documents() {
     }
   };
 
-  const projectTitleById = useMemo(
-    () =>
-      Object.fromEntries(
-        projects.map((project) => [
-          project.id,
-          project.title,
-        ])
-      ),
-    [projects]
-  );
-
   const filesByProject = useMemo(() => {
     return projects.map((project) => ({
       project,
@@ -422,7 +407,6 @@ export default function Documents() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div>
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-accent-500/10 p-3 text-accent-400">
@@ -441,7 +425,6 @@ export default function Documents() {
         </div>
       </div>
 
-      {/* Alerts */}
       {error && (
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
           {error}
@@ -455,7 +438,6 @@ export default function Documents() {
         </div>
       )}
 
-      {/* No projects */}
       {projects.length === 0 ? (
         <div className="glass rounded-2xl border border-ink-800/50 p-10 text-center">
           <FolderOpen className="mx-auto h-10 w-10 text-gray-600" />
@@ -472,7 +454,6 @@ export default function Documents() {
         </div>
       ) : (
         <>
-          {/* Upload area */}
           <div className="glass rounded-2xl border border-ink-800/50 p-6 md:p-8">
             <div>
               <h3 className="text-lg font-medium text-white">
@@ -488,7 +469,6 @@ export default function Documents() {
               onSubmit={handleUpload}
               className="mt-6 space-y-6"
             >
-              {/* Project */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-300">
                   Project
@@ -513,7 +493,6 @@ export default function Documents() {
                 </select>
               </div>
 
-              {/* Category */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-300">
                   What are you uploading?
@@ -555,7 +534,6 @@ export default function Documents() {
                 </div>
               </div>
 
-              {/* File drop zone */}
               <div>
                 <label
                   htmlFor="client-document-upload"
@@ -587,7 +565,6 @@ export default function Documents() {
                 </label>
               </div>
 
-              {/* Selected file */}
               {selectedFile && (
                 <div className="rounded-2xl border border-accent-500/20 bg-accent-500/5 p-4">
                   <div className="flex items-center gap-4">
@@ -627,7 +604,6 @@ export default function Documents() {
                 </div>
               )}
 
-              {/* Upload button */}
               <button
                 type="submit"
                 disabled={
@@ -652,7 +628,6 @@ export default function Documents() {
             </form>
           </div>
 
-          {/* Uploaded files */}
           <div className="glass rounded-2xl border border-ink-800/50 p-6 md:p-8">
             <div className="flex items-center gap-3">
               <FileText className="h-5 w-5 text-accent-400" />
