@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom';
 import { LogOut, LayoutDashboard, Users, FolderKanban, ReceiptText, FileText, BellRing, Settings, Menu, X, Star, Crown, ShieldCheck, ArrowLeftRight, Briefcase, UserRound, Link as ConnectorIcon, Wrench, MessageSquare, WalletCards, UserCog, Package, Globe, Server, RefreshCw, BarChart3, UserPlus, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
+import { usePortalRealtimeRefresh } from '../../lib/usePortalRealtime';
 
 type WorkspaceKey = 'client' | 'connector' | 'operator' | 'admin' | 'owner';
 interface Workspace { key: WorkspaceKey; label: string; path: string; icon: typeof UserRound; }
@@ -44,6 +45,7 @@ export default function PortalLayout() {
   const { user, roles } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const realtimeRefreshKey = usePortalRealtimeRefresh();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const normalizedRoles = roles.map(role => String(role).trim().toLowerCase()).filter(Boolean);
   const availableWorkspaces = (['client', 'connector', 'operator', 'admin', 'owner'] as WorkspaceKey[]).filter(role => normalizedRoles.includes(role)).map(role => workspaceDefinitions[role]);
@@ -105,7 +107,7 @@ export default function PortalLayout() {
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative"><div className="absolute top-0 -left-32 w-[500px] h-[500px] rounded-full bg-accent-500/5 blur-[120px] pointer-events-none" /><div className="absolute bottom-0 -right-40 w-[400px] h-[400px] rounded-full bg-brand-500/5 blur-[120px] pointer-events-none" />
         <header className="h-20 flex items-center justify-between px-5 border-b border-ink-800/50 md:hidden bg-ink-950/90 backdrop-blur-md z-20 shrink-0"><Link to={currentWorkspace.path} className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center overflow-hidden shrink-0"><img src="/logo.avif" alt="Avelixa" className="w-full h-full object-contain" /></div><div><div className="font-medium tracking-tight text-white text-lg">Avelixa</div><div className="text-[10px] uppercase tracking-widest text-accent-400">{currentWorkspace.label} Portal</div></div></Link><button type="button" onClick={() => setSidebarOpen(true)} className="text-white p-2 rounded-xl hover:bg-white/5 transition-colors" aria-label="Open portal menu"><Menu className="w-6 h-6" /></button></header>
-        <div className="flex-1 overflow-y-auto p-5 md:p-10 z-10"><div className="max-w-6xl mx-auto"><Outlet /></div></div>
+        <div className="flex-1 overflow-y-auto p-5 md:p-10 z-10"><div className="max-w-6xl mx-auto"><Outlet key={realtimeRefreshKey} /></div></div>
       </main>
 
       {sidebarOpen && <div className="fixed inset-0 z-50 flex md:hidden"><div className="fixed inset-0 bg-ink-950/80 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} /><div className="relative w-72 max-w-[85vw] bg-ink-900 h-full flex flex-col border-r border-ink-800/50 shadow-2xl"><div className="h-20 flex items-center justify-between px-5 border-b border-ink-800/50"><Link to={currentWorkspace.path} onClick={() => setSidebarOpen(false)} className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center overflow-hidden"><img src="/logo.avif" alt="Avelixa" className="w-full h-full object-contain" /></div><div><div className="font-medium tracking-tight text-white text-lg">Avelixa</div><div className="text-[9px] uppercase tracking-[0.2em] text-accent-400">{currentWorkspace.label} Portal</div></div></Link><button type="button" onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-colors" aria-label="Close portal menu"><X className="w-6 h-6" /></button></div><div className="px-4 pt-5">{renderWorkspaceSwitcher()}</div><div className="flex-1 overflow-y-auto py-6 px-4">{renderNav(true)}</div><div className="p-4 border-t border-ink-800/50"><div className="flex items-center gap-3 px-3 py-3 mb-2"><div className="w-10 h-10 rounded-full bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-accent-400 font-semibold uppercase shrink-0">{userInitial}</div><div className="overflow-hidden min-w-0"><div className="text-sm font-medium text-white truncate">{user?.email || 'Avelixa User'}</div><div className="text-[10px] text-accent-500 uppercase tracking-widest truncate mt-0.5">{currentWorkspace.label} Portal</div></div></div><button type="button" onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"><LogOut className="w-5 h-5" />Sign out</button></div></div></div>}
