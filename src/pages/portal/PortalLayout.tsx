@@ -1,7 +1,7 @@
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom';
-import { LogOut, LayoutDashboard, Users, FolderKanban, ReceiptText, FileText, BellRing, Settings, Menu, X, Star, Crown, ShieldCheck, ArrowLeftRight, Briefcase, UserRound, Link as ConnectorIcon, Wrench, MessageSquare, WalletCards, UserCog, Package, Globe, Server, RefreshCw, BarChart3, UserPlus } from 'lucide-react';
+import { LogOut, LayoutDashboard, Users, FolderKanban, ReceiptText, FileText, BellRing, Settings, Menu, X, Star, Crown, ShieldCheck, ArrowLeftRight, Briefcase, UserRound, Link as ConnectorIcon, Wrench, MessageSquare, WalletCards, UserCog, Package, Globe, Server, RefreshCw, BarChart3, UserPlus, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
 
 type WorkspaceKey = 'client' | 'connector' | 'operator' | 'admin' | 'owner';
@@ -25,6 +25,7 @@ function getCurrentWorkspace(pathname: string, roles: string[]): WorkspaceKey {
     if (roles.includes('owner')) return 'owner';
     if (roles.includes('admin')) return 'admin';
   }
+  if (pathname.startsWith('/portal/website-links')) return roles.includes('owner') ? 'owner' : roles.includes('admin') ? 'admin' : 'client';
   if (pathname === '/portal' || pathname.startsWith('/portal/projects') || pathname.startsWith('/portal/invoices') || pathname.startsWith('/portal/documents') || pathname.startsWith('/portal/activity') || pathname.startsWith('/portal/settings') || pathname.startsWith('/portal/messages')) {
     if (roles.includes('client')) return 'client';
     if (roles.includes('owner')) return 'owner';
@@ -69,6 +70,7 @@ export default function PortalLayout() {
     { name: 'Connector Applications', path: '/portal/connector-applications', icon: UserPlus, roles: ['owner', 'admin'] },
     { name: 'Portfolio', path: '/portal/portfolio', icon: Briefcase, roles: ['owner', 'admin'] },
     { name: 'Finance', path: '/portal/owner/finance', icon: WalletCards, roles: ['owner'] },
+    { name: 'Website Links', path: '/portal/website-links', icon: SlidersHorizontal, roles: ['owner'] },
     { name: 'User Management', path: '/portal/owner/users', icon: UserCog, roles: ['owner'] },
     { name: 'Settings', path: '/portal/settings', icon: Settings, roles: 'all' },
   ];
