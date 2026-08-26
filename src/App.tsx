@@ -32,6 +32,7 @@ import Messages from './pages/portal/Messages';
 import ReviewsModeration from './pages/portal/ReviewsModeration';
 import PortfolioManagement from './pages/portal/PortfolioManagement';
 import FinanceDashboard from './pages/portal/FinanceDashboard';
+import ConnectorApplications from './pages/portal/ConnectorApplications';
 
 import ServiceCatalogue from './pages/portal/ServiceCatalogue';
 import WebsitePackages from './pages/portal/WebsitePackages';
@@ -51,17 +52,11 @@ import TeamManagement from './pages/portal/TeamManagement';
 import TeamPayouts from './pages/portal/TeamPayouts';
 import OwnerUserManagement from './pages/portal/OwnerUserManagement';
 
-function PublicLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-screen bg-ink-950 overflow-x-hidden">
       <Nav />
-
       <main>{children}</main>
-
       <Footer />
       <FloatingWhatsApp />
     </div>
@@ -73,356 +68,54 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <SEO />
-
         <Routes>
-          <Route
-            path="/"
-            element={
-              <PublicLayout>
-                <Home />
-              </PublicLayout>
-            }
-          />
+          <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
+          <Route path="/services" element={<PublicLayout><Services /></PublicLayout>} />
+          <Route path="/work" element={<PublicLayout><Work /></PublicLayout>} />
+          <Route path="/about" element={<PublicLayout><About /></PublicLayout>} />
+          <Route path="/pricing" element={<PublicLayout><Pricing /></PublicLayout>} />
+          <Route path="/reviews" element={<PublicLayout><Reviews /></PublicLayout>} />
+          <Route path="/contact" element={<PublicLayout><Contact /></PublicLayout>} />
+          <Route path="/connector-apply" element={<PublicLayout><ConnectorApplication /></PublicLayout>} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/portal/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
 
-          <Route
-            path="/services"
-            element={
-              <PublicLayout>
-                <Services />
-              </PublicLayout>
-            }
-          />
+          <Route path="/portal" element={<ProtectedRoute><PortalLayout /></ProtectedRoute>}>
+            <Route index element={<PortalHome />} />
+            <Route path="projects" element={<Projects />} />
+            <Route path="projects/:projectId" element={<ProjectDetails />} />
+            <Route path="invoices" element={<Invoices />} />
+            <Route path="invoices/:invoiceId" element={<InvoiceDetails />} />
+            <Route path="documents" element={<Documents />} />
+            <Route path="activity" element={<Activity />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="messages" element={<Messages />} />
 
-          <Route
-            path="/work"
-            element={
-              <PublicLayout>
-                <Work />
-              </PublicLayout>
-            }
-          />
+            <Route path="leads/new" element={<ProtectedRoute requiredRoles={['connector']}><SubmitLead /></ProtectedRoute>} />
+            <Route path="connector" element={<ProtectedRoute requiredRoles={['connector']}><ConnectorDashboard /></ProtectedRoute>} />
 
-          <Route
-            path="/about"
-            element={
-              <PublicLayout>
-                <About />
-              </PublicLayout>
-            }
-          />
+            <Route path="admin" element={<ProtectedRoute requiredRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+            <Route path="admin/projects" element={<ProtectedRoute requiredRoles={['admin']}><AdminProjects /></ProtectedRoute>} />
+            <Route path="admin/team" element={<ProtectedRoute requiredRoles={['admin']}><TeamManagement /></ProtectedRoute>} />
+            <Route path="admin/team/payouts" element={<ProtectedRoute requiredRoles={['admin']}><TeamPayouts /></ProtectedRoute>} />
 
-          <Route
-            path="/pricing"
-            element={
-              <PublicLayout>
-                <Pricing />
-              </PublicLayout>
-            }
-          />
+            <Route path="owner" element={<ProtectedRoute requiredRoles={['owner']}><OwnerDashboard /></ProtectedRoute>} />
+            <Route path="owner/finance" element={<ProtectedRoute requiredRoles={['owner']}><FinanceDashboard /></ProtectedRoute>} />
+            <Route path="owner/users" element={<ProtectedRoute requiredRoles={['owner']}><OwnerUserManagement /></ProtectedRoute>} />
 
-          <Route
-            path="/reviews"
-            element={
-              <PublicLayout>
-                <Reviews />
-              </PublicLayout>
-            }
-          />
+            <Route path="connector-applications" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><ConnectorApplications /></ProtectedRoute>} />
 
-          <Route
-            path="/contact"
-            element={
-              <PublicLayout>
-                <Contact />
-              </PublicLayout>
-            }
-          />
-
-          <Route
-            path="/connector-apply"
-            element={
-              <PublicLayout>
-                <ConnectorApplication />
-              </PublicLayout>
-            }
-          />
-
-          <Route
-            path="/login"
-            element={<Login />}
-          />
-
-          <Route
-            path="/portal/login"
-            element={<Login />}
-          />
-
-          <Route
-            path="/signup"
-            element={<Signup />}
-          />
-
-          <Route
-            path="/portal"
-            element={
-              <ProtectedRoute>
-                <PortalLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route
-              index
-              element={<PortalHome />}
-            />
-
-            <Route
-              path="projects"
-              element={<Projects />}
-            />
-
-            <Route
-              path="projects/:projectId"
-              element={<ProjectDetails />}
-            />
-
-            <Route
-              path="invoices"
-              element={<Invoices />}
-            />
-
-            <Route
-              path="invoices/:invoiceId"
-              element={<InvoiceDetails />}
-            />
-
-            <Route
-              path="documents"
-              element={<Documents />}
-            />
-
-            <Route
-              path="activity"
-              element={<Activity />}
-            />
-
-            <Route
-              path="settings"
-              element={<Settings />}
-            />
-
-            <Route
-              path="messages"
-              element={<Messages />}
-            />
-
-            <Route
-              path="leads/new"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['connector']}
-                >
-                  <SubmitLead />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="connector"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['connector']}
-                >
-                  <ConnectorDashboard />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="admin"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['admin']}
-                >
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="admin/projects"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['admin']}
-                >
-                  <AdminProjects />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="admin/team"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['admin']}
-                >
-                  <TeamManagement />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="admin/team/payouts"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['admin']}
-                >
-                  <TeamPayouts />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="owner"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['owner']}
-                >
-                  <OwnerDashboard />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="owner/finance"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['owner']}
-                >
-                  <FinanceDashboard />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="owner/users"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['owner']}
-                >
-                  <OwnerUserManagement />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="clients"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['owner', 'admin']}
-                >
-                  <Clients />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="clients/:clientId"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['owner', 'admin']}
-                >
-                  <ClientDetails />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="reviews"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['owner', 'admin']}
-                >
-                  <ReviewsModeration />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="portfolio"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['owner', 'admin']}
-                >
-                  <PortfolioManagement />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="services"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['owner', 'admin']}
-                >
-                  <ServiceCatalogue />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="website-packages"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['owner', 'admin']}
-                >
-                  <WebsitePackages />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="maintenance"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['owner', 'admin']}
-                >
-                  <MaintenancePlans />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="hosting"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['owner', 'admin']}
-                >
-                  <Hosting />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="revenue"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['owner', 'admin']}
-                >
-                  <RevenueOperations />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="operator"
-              element={
-                <ProtectedRoute
-                  requiredRoles={['operator']}
-                >
-                  <OperatorDashboard />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="clients" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><Clients /></ProtectedRoute>} />
+            <Route path="clients/:clientId" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><ClientDetails /></ProtectedRoute>} />
+            <Route path="reviews" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><ReviewsModeration /></ProtectedRoute>} />
+            <Route path="portfolio" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><PortfolioManagement /></ProtectedRoute>} />
+            <Route path="services" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><ServiceCatalogue /></ProtectedRoute>} />
+            <Route path="website-packages" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><WebsitePackages /></ProtectedRoute>} />
+            <Route path="maintenance" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><MaintenancePlans /></ProtectedRoute>} />
+            <Route path="hosting" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><Hosting /></ProtectedRoute>} />
+            <Route path="revenue" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><RevenueOperations /></ProtectedRoute>} />
+            <Route path="operator" element={<ProtectedRoute requiredRoles={['operator']}><OperatorDashboard /></ProtectedRoute>} />
           </Route>
         </Routes>
       </BrowserRouter>
