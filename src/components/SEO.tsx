@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 const SITE_URL = 'https://www.avelixa.co.ke';
 const SITE_NAME = 'Avelixa';
 const DEFAULT_IMAGE = `${SITE_URL}/og-image.jpg`;
+const BRAND_LOGO = `${SITE_URL}/pwa-512x512.png`;
 
 type PageSeo = {
   title: string;
@@ -322,7 +323,9 @@ export default function SEO() {
     });
 
     /*
-     * Organization structured data
+     * Organization structured data.
+     * The same current brand asset used by the PWA is exposed here
+     * so search engines receive one consistent Avelixa logo signal.
      */
     setStructuredData('organization', {
       '@context': 'https://schema.org',
@@ -330,8 +333,14 @@ export default function SEO() {
       '@id': `${SITE_URL}/#organization`,
       name: SITE_NAME,
       url: SITE_URL,
-      logo: `${SITE_URL}/logo.jpg`,
-      image: image,
+      logo: {
+        '@type': 'ImageObject',
+        '@id': `${SITE_URL}/#logo`,
+        url: BRAND_LOGO,
+        contentUrl: BRAND_LOGO,
+        caption: 'Avelixa logo',
+      },
+      image: BRAND_LOGO,
       description:
         'Avelixa builds modern, high-converting websites for businesses in Kenya.',
       email: 'contact@avelixa.co.ke',
