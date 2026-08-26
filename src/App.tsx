@@ -33,6 +33,7 @@ import ReviewsModeration from './pages/portal/ReviewsModeration';
 import PortfolioManagement from './pages/portal/PortfolioManagement';
 import FinanceDashboard from './pages/portal/FinanceDashboard';
 import ConnectorApplications from './pages/portal/ConnectorApplications';
+import WebsiteLinks from './pages/portal/WebsiteLinks';
 
 import ServiceCatalogue from './pages/portal/ServiceCatalogue';
 import WebsitePackages from './pages/portal/WebsitePackages';
@@ -105,6 +106,7 @@ export default function App() {
             <Route path="owner/users" element={<ProtectedRoute requiredRoles={['owner']}><OwnerUserManagement /></ProtectedRoute>} />
 
             <Route path="connector-applications" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><ConnectorApplications /></ProtectedRoute>} />
+            <Route path="website-links" element={<ProtectedRoute requiredRoles={['owner']}><WebsiteLinks /></ProtectedRoute>} />
 
             <Route path="clients" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><Clients /></ProtectedRoute>} />
             <Route path="clients/:clientId" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><ClientDetails /></ProtectedRoute>} />
