@@ -1,9 +1,11 @@
 import { MessageCircle } from 'lucide-react';
-import { DEFAULT_WA } from '../lib/constants';
+import { useSiteContactLinks, whatsappUrl } from '../lib/siteSettings';
 
 export default function FloatingWhatsApp() {
+  const links = useSiteContactLinks();
+  const href = whatsappUrl(links.whatsapp_number, "Hi Avelixa! I'd love to hire you to build a website for my business. Can we talk?");
   return (
-    <a href={DEFAULT_WA} target="_blank" rel="noreferrer"
+    <a href={href} target="_blank" rel="noreferrer"
       aria-label="Chat on WhatsApp"
       className="fixed bottom-6 right-6 z-50 group">
       <div className="relative">
