@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Save, Settings as SettingsIcon, UserCircle2, X } from 'lucide-react';
+import {
+  Loader2,
+  Save,
+  Settings as SettingsIcon,
+  UserCircle2,
+  X,
+  Lock,
+  ShieldCheck,
+} from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 
@@ -14,13 +22,25 @@ interface ProfileRecord {
 
 export default function Settings() {
   const { user } = useAuth();
+
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
-  const [formData, setFormData] = useState({ full_name: '', avatar_url: '' });
+  const [formData, setFormData] = useState({
+    full_name: '',
+    avatar_url: '',
+  });
+
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
     const currentUserId = user?.id;
@@ -40,30 +60,46 @@ export default function Settings() {
       try {
         const { data, error: profileError } = await supabase
           .from('profiles')
-          .select('id, email, full_name, avatar_url, created_at, updated_at')
+          .select(
+            'id, email, full_name, avatar_url, created_at, updated_at'
+          )
           .eq('id', currentUserId)
           .maybeSingle();
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          throw profileError;
+        }
 
-        if (!isMounted) return;
+        if (!isMounted) {
+          return;
+        }
 
         if (data) {
           const profileData = data as ProfileRecord;
+
           setProfile(profileData);
+
           setFormData({
             full_name: profileData.full_name ?? '',
             avatar_url: profileData.avatar_url ?? '',
           });
+
           setEditing(false);
         } else {
           setProfile(null);
-          setFormData({ full_name: '', avatar_url: '' });
+          setFormData({
+            full_name: '',
+            avatar_url: '',
+          });
           setEditing(true);
         }
-      } catch  {
+      } catch (profileLoadError) {
+        console.error('Profile loading error:', profileLoadError);
+
         if (isMounted) {
-          setError('We could not load your profile information right now.');
+          setError(
+            'We could not load your profile information right now.'
+          );
           setProfile(null);
         }
       } finally {
@@ -80,8 +116,14 @@ export default function Settings() {
     };
   }, [user?.id]);
 
-  const handleChange = (field: 'full_name' | 'avatar_url', value: string) => {
-    setFormData((current) => ({ ...current, [field]: value }));
+  const handleChange = (
+    field: 'full_name' | 'avatar_url',
+    value: string
+  ) => {
+    setFormData((current) => ({
+      ...current,
+      [field]: value,
+    }));
   };
 
   const resetFromProfile = () => {
@@ -91,8 +133,12 @@ export default function Settings() {
         avatar_url: profile.avatar_url ?? '',
       });
     } else {
-      setFormData({ full_name: '', avatar_url: '' });
+      setFormData({
+        full_name: '',
+        avatar_url: '',
+      });
     }
+
     setEditing(false);
     setError(null);
     setSuccess(null);
@@ -101,7 +147,9 @@ export default function Settings() {
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!user?.id) return;
+    if (!user?.id) {
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -117,156 +165,492 @@ export default function Settings() {
 
       const { data, error: saveError } = await supabase
         .from('profiles')
-        .upsert(payload, { onConflict: 'id' })
-        .select('id, email, full_name, avatar_url, created_at, updated_at')
+        .upsert(payload, {
+          onConflict: 'id',
+        })
+        .select(
+          'id, email, full_name, avatar_url, created_at, updated_at'
+        )
         .single();
 
-      if (saveError) throw saveError;
+      if (saveError) {
+        throw saveError;
+      }
 
       const updatedProfile = data as ProfileRecord;
+
       setProfile(updatedProfile);
+
       setFormData({
         full_name: updatedProfile.full_name ?? '',
         avatar_url: updatedProfile.avatar_url ?? '',
       });
+
       setEditing(false);
-      setSuccess('Your profile information has been updated.');
-    } catch {
-      setError('Your profile could not be saved right now. Please try again.');
+
+      setSuccess(
+        'Your profile information has been updated.'
+      );
+    } catch (saveProfileError) {
+      console.error(
+        'Profile save error:',
+        saveProfileError
+      );
+
+      setError(
+        'Your profile could not be saved right now. Please try again.'
+      );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async (
+    event: React.FormEvent
+  ) => {
+    event.preventDefault();
+
+    setPasswordMessage(null);
+    setPasswordError(null);
+
+    if (!currentPassword) {
+      setPasswordError(
+        'Please enter your current password.'
+      );
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordError(
+        'Your new password must be at least 8 characters long.'
+      );
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError(
+        'The new passwords do not match.'
+      );
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      setPasswordError(
+        'Your new password must be different from your current password.'
+      );
+      return;
+    }
+
+    if (!user?.email) {
+      setPasswordError(
+        'Your account email could not be determined.'
+      );
+      return;
+    }
+
+    setChangingPassword(true);
+
+    try {
+      const { error: verifyError } =
+        await supabase.auth.signInWithPassword({
+          email: user.email,
+          password: currentPassword,
+        });
+
+      if (verifyError) {
+        setPasswordError(
+          'Your current password is incorrect.'
+        );
+        return;
+      }
+
+      const { error: updateError } =
+        await supabase.auth.updateUser({
+          password: newPassword,
+        });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+
+      setPasswordMessage(
+        'Your password has been changed successfully.'
+      );
+    } catch (passwordChangeError: any) {
+      console.error(
+        'Password change error:',
+        passwordChangeError
+      );
+
+      setPasswordError(
+        passwordChangeError?.message ||
+          'Your password could not be changed right now. Please try again.'
+      );
+    } finally {
+      setChangingPassword(false);
     }
   };
 
   return (
     <div className="space-y-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-white">Settings</h1>
-        <p className="mt-2 text-gray-400">Manage your Avelixa client profile and account details.</p>
+        <h1 className="text-3xl font-semibold text-white">
+          Settings
+        </h1>
+
+        <p className="mt-2 text-gray-400">
+          Manage your Avelixa client profile and account details.
+        </p>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <div className="glass rounded-2xl border border-ink-800/50 p-6 sm:p-8">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-500/10">
-              <SettingsIcon className="h-6 w-6 text-accent-400" />
+        <div className="space-y-6">
+          <div className="glass rounded-2xl border border-ink-800/50 p-6 sm:p-8">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-500/10">
+                <SettingsIcon className="h-6 w-6 text-accent-400" />
+              </div>
+
+              <div>
+                <h2 className="text-xl font-medium text-white">
+                  Profile settings
+                </h2>
+
+                <p className="text-sm text-gray-400">
+                  Keep your account details up to date for your portal experience.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-medium text-white">Profile settings</h2>
-              <p className="text-sm text-gray-400">Keep your account details up to date for your portal experience.</p>
+
+            <div className="mt-6 rounded-2xl border border-ink-800/50 bg-white/[0.03] p-5">
+              {loading ? (
+                <div className="flex items-center gap-3 text-sm text-gray-300">
+                  <Loader2 className="h-4 w-4 animate-spin text-accent-500" />
+                  Loading your profile...
+                </div>
+              ) : error && !profile ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-300">
+                    No profile information is available yet.
+                  </p>
+
+                  <p className="text-sm text-gray-400">
+                    You can create your profile details below using your authenticated account.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-500/10 text-accent-400">
+                    <UserCircle2 className="h-6 w-6" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-white">
+                      {profile?.full_name ||
+                        'No display name set'}
+                    </div>
+
+                    <div className="mt-1 truncate text-sm text-gray-400">
+                      {profile?.email ||
+                        user?.email ||
+                        'No email available'}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {success ? (
+              <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+                {success}
+              </div>
+            ) : null}
+
+            {error ? (
+              <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                {error}
+              </div>
+            ) : null}
+
+            <form
+              className="mt-6 space-y-5"
+              onSubmit={handleSave}
+            >
+              <div className="grid gap-5 md:grid-cols-2">
+                <label className="block text-sm">
+                  <span className="mb-2 block text-gray-300">
+                    Full name
+                  </span>
+
+                  <input
+                    type="text"
+                    value={formData.full_name}
+                    onChange={(event) =>
+                      handleChange(
+                        'full_name',
+                        event.target.value
+                      )
+                    }
+                    disabled={!editing || saving}
+                    className="w-full rounded-xl border border-ink-800/60 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-accent-500 disabled:cursor-not-allowed disabled:opacity-70"
+                    placeholder="Enter your full name"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  <span className="mb-2 block text-gray-300">
+                    Avatar URL
+                  </span>
+
+                  <input
+                    type="url"
+                    value={formData.avatar_url}
+                    onChange={(event) =>
+                      handleChange(
+                        'avatar_url',
+                        event.target.value
+                      )
+                    }
+                    disabled={!editing || saving}
+                    className="w-full rounded-xl border border-ink-800/60 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-accent-500 disabled:cursor-not-allowed disabled:opacity-70"
+                    placeholder="https://example.com/avatar.png"
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                {!editing ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setEditing(true);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-500"
+                  >
+                    Edit profile
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="inline-flex items-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+
+                      {saving
+                        ? 'Saving...'
+                        : 'Save changes'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={resetFromProfile}
+                      disabled={saving}
+                      className="inline-flex items-center gap-2 rounded-xl border border-ink-800/60 bg-white/5 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:border-accent-500/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <X className="h-4 w-4" />
+                      Cancel
+                    </button>
+                  </>
+                )}
+              </div>
+            </form>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-ink-800/50 bg-white/[0.03] p-5">
-            {loading ? (
-              <div className="flex items-center gap-3 text-sm text-gray-300">
-                <Loader2 className="h-4 w-4 animate-spin text-accent-500" />
-                Loading your profileâ€¦
+          <div className="glass rounded-2xl border border-ink-800/50 p-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-500/10">
+                <ShieldCheck className="h-6 w-6 text-accent-400" />
               </div>
-            ) : error && !profile ? (
-              <div className="space-y-3">
-                <p className="text-sm text-gray-300">No profile information is available yet.</p>
-                <p className="text-sm text-gray-400">You can create your profile details below using your authenticated account.</p>
+
+              <div>
+                <h3 className="text-lg font-medium text-white">
+                  Password & Security
+                </h3>
+
+                <p className="text-sm text-gray-400">
+                  Change your password while keeping your account signed in.
+                </p>
               </div>
-            ) : (
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-500/10 text-accent-400">
-                  <UserCircle2 className="h-6 w-6" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-white">{profile?.full_name || 'No display name set'}</div>
-                  <div className="mt-1 truncate text-sm text-gray-400">{profile?.email || user?.email || 'No email available'}</div>
+            </div>
+
+            {passwordMessage && (
+              <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4" />
+                  {passwordMessage}
                 </div>
               </div>
             )}
+
+            {passwordError && (
+              <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                {passwordError}
+              </div>
+            )}
+
+            <form
+              onSubmit={handleChangePassword}
+              className="mt-6 space-y-4"
+            >
+              <div>
+                <label className="mb-2 block text-sm text-gray-300">
+                  Current password
+                </label>
+
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(event) =>
+                      setCurrentPassword(event.target.value)
+                    }
+                    disabled={changingPassword}
+                    className="w-full rounded-xl border border-ink-800/60 bg-white/5 py-3 pl-11 pr-4 text-sm text-white outline-none transition focus:border-accent-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    placeholder="Enter your current password"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-gray-300">
+                  New password
+                </label>
+
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(event) =>
+                      setNewPassword(event.target.value)
+                    }
+                    disabled={changingPassword}
+                    minLength={8}
+                    className="w-full rounded-xl border border-ink-800/60 bg-white/5 py-3 pl-11 pr-4 text-sm text-white outline-none transition focus:border-accent-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    placeholder="Enter your new password"
+                    required
+                  />
+                </div>
+
+                <p className="mt-1.5 text-xs text-gray-500">
+                  Use at least 8 characters.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-gray-300">
+                  Confirm new password
+                </label>
+
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+
+                  <input
+                    type="password"
+                    value={confirmNewPassword}
+                    onChange={(event) =>
+                      setConfirmNewPassword(event.target.value)
+                    }
+                    disabled={changingPassword}
+                    minLength={8}
+                    className="w-full rounded-xl border border-ink-800/60 bg-white/5 py-3 pl-11 pr-4 text-sm text-white outline-none transition focus:border-accent-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    placeholder="Confirm your new password"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={changingPassword}
+                className="inline-flex items-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {changingPassword ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Lock className="h-4 w-4" />
+                )}
+
+                {changingPassword
+                  ? 'Changing password...'
+                  : 'Change password'}
+              </button>
+            </form>
+
+            <div className="mt-5 border-t border-ink-800/50 pt-5">
+              <p className="text-xs leading-5 text-gray-500">
+                Forgot your password? Use the
+                <span className="text-accent-400">
+                  {' '}
+                  Forgot?{' '}
+                </span>
+                option on the login page to receive a password reset link.
+              </p>
+            </div>
           </div>
-
-          {success ? <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">{success}</div> : null}
-          {error ? <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div> : null}
-
-          <form className="mt-6 space-y-5" onSubmit={handleSave}>
-            <div className="grid gap-5 md:grid-cols-2">
-              <label className="block text-sm">
-                <span className="mb-2 block text-gray-300">Full name</span>
-                <input
-                  type="text"
-                  value={formData.full_name}
-                  onChange={(event) => handleChange('full_name', event.target.value)}
-                  disabled={!editing || saving}
-                  className="w-full rounded-xl border border-ink-800/60 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-accent-500 disabled:cursor-not-allowed disabled:opacity-70"
-                  placeholder="Enter your full name"
-                />
-              </label>
-
-              <label className="block text-sm">
-                <span className="mb-2 block text-gray-300">Avatar URL</span>
-                <input
-                  type="url"
-                  value={formData.avatar_url}
-                  onChange={(event) => handleChange('avatar_url', event.target.value)}
-                  disabled={!editing || saving}
-                  className="w-full rounded-xl border border-ink-800/60 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-accent-500 disabled:cursor-not-allowed disabled:opacity-70"
-                  placeholder="https://example.com/avatar.png"
-                />
-              </label>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              {!editing ? (
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-500"
-                >
-                  Edit profile
-                </button>
-              ) : (
-                <>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="inline-flex items-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    {saving ? 'Savingâ€¦' : 'Save changes'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={resetFromProfile}
-                    disabled={saving}
-                    className="inline-flex items-center gap-2 rounded-xl border border-ink-800/60 bg-white/5 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:border-accent-500/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <X className="h-4 w-4" />
-                    Cancel
-                  </button>
-                </>
-              )}
-            </div>
-          </form>
         </div>
 
         <div className="space-y-6">
           <div className="glass rounded-2xl border border-ink-800/50 p-6">
-            <h3 className="text-lg font-medium text-white">Account information</h3>
+            <h3 className="text-lg font-medium text-white">
+              Account information
+            </h3>
+
             <div className="mt-4 space-y-4 text-sm text-gray-300">
               <div>
-                <div className="text-xs uppercase tracking-[0.25em] text-ink-500">Signed in as</div>
-                <div className="mt-1 text-white">{user?.email || 'No email available'}</div>
+                <div className="text-xs uppercase tracking-[0.25em] text-ink-500">
+                  Signed in as
+                </div>
+
+                <div className="mt-1 text-white">
+                  {user?.email || 'No email available'}
+                </div>
               </div>
+
               <div>
-                <div className="text-xs uppercase tracking-[0.25em] text-ink-500">Profile source</div>
-                <div className="mt-1 text-white">Your profile is stored in the existing profiles table for this portal account.</div>
+                <div className="text-xs uppercase tracking-[0.25em] text-ink-500">
+                  Profile source
+                </div>
+
+                <div className="mt-1 text-white">
+                  Your profile is stored in the existing profiles table for this portal account.
+                </div>
               </div>
             </div>
           </div>
 
           <div className="glass rounded-2xl border border-ink-800/50 p-6">
-            <h3 className="text-lg font-medium text-white">Notes</h3>
+            <h3 className="text-lg font-medium text-white">
+              Notes
+            </h3>
+
             <ul className="mt-4 space-y-3 text-sm text-gray-400">
-              <li>â€¢ Only your own profile can be viewed or updated through this page.</li>
-              <li>â€¢ Password changes and provider changes are not included in this task.</li>
-              <li>â€¢ The current schema supports full name and avatar URL, so those are the editable profile fields exposed here.</li>
+              <li>
+                • Only your own profile can be viewed or updated through this page.
+              </li>
+
+              <li>
+                • Password changes require your current password.
+              </li>
+
+              <li>
+                • If you forget your password, use the Forgot? option on the login page.
+              </li>
             </ul>
           </div>
         </div>
@@ -274,3 +658,4 @@ export default function Settings() {
     </div>
   );
 }
+

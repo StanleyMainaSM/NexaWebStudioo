@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Nav from './components/Nav';
 import Footer from './components/Footer';
 import FloatingWhatsApp from './components/FloatingWhatsApp';
+import SEO from './components/SEO';
 
 import Home from './pages/Home';
 import Services from './pages/Services';
@@ -13,10 +14,10 @@ import Reviews from './pages/Reviews';
 import Contact from './pages/Contact';
 import ConnectorApplication from './pages/ConnectorApplication';
 
-// Portal
 import { AuthProvider } from './lib/auth';
 import ProtectedRoute from './components/portal/ProtectedRoute';
 import Login from './pages/portal/Login';
+import Signup from './pages/portal/Signup';
 import PortalLayout from './pages/portal/PortalLayout';
 import PortalHome from './pages/portal/PortalHome';
 import Projects from './pages/portal/Projects';
@@ -27,20 +28,39 @@ import Documents from './pages/portal/Documents';
 import Activity from './pages/portal/Activity';
 import Settings from './pages/portal/Settings';
 import SubmitLead from './pages/portal/SubmitLead';
+import Messages from './pages/portal/Messages';
+import ReviewsModeration from './pages/portal/ReviewsModeration';
+import PortfolioManagement from './pages/portal/PortfolioManagement';
+import FinanceDashboard from './pages/portal/FinanceDashboard';
 
-// Client Management
+import ServiceCatalogue from './pages/portal/ServiceCatalogue';
+import WebsitePackages from './pages/portal/WebsitePackages';
+import MaintenancePlans from './pages/portal/MaintenancePlans';
+import Hosting from './pages/portal/Hosting';
+import RevenueOperations from './pages/portal/RevenueOperations';
+
+import AdminDashboard from './pages/portal/dashboards/AdminDashboard';
+import OwnerDashboard from './pages/portal/dashboards/OwnerDashboard';
+import OperatorDashboard from './pages/portal/dashboards/OperatorDashboard';
+import ConnectorDashboard from './pages/portal/dashboards/ConnectorDashboard';
+
 import Clients from './pages/portal/Client';
 import ClientDetails from './pages/portal/ClientDetails';
+import AdminProjects from './pages/portal/dashboards/AdminProjects';
+import TeamManagement from './pages/portal/TeamManagement';
+import TeamPayouts from './pages/portal/TeamPayouts';
+import OwnerUserManagement from './pages/portal/OwnerUserManagement';
 
-
-function PublicLayout({ children }: { children: React.ReactNode }) {
+function PublicLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <div className="relative min-h-screen bg-ink-950 overflow-x-hidden">
       <Nav />
 
-      <main>
-        {children}
-      </main>
+      <main>{children}</main>
 
       <Footer />
       <FloatingWhatsApp />
@@ -48,17 +68,13 @@ function PublicLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <SEO />
+
         <Routes>
-
-          {/* =========================
-              PUBLIC WEBSITE
-          ========================== */}
-
           <Route
             path="/"
             element={
@@ -131,20 +147,20 @@ export default function App() {
             }
           />
 
-
-          {/* =========================
-              PORTAL AUTHENTICATION
-          ========================== */}
-
           <Route
             path="/login"
             element={<Login />}
           />
 
+          <Route
+            path="/portal/login"
+            element={<Login />}
+          />
 
-          {/* =========================
-              PROTECTED PORTAL
-          ========================== */}
+          <Route
+            path="/signup"
+            element={<Signup />}
+          />
 
           <Route
             path="/portal"
@@ -154,15 +170,11 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-
-            {/* Portal Dashboard */}
             <Route
               index
               element={<PortalHome />}
             />
 
-
-            {/* Projects */}
             <Route
               path="projects"
               element={<Projects />}
@@ -198,21 +210,116 @@ export default function App() {
               element={<Settings />}
             />
 
-            {/* Submit Lead */}
             <Route
-              path="leads/new"
-              element={<SubmitLead />}
+              path="messages"
+              element={<Messages />}
             />
 
+            <Route
+              path="leads/new"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['connector']}
+                >
+                  <SubmitLead />
+                </ProtectedRoute>
+              }
+            />
 
-            {/* =========================
-                CLIENT MANAGEMENT
-            ========================== */}
+            <Route
+              path="connector"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['connector']}
+                >
+                  <ConnectorDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="admin"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['admin']}
+                >
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="admin/projects"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['admin']}
+                >
+                  <AdminProjects />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="admin/team"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['admin']}
+                >
+                  <TeamManagement />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="admin/team/payouts"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['admin']}
+                >
+                  <TeamPayouts />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="owner"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['owner']}
+                >
+                  <OwnerDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="owner/finance"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['owner']}
+                >
+                  <FinanceDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="owner/users"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['owner']}
+                >
+                  <OwnerUserManagement />
+                </ProtectedRoute>
+              }
+            />
 
             <Route
               path="clients"
               element={
-                <ProtectedRoute requiredRoles={['owner', 'admin']}>
+                <ProtectedRoute
+                  requiredRoles={['owner', 'admin']}
+                >
                   <Clients />
                 </ProtectedRoute>
               }
@@ -221,17 +328,104 @@ export default function App() {
             <Route
               path="clients/:clientId"
               element={
-                <ProtectedRoute requiredRoles={['owner', 'admin']}>
+                <ProtectedRoute
+                  requiredRoles={['owner', 'admin']}
+                >
                   <ClientDetails />
                 </ProtectedRoute>
               }
             />
 
-          </Route>
+            <Route
+              path="reviews"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['owner', 'admin']}
+                >
+                  <ReviewsModeration />
+                </ProtectedRoute>
+              }
+            />
 
+            <Route
+              path="portfolio"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['owner', 'admin']}
+                >
+                  <PortfolioManagement />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="services"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['owner', 'admin']}
+                >
+                  <ServiceCatalogue />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="website-packages"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['owner', 'admin']}
+                >
+                  <WebsitePackages />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="maintenance"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['owner', 'admin']}
+                >
+                  <MaintenancePlans />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="hosting"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['owner', 'admin']}
+                >
+                  <Hosting />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="revenue"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['owner', 'admin']}
+                >
+                  <RevenueOperations />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="operator"
+              element={
+                <ProtectedRoute
+                  requiredRoles={['operator']}
+                >
+                  <OperatorDashboard />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
         </Routes>
       </BrowserRouter>
     </AuthProvider>
   );
 }
-

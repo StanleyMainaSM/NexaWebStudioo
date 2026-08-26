@@ -1,6 +1,6 @@
-export const WHATSAPP_INTL = '254100601060';
-export const EMAIL = 'contact@avelixa.com';
-export const INSTAGRAM = 'https://www.instagram.com/avelixa_hq/#';
+﻿export const WHATSAPP_INTL = '254100601060';
+export const EMAIL = 'contact@avelixa.co.ke';
+export const INSTAGRAM = 'https://www.instagram.com/avelixa_hq/';
 export const FACEBOOK = 'https://www.facebook.com/share/1FJM6v5SfN/';
 
 export function waLink(msg: string) {

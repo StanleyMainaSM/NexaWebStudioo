@@ -1,0 +1,8 @@
+﻿User-agent: *
+Allow: /
+
+Disallow: /login
+Disallow: /portal
+Disallow: /api/
+
+Sitemap: https://www.avelixa.co.ke/sitemap.xml
