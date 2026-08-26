@@ -1,0 +1,869 @@
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Check,
+  CircleDollarSign,
+  Clock3,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+
+type BillingInterval = 'monthly' | 'annual' | 'both';
+
+type MaintenancePlan = {
+  id: string;
+  name: string;
+  description: string | null;
+  monthly_price: number;
+  annual_price: number | null;
+  billing_interval: BillingInterval;
+  features: string[];
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type PlanForm = {
+  name: string;
+  description: string;
+  monthly_price: string;
+  annual_price: string;
+  billing_interval: BillingInterval;
+  features: string;
+  active: boolean;
+};
+
+const emptyForm: PlanForm = {
+  name: '',
+  description: '',
+  monthly_price: '',
+  annual_price: '',
+  billing_interval: 'both',
+  features: '',
+  active: true,
+};
+
+const formatCurrency = (
+  value: number | null | undefined
+) =>
+  new Intl.NumberFormat('en-KE', {
+    style: 'currency',
+    currency: 'KES',
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+
+const parseFeatures = (value: string) =>
+  value
+    .split('\n')
+    .map((feature) => feature.trim())
+    .filter(Boolean);
+
+const featuresToText = (features: string[]) =>
+  Array.isArray(features) ? features.join('\n') : '';
+
+export default function MaintenancePlans() {
+  const [plans, setPlans] = useState<MaintenancePlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] =
+    useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  const [showForm, setShowForm] = useState(false);
+  const [editingPlan, setEditingPlan] =
+    useState<MaintenancePlan | null>(null);
+  const [form, setForm] = useState<PlanForm>(emptyForm);
+
+  const activePlans = useMemo(
+    () => plans.filter((plan) => plan.active),
+    [plans]
+  );
+
+  const inactivePlans = useMemo(
+    () => plans.filter((plan) => !plan.active),
+    [plans]
+  );
+
+  const loadPlans = async () => {
+    setLoading(true);
+    setError('');
+
+    const { data, error: queryError } = await supabase
+      .from('maintenance_plans')
+      .select(
+        'id, name, description, monthly_price, annual_price, billing_interval, features, active, created_at, updated_at'
+      )
+      .order('monthly_price', {
+        ascending: true,
+        nullsFirst: false,
+      });
+
+    if (queryError) {
+      setError(queryError.message);
+      setPlans([]);
+    } else {
+      setPlans(
+        (data || []).map((plan) => ({
+          ...plan,
+          features: Array.isArray(plan.features)
+            ? plan.features
+            : [],
+        })) as MaintenancePlan[]
+      );
+    }
+
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void loadPlans();
+  }, []);
+
+  const openCreateForm = () => {
+    setEditingPlan(null);
+    setForm(emptyForm);
+    setError('');
+    setNotice('');
+    setShowForm(true);
+  };
+
+  const openEditForm = (
+    plan: MaintenancePlan
+  ) => {
+    setEditingPlan(plan);
+
+    setForm({
+      name: plan.name,
+      description: plan.description || '',
+      monthly_price:
+        plan.monthly_price === null ||
+        plan.monthly_price === undefined
+          ? ''
+          : String(plan.monthly_price),
+      annual_price:
+        plan.annual_price === null
+          ? ''
+          : String(plan.annual_price),
+      billing_interval: plan.billing_interval,
+      features: featuresToText(plan.features),
+      active: plan.active,
+    });
+
+    setError('');
+    setNotice('');
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    if (saving) return;
+
+    setShowForm(false);
+    setEditingPlan(null);
+    setForm(emptyForm);
+  };
+
+  const handleSave = async () => {
+    setError('');
+    setNotice('');
+
+    const name = form.name.trim();
+    const description = form.description.trim();
+
+    const monthlyPrice =
+      form.monthly_price.trim() === ''
+        ? null
+        : Number(form.monthly_price);
+
+    const annualPrice =
+      form.annual_price.trim() === ''
+        ? null
+        : Number(form.annual_price);
+
+    if (!name) {
+      setError('Plan name is required.');
+      return;
+    }
+
+    if (
+      (form.billing_interval === 'monthly' ||
+        form.billing_interval === 'both') &&
+      (monthlyPrice === null ||
+        !Number.isFinite(monthlyPrice) ||
+        monthlyPrice < 0)
+    ) {
+      setError(
+        'Enter a valid monthly price for this billing option.'
+      );
+      return;
+    }
+
+    if (
+      (form.billing_interval === 'annual' ||
+        form.billing_interval === 'both') &&
+      (annualPrice === null ||
+        !Number.isFinite(annualPrice) ||
+        annualPrice < 0)
+    ) {
+      setError(
+        'Enter a valid annual price for this billing option.'
+      );
+      return;
+    }
+
+    if (
+      monthlyPrice !== null &&
+      (!Number.isFinite(monthlyPrice) ||
+        monthlyPrice < 0)
+    ) {
+      setError('Enter a valid monthly price.');
+      return;
+    }
+
+    if (
+      annualPrice !== null &&
+      (!Number.isFinite(annualPrice) ||
+        annualPrice < 0)
+    ) {
+      setError('Enter a valid annual price.');
+      return;
+    }
+
+    const payload = {
+      name,
+      description: description || null,
+      monthly_price: monthlyPrice ?? 0,
+      annual_price: annualPrice,
+      billing_interval: form.billing_interval,
+      features: parseFeatures(form.features),
+      active: form.active,
+      updated_at: new Date().toISOString(),
+    };
+
+    setSaving(true);
+
+    if (editingPlan) {
+      const { error: updateError } =
+        await supabase
+          .from('maintenance_plans')
+          .update(payload)
+          .eq('id', editingPlan.id);
+
+      if (updateError) {
+        setError(updateError.message);
+        setSaving(false);
+        return;
+      }
+
+      setNotice(
+        'Maintenance plan updated successfully.'
+      );
+    } else {
+      const { error: insertError } =
+        await supabase
+          .from('maintenance_plans')
+          .insert(payload);
+
+      if (insertError) {
+        setError(insertError.message);
+        setSaving(false);
+        return;
+      }
+
+      setNotice(
+        'Maintenance plan created successfully.'
+      );
+    }
+
+    setSaving(false);
+    setShowForm(false);
+    setEditingPlan(null);
+    setForm(emptyForm);
+
+    await loadPlans();
+  };
+
+  const handleDelete = async (
+    plan: MaintenancePlan
+  ) => {
+    const confirmed = window.confirm(
+      `Delete "${plan.name}"? Only delete a plan when it is not being used by any active subscription or recurring service.`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingId(plan.id);
+    setError('');
+    setNotice('');
+
+    const { error: deleteError } =
+      await supabase
+        .from('maintenance_plans')
+        .delete()
+        .eq('id', plan.id);
+
+    if (deleteError) {
+      setError(deleteError.message);
+    } else {
+      setNotice(
+        'Maintenance plan deleted successfully.'
+      );
+      await loadPlans();
+    }
+
+    setDeletingId(null);
+  };
+
+  const toggleActive = async (
+    plan: MaintenancePlan
+  ) => {
+    setError('');
+    setNotice('');
+
+    const { error: updateError } =
+      await supabase
+        .from('maintenance_plans')
+        .update({
+          active: !plan.active,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', plan.id);
+
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+
+    setNotice(
+      `${plan.name} is now ${
+        !plan.active ? 'active' : 'inactive'
+      }.`
+    );
+
+    await loadPlans();
+  };
+
+  const getBillingLabel = (
+    interval: BillingInterval
+  ) => {
+    if (interval === 'monthly') {
+      return 'Monthly';
+    }
+
+    if (interval === 'annual') {
+      return 'Annual';
+    }
+
+    return 'Monthly + Annual';
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-accent-500/20 bg-accent-500/10">
+              <ShieldCheck className="h-6 w-6 text-accent-400" />
+            </div>
+
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-white">
+                Maintenance Plans
+              </h1>
+
+              <p className="mt-1 max-w-2xl text-sm text-gray-400">
+                Manage recurring website maintenance
+                packages that Avelixa can attach to
+                client services and recurring billing.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void loadPlans()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:border-white/20 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${
+                loading ? 'animate-spin' : ''
+              }`}
+            />
+            Refresh
+          </button>
+
+          <button
+            type="button"
+            onClick={openCreateForm}
+            className="inline-flex items-center gap-2 rounded-xl bg-accent-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent-500/10 transition hover:bg-accent-400"
+          >
+            <Plus className="h-4 w-4" />
+            Add Plan
+          </button>
+        </div>
+      </div>
+
+      {(error || notice) && (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm ${
+            error
+              ? 'border-red-500/20 bg-red-500/10 text-red-300'
+              : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+          }`}
+        >
+          {error || notice}
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-ink-800/60 bg-ink-900/60 p-5">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-accent-500/10 p-2.5">
+              <ShieldCheck className="h-5 w-5 text-accent-400" />
+            </div>
+
+            <div>
+              <p className="text-xs uppercase tracking-widest text-gray-500">
+                Total Plans
+              </p>
+
+              <p className="mt-1 text-2xl font-semibold text-white">
+                {plans.length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-ink-800/60 bg-ink-900/60 p-5">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-emerald-500/10 p-2.5">
+              <Check className="h-5 w-5 text-emerald-400" />
+            </div>
+
+            <div>
+              <p className="text-xs uppercase tracking-widest text-gray-500">
+                Active Plans
+              </p>
+
+              <p className="mt-1 text-2xl font-semibold text-white">
+                {activePlans.length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-ink-800/60 bg-ink-900/60 p-5">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-gray-500/10 p-2.5">
+              <ShieldCheck className="h-5 w-5 text-gray-400" />
+            </div>
+
+            <div>
+              <p className="text-xs uppercase tracking-widest text-gray-500">
+                Inactive Plans
+              </p>
+
+              <p className="mt-1 text-2xl font-semibold text-white">
+                {inactivePlans.length}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex min-h-[300px] items-center justify-center rounded-3xl border border-ink-800/60 bg-ink-900/40">
+          <div className="flex items-center gap-3 text-sm text-gray-400">
+            <Loader2 className="h-5 w-5 animate-spin text-accent-400" />
+            Loading maintenance plans...
+          </div>
+        </div>
+      ) : plans.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-ink-700 bg-ink-900/40 p-10 text-center">
+          <ShieldCheck className="mx-auto h-10 w-10 text-gray-600" />
+
+          <h2 className="mt-4 text-lg font-semibold text-white">
+            No maintenance plans yet
+          </h2>
+
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-gray-500">
+            Create the first recurring maintenance
+            package so Avelixa can use it in the
+            recurring-service, renewal and billing
+            workflow.
+          </p>
+
+          <button
+            type="button"
+            onClick={openCreateForm}
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-accent-400"
+          >
+            <Plus className="h-4 w-4" />
+            Create First Plan
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-2">
+          {plans.map((plan) => (
+            <div
+              key={plan.id}
+              className={`rounded-3xl border bg-ink-900/60 p-6 transition ${
+                plan.active
+                  ? 'border-accent-500/20 hover:border-accent-500/35'
+                  : 'border-ink-800/60 opacity-75'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-semibold text-white">
+                      {plan.name}
+                    </h2>
+
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest ${
+                        plan.active
+                          ? 'bg-emerald-500/10 text-emerald-400'
+                          : 'bg-gray-500/10 text-gray-500'
+                      }`}
+                    >
+                      {plan.active
+                        ? 'Active'
+                        : 'Inactive'}
+                    </span>
+                  </div>
+
+                  {plan.description && (
+                    <p className="mt-2 text-sm leading-6 text-gray-400">
+                      {plan.description}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openEditForm(plan)
+                    }
+                    className="rounded-xl p-2.5 text-gray-400 transition hover:bg-white/5 hover:text-white"
+                    aria-label={`Edit ${plan.name}`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void handleDelete(plan)
+                    }
+                    disabled={
+                      deletingId === plan.id
+                    }
+                    className="rounded-xl p-2.5 text-gray-500 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                    aria-label={`Delete ${plan.name}`}
+                  >
+                    {deletingId === plan.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                {(plan.billing_interval ===
+                  'monthly' ||
+                  plan.billing_interval ===
+                    'both') && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-gray-500">
+                      <CircleDollarSign className="h-4 w-4" />
+                      Monthly
+                    </div>
+
+                    <div className="mt-2 text-2xl font-semibold text-white">
+                      {formatCurrency(
+                        plan.monthly_price
+                      )}
+                    </div>
+
+                    <div className="mt-1 text-xs text-gray-500">
+                      per month
+                    </div>
+                  </div>
+                )}
+
+                {(plan.billing_interval ===
+                  'annual' ||
+                  plan.billing_interval ===
+                    'both') && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-gray-500">
+                      <Clock3 className="h-4 w-4" />
+                      Annual
+                    </div>
+
+                    <div className="mt-2 text-2xl font-semibold text-white">
+                      {plan.annual_price !==
+                      null
+                        ? formatCurrency(
+                            plan.annual_price
+                          )
+                        : 'Not set'}
+                    </div>
+
+                    <div className="mt-1 text-xs text-gray-500">
+                      per year
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6">
+                <div className="text-xs font-bold uppercase tracking-widest text-gray-500">
+                  Included Services
+                </div>
+
+                {plan.features.length > 0 ? (
+                  <ul className="mt-3 space-y-2">
+                    {plan.features.map(
+                      (feature, index) => (
+                        <li
+                          key={`${plan.id}-${index}`}
+                          className="flex items-start gap-2.5 text-sm text-gray-300"
+                        >
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-400" />
+                          <span>{feature}</span>
+                        </li>
+                      )
+                    )}
+                  </ul>
+                ) : (
+                  <p className="mt-3 text-sm text-gray-600">
+                    No features added yet.
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-5">
+                <span className="text-xs text-gray-600">
+                  Billing:{' '}
+                  <span className="text-gray-400">
+                    {getBillingLabel(
+                      plan.billing_interval
+                    )}
+                  </span>
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    void toggleActive(plan)
+                  }
+                  className={`text-xs font-semibold transition ${
+                    plan.active
+                      ? 'text-gray-500 hover:text-red-400'
+                      : 'text-accent-400 hover:text-accent-300'
+                  }`}
+                >
+                  {plan.active
+                    ? 'Deactivate'
+                    : 'Activate'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/80 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-ink-700 bg-ink-900 shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-800 bg-ink-900 px-6 py-5">
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  {editingPlan
+                    ? 'Edit Maintenance Plan'
+                    : 'Create Maintenance Plan'}
+                </h2>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Configure the recurring service
+                  package offered to clients.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeForm}
+                disabled={saving}
+                className="rounded-xl p-2 text-gray-500 transition hover:bg-white/5 hover:text-white disabled:opacity-50"
+                aria-label="Close form"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-5 p-6">
+              {error && (
+                <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-300">
+                  Plan Name
+                </label>
+
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
+                  placeholder="e.g. Avelixa Care"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-accent-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-300">
+                  Description
+                </label>
+
+                <textarea
+                  rows={3}
+                  value={form.description}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      description:
+                        event.target.value,
+                    }))
+                  }
+                  placeholder="Describe what this maintenance plan covers."
+                  className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-accent-500/50"
+                />
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-300">
+                    Monthly Price (KES)
+                  </label>
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.monthly_price}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        monthly_price:
+                          event.target.value,
+                      }))
+                    }
+                    placeholder="5000"
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-accent-500/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-300">
+                    Annual Price (KES)
+                  </label>
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.annual_price}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        annual_price:
+                          event.target.value,
+                      }))
+                    }
+                    placeholder="50000"
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-accent-500/50"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-300">
+                  Billing Options
+                </label>
+
+                <select
+                  value={form.billing_interval}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      billing_interval:
+                        event.target
+                          .value as BillingInterval,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-white/10 bg-ink-950 px-4 py-3 text-sm text-white outline-none transition focus:border-accent-500/50"
+                >
+                  <option value="both">
+                    Monthly and Annual
+                  </option>
+
+                  <option value="monthly">
+                    Monthly only
+                  </option>
+
+                  <option value="annual">
+                    Annual only
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-300">
+                  Included Services
+                </label>
+
+                <textarea
+                  rows={6}
+                  value={form.features}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      features:
+                        event.target.value,
+                    }))
+                  }
+                  placeholder={`Website updates
+Security monitoring
+Backups
+Performance checks
+Technical support`}
+                  className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-gray-600 focus:border-accent-500/50"
+                />
+
+                <p className="mt-2 text-xs text-gray-600">
+                  Enter one service per line.
+                </p>
+              </div>
+
+              <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <input

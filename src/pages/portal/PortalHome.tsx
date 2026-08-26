@@ -7,6 +7,7 @@ import {
   UserCircle2,
   ArrowRight,
   Loader2,
+  Crown,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -20,13 +21,29 @@ export default function PortalHome() {
 
   const navigate = useNavigate();
 
-  const normalizedRoles = roles.map((role) =>
-    role.toLowerCase()
-  );
+  const normalizedRoles = roles
+    .map((role) => String(role).trim().toLowerCase())
+    .filter(Boolean);
+
+  /*
+   * IMPORTANT:
+   *
+   * Every role is independent.
+   *
+   * An Owner who also has Admin privileges must see
+   * TWO separate workspaces:
+   *
+   *   Owner Portal
+   *   Admin Portal
+   *
+   * Owner is NOT automatically treated as Admin.
+   */
+
+  const canAccessOwner =
+    normalizedRoles.includes('owner');
 
   const canAccessAdmin =
-    normalizedRoles.includes('admin') ||
-    normalizedRoles.includes('owner');
+    normalizedRoles.includes('admin');
 
   const canAccessConnector =
     normalizedRoles.includes('connector');
@@ -37,7 +54,11 @@ export default function PortalHome() {
   const canAccessClient =
     normalizedRoles.includes('client');
 
+  /*
+   * Count every actual workspace independently.
+   */
   const workspaceCount = [
+    canAccessOwner,
     canAccessAdmin,
     canAccessConnector,
     canAccessOperator,
@@ -46,12 +67,8 @@ export default function PortalHome() {
 
   /*
    * ============================================================
-   * WAIT FOR AUTHENTICATION AND ROLES
+   * SINGLE-WORKSPACE AUTO REDIRECT
    * ============================================================
-   *
-   * The previous version attempted to navigate during render.
-   * If roles had not loaded yet, workspaceCount was 0 and the
-   * page could temporarily render empty.
    */
 
   useEffect(() => {
@@ -60,6 +77,14 @@ export default function PortalHome() {
     }
 
     if (workspaceCount !== 1) {
+      return;
+    }
+
+    if (canAccessOwner) {
+      navigate('/portal/owner', {
+        replace: true,
+      });
+
       return;
     }
 
@@ -86,10 +111,15 @@ export default function PortalHome() {
 
       return;
     }
+
+    /*
+     * Clients remain on the normal client portal.
+     */
   }, [
     loading,
     rolesLoading,
     workspaceCount,
+    canAccessOwner,
     canAccessAdmin,
     canAccessConnector,
     canAccessOperator,
@@ -118,13 +148,8 @@ export default function PortalHome() {
 
   /*
    * ============================================================
-   * SINGLE-ROLE USERS
+   * SINGLE WORKSPACE
    * ============================================================
-   *
-   * Navigation is handled by useEffect above.
-   *
-   * Return a loading state while the redirect occurs instead of
-   * rendering a blank page.
    */
 
   if (workspaceCount === 1) {
@@ -155,12 +180,29 @@ export default function PortalHome() {
 
   const workspaceCards = [];
 
+  /*
+   * OWNER IS ITS OWN WORKSPACE
+   */
+  if (canAccessOwner) {
+    workspaceCards.push({
+      key: 'owner',
+      title: 'Owner Portal',
+      description:
+        'Full business ownership, oversight, role management, and system control.',
+      icon: Crown,
+      path: '/portal/owner',
+    });
+  }
+
+  /*
+   * ADMIN IS ITS OWN WORKSPACE
+   */
   if (canAccessAdmin) {
     workspaceCards.push({
       key: 'admin',
       title: 'Admin Portal',
       description:
-        'Manage clients, projects, administration, and Avelixa operations.',
+        'Manage clients, projects, team operations, reviews, messages, and Avelixa administration.',
       icon: ShieldCheck,
       path: '/portal/admin',
     });
@@ -278,7 +320,8 @@ export default function PortalHome() {
 
           <p className="mt-4 text-sm text-gray-500">
             Your roles remain active independently. Entering one
-            workspace does not merge its content with another workspace.
+            workspace does not merge its content or permissions
+            with another workspace.
           </p>
         </div>
       )}

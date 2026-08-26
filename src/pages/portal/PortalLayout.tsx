@@ -17,831 +17,618 @@ import {
   Settings,
   Menu,
   X,
-  Sparkles,
-  Link as ConnectorIcon,
-  ShieldCheck,
-  Plus,
-  MessageSquare,
-  ArrowLeftRight,
-  Scale,
-  Wallet,
-  UserCog,
+  Star,
   Crown,
-  UserRoundCog,
+  ShieldCheck,
+  ArrowLeftRight,
+  Briefcase,
+  UserRound,
+  Link as ConnectorIcon,
+  Wrench,
+  MessageSquare,
+  WalletCards,
+  UserCog,
+  Package,
+  Globe,
+  Server,
+  RefreshCw,
+  BarChart3,
 } from 'lucide-react';
 import { useState } from 'react';
 
-type NavItem = {
+type WorkspaceKey =
+  | 'client'
+  | 'connector'
+  | 'operator'
+  | 'admin'
+  | 'owner';
+
+interface Workspace {
+  key: WorkspaceKey;
+  label: string;
+  path: string;
+  icon: typeof UserRound;
+}
+
+interface NavItem {
   name: string;
   path: string;
   icon: typeof LayoutDashboard;
+  roles: 'all' | WorkspaceKey[];
+}
+
+const workspaceDefinitions: Record<
+  WorkspaceKey,
+  Workspace
+> = {
+  client: {
+    key: 'client',
+    label: 'Client',
+    path: '/portal',
+    icon: UserRound,
+  },
+
+  connector: {
+    key: 'connector',
+    label: 'Connector',
+    path: '/portal/connector',
+    icon: ConnectorIcon,
+  },
+
+  operator: {
+    key: 'operator',
+    label: 'Operator',
+    path: '/portal/operator',
+    icon: Wrench,
+  },
+
+  admin: {
+    key: 'admin',
+    label: 'Admin',
+    path: '/portal/admin',
+    icon: ShieldCheck,
+  },
+
+  owner: {
+    key: 'owner',
+    label: 'Owner',
+    path: '/portal/owner',
+    icon: Crown,
+  },
 };
 
-type PortalSection =
-  | 'owner'
-  | 'admin'
-  | 'connector'
-  | 'operator'
-  | 'client'
-  | 'general';
+function getCurrentWorkspace(
+  pathname: string,
+  normalizedRoles: string[]
+): WorkspaceKey {
+  if (pathname.startsWith('/portal/owner')) {
+    return 'owner';
+  }
 
-const ACTIVE_WORKSPACE_KEY =
-  'avelixa_active_workspace';
+  if (pathname.startsWith('/portal/admin')) {
+    return 'admin';
+  }
 
-export default function PortalLayout() {
-  const { user, roles } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  if (pathname.startsWith('/portal/connector')) {
+    return 'connector';
+  }
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  if (pathname.startsWith('/portal/operator')) {
+    return 'operator';
+  }
 
-  const normalizedRoles = roles.map((role) =>
-    role.toLowerCase()
-  );
-
-  const canAccessOwner =
-    normalizedRoles.includes('owner');
-
-  const canAccessAdmin =
-    normalizedRoles.includes('admin');
-
-  const canAccessConnector =
-    normalizedRoles.includes('connector');
-
-  const canAccessOperator =
-    normalizedRoles.includes('operator');
-
-  const canAccessClient =
-    normalizedRoles.includes('client');
-
-  /*
-   * ============================================================
-   * ACTIVE WORKSPACE
-   * ============================================================
-   *
-   * Multi-role accounts can use shared URLs such as:
-   *
-   * /portal
-   * /portal/projects
-   * /portal/documents
-   * /portal/invoices
-   * /portal/settings
-   *
-   * Those URLs alone cannot tell us whether the user is currently
-   * working as a Client or Connector.
-   *
-   * Therefore we persist the workspace explicitly selected by the
-   * user in sessionStorage.
-   *
-   * Role-specific URLs still have absolute priority:
-   *
-   * /portal/owner     -> Owner
-   * /portal/admin     -> Admin
-   * /portal/connector -> Connector
-   * /portal/operator  -> Operator
-   *
-   * Shared URLs use the explicitly selected workspace.
-   */
-
-  const getSavedWorkspace = (): PortalSection | null => {
-    try {
-      const saved =
-        sessionStorage.getItem(
-          ACTIVE_WORKSPACE_KEY
-        );
-
-      if (
-        saved === 'owner' ||
-        saved === 'admin' ||
-        saved === 'connector' ||
-        saved === 'operator' ||
-        saved === 'client'
-      ) {
-        return saved;
-      }
-
-      return null;
-    } catch {
-      return null;
-    }
-  };
-
-  const hasAccessToWorkspace = (
-    workspace: PortalSection
-  ) => {
-    switch (workspace) {
-      case 'owner':
-        return canAccessOwner;
-
-      case 'admin':
-        return canAccessAdmin;
-
-      case 'connector':
-        return canAccessConnector;
-
-      case 'operator':
-        return canAccessOperator;
-
-      case 'client':
-        return canAccessClient;
-
-      default:
-        return false;
-    }
-  };
-
-  const getPortalSection = (): PortalSection => {
-    const pathname = location.pathname;
-
-    /*
-     * Explicit workspace routes always win.
-     */
-    if (pathname.startsWith('/portal/owner')) {
+  if (
+    pathname.startsWith('/portal/clients') ||
+    pathname.startsWith('/portal/reviews') ||
+    pathname.startsWith('/portal/portfolio') ||
+    pathname.startsWith('/portal/services') ||
+    pathname.startsWith('/portal/website-packages') ||
+    pathname.startsWith('/portal/maintenance') ||
+    pathname.startsWith('/portal/hosting') ||
+    pathname.startsWith('/portal/revenue')
+  ) {
+    if (normalizedRoles.includes('owner')) {
       return 'owner';
     }
 
-    if (pathname.startsWith('/portal/admin')) {
+    if (normalizedRoles.includes('admin')) {
       return 'admin';
     }
+  }
 
-    if (pathname.startsWith('/portal/connector')) {
-      return 'connector';
-    }
-
-    if (pathname.startsWith('/portal/operator')) {
-      return 'operator';
-    }
-
-    /*
-     * Shared routes:
-     *
-     * Respect the workspace the user explicitly selected.
-     */
-    const savedWorkspace =
-      getSavedWorkspace();
-
-    if (
-      savedWorkspace &&
-      hasAccessToWorkspace(savedWorkspace)
-    ) {
-      return savedWorkspace;
-    }
-
-    /*
-     * If there is no saved workspace, choose a sensible
-     * default based on the available roles.
-     *
-     * Client takes priority for /portal when the account has
-     * Client access.
-     */
-    if (canAccessClient) {
+  if (
+    pathname === '/portal' ||
+    pathname.startsWith('/portal/projects') ||
+    pathname.startsWith('/portal/invoices') ||
+    pathname.startsWith('/portal/documents') ||
+    pathname.startsWith('/portal/activity') ||
+    pathname.startsWith('/portal/settings') ||
+    pathname.startsWith('/portal/messages')
+  ) {
+    if (normalizedRoles.includes('client')) {
       return 'client';
     }
 
-    if (canAccessConnector) {
-      return 'connector';
-    }
-
-    if (canAccessOperator) {
-      return 'operator';
-    }
-
-    if (canAccessAdmin) {
-      return 'admin';
-    }
-
-    if (canAccessOwner) {
+    if (normalizedRoles.includes('owner')) {
       return 'owner';
     }
 
-    return 'general';
-  };
-
-  const portalSection = getPortalSection();
-
-  const handleLogout = async () => {
-    try {
-      sessionStorage.removeItem(
-        ACTIVE_WORKSPACE_KEY
-      );
-    } catch {
-      // Ignore sessionStorage errors.
+    if (normalizedRoles.includes('admin')) {
+      return 'admin';
     }
 
-    await supabase.auth.signOut();
+    if (normalizedRoles.includes('operator')) {
+      return 'operator';
+    }
 
-    navigate('/login');
+    if (normalizedRoles.includes('connector')) {
+      return 'connector';
+    }
+  }
+
+  if (normalizedRoles.includes('owner')) {
+    return 'owner';
+  }
+
+  if (normalizedRoles.includes('admin')) {
+    return 'admin';
+  }
+
+  if (normalizedRoles.includes('connector')) {
+    return 'connector';
+  }
+
+  if (normalizedRoles.includes('operator')) {
+    return 'operator';
+  }
+
+  return 'client';
+}
+
+export default function PortalLayout() {
+  const { user, roles } = useAuth();
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [sidebarOpen, setSidebarOpen] =
+    useState(false);
+
+  const normalizedRoles = roles
+    .map((role) =>
+      String(role).trim().toLowerCase()
+    )
+    .filter(Boolean);
+
+  const availableWorkspaces = (
+    [
+      'client',
+      'connector',
+      'operator',
+      'admin',
+      'owner',
+    ] as WorkspaceKey[]
+  )
+    .filter((role) =>
+      normalizedRoles.includes(role)
+    )
+    .map(
+      (role) =>
+        workspaceDefinitions[role]
+    );
+
+  const currentWorkspaceKey =
+    getCurrentWorkspace(
+      location.pathname,
+      normalizedRoles
+    );
+
+  const currentWorkspace =
+    workspaceDefinitions[
+      currentWorkspaceKey
+    ];
+
+  const switchWorkspace = (
+    workspace: Workspace
+  ) => {
+    if (
+      !normalizedRoles.includes(
+        workspace.key
+      )
+    ) {
+      return;
+    }
+
+    navigate(workspace.path);
+    setSidebarOpen(false);
   };
 
-  /*
-   * ============================================================
-   * OWNER NAVIGATION
-   * ============================================================
-   */
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
 
-  const ownerNavItems: NavItem[] = [
-    {
-      name: 'Owner Dashboard',
-      path: '/portal/owner',
-      icon: Crown,
-    },
-    {
-      name: 'Clients',
-      path: '/portal/clients',
-      icon: Users,
-    },
-    {
-      name: 'Projects',
-      path: '/portal/owner/projects',
-      icon: FolderKanban,
-    },
-    {
-      name: 'Finance',
-      path: '/portal/owner/finance',
-      icon: Wallet,
-    },
-    {
-      name: 'User Management',
-      path: '/portal/owner/users',
-      icon: UserRoundCog,
-    },
-    {
-      name: 'Team Management',
-      path: '/portal/owner/team',
-      icon: UserCog,
-    },
-    {
-      name: 'Team Payouts',
-      path: '/portal/owner/team/payouts',
-      icon: Wallet,
-    },
-    {
-      name: 'Messages',
-      path: '/portal/messages',
-      icon: MessageSquare,
-    },
-    {
-      name: 'Settings',
-      path: '/portal/settings',
-      icon: Settings,
-    },
-  ];
+    setSidebarOpen(false);
 
-  /*
-   * ============================================================
-   * ADMIN NAVIGATION
-   * ============================================================
-   */
+    navigate('/login', {
+      replace: true,
+    });
+  };
 
-  const adminNavItems: NavItem[] = [
-    {
-      name: 'Admin Dashboard',
-      path: '/portal/admin',
-      icon: ShieldCheck,
-    },
-    {
-      name: 'Clients',
-      path: '/portal/clients',
-      icon: Users,
-    },
-    {
-      name: 'Projects',
-      path: '/portal/admin/projects',
-      icon: FolderKanban,
-    },
-    {
-      name: 'Team Management',
-      path: '/portal/admin/team',
-      icon: UserCog,
-    },
-    {
-      name: 'Team Payouts',
-      path: '/portal/admin/team/payouts',
-      icon: Wallet,
-    },
-    {
-      name: 'Messages',
-      path: '/portal/messages',
-      icon: MessageSquare,
-    },
-    {
-      name: 'Settings',
-      path: '/portal/settings',
-      icon: Settings,
-    },
-  ];
+  const dashboardPath =
+    currentWorkspace.path;
 
-  /*
-   * ============================================================
-   * CONNECTOR NAVIGATION
-   * ============================================================
-   */
-
-  const connectorNavItems: NavItem[] = [
-    {
-      name: 'Connector Dashboard',
-      path: '/portal/connector',
-      icon: ConnectorIcon,
-    },
-    {
-      name: 'My Leads',
-      path: '/portal/connector/leads',
-      icon: FolderKanban,
-    },
-    {
-      name: 'Submit Lead',
-      path: '/portal/leads/new',
-      icon: Plus,
-    },
-    {
-      name: 'Rules & Regulations',
-      path: '/portal/connector/rules',
-      icon: Scale,
-    },
-    {
-      name: 'Settings',
-      path: '/portal/settings',
-      icon: Settings,
-    },
-  ];
-
-  /*
-   * ============================================================
-   * OPERATOR NAVIGATION
-   * ============================================================
-   */
-
-  const operatorNavItems: NavItem[] = [
-    {
-      name: 'Operator Dashboard',
-      path: '/portal/operator',
-      icon: LayoutDashboard,
-    },
-    {
-      name: 'Projects',
-      path: '/portal/projects',
-      icon: FolderKanban,
-    },
-    {
-      name: 'Documents',
-      path: '/portal/documents',
-      icon: FileText,
-    },
-    {
-      name: 'Messages',
-      path: '/portal/messages',
-      icon: MessageSquare,
-    },
-    {
-      name: 'Settings',
-      path: '/portal/settings',
-      icon: Settings,
-    },
-  ];
-
-  /*
-   * ============================================================
-   * CLIENT NAVIGATION
-   * ============================================================
-   */
-
-  const clientNavItems: NavItem[] = [
+  const navItems: NavItem[] = [
     {
       name: 'Dashboard',
-      path: '/portal',
+      path: dashboardPath,
       icon: LayoutDashboard,
+      roles: 'all',
     },
+
     {
       name: 'Projects',
       path: '/portal/projects',
       icon: FolderKanban,
+      roles: 'all',
     },
+
     {
       name: 'Invoices',
       path: '/portal/invoices',
       icon: ReceiptText,
+      roles: 'all',
     },
+
     {
       name: 'Documents',
       path: '/portal/documents',
       icon: FileText,
+      roles: 'all',
     },
+
+    {
+      name: 'Messages',
+      path: '/portal/messages',
+      icon: MessageSquare,
+      roles: 'all',
+    },
+
     {
       name: 'Activity',
       path: '/portal/activity',
       icon: BellRing,
+      roles: 'all',
     },
+
+    {
+      name: 'Service Catalogue',
+      path: '/portal/services',
+      icon: Package,
+      roles: ['owner', 'admin'],
+    },
+
+    {
+      name: 'Website Packages',
+      path: '/portal/website-packages',
+      icon: Globe,
+      roles: ['owner', 'admin'],
+    },
+
+    {
+      name: 'Maintenance Plans',
+      path: '/portal/maintenance',
+      icon: RefreshCw,
+      roles: ['owner', 'admin'],
+    },
+
+    {
+      name: 'Hosting',
+      path: '/portal/hosting',
+      icon: Server,
+      roles: ['owner', 'admin'],
+    },
+
+    {
+      name: 'Revenue Operations',
+      path: '/portal/revenue',
+      icon: BarChart3,
+      roles: ['owner', 'admin'],
+    },
+
+    {
+      name: 'Clients',
+      path: '/portal/clients',
+      icon: Users,
+      roles: ['owner', 'admin'],
+    },
+
+    {
+      name: 'Reviews',
+      path: '/portal/reviews',
+      icon: Star,
+      roles: ['owner', 'admin'],
+    },
+
+    {
+      name: 'Portfolio',
+      path: '/portal/portfolio',
+      icon: Briefcase,
+      roles: ['owner', 'admin'],
+    },
+
+    {
+      name: 'Finance',
+      path: '/portal/owner/finance',
+      icon: WalletCards,
+      roles: ['owner'],
+    },
+
+    {
+      name: 'User Management',
+      path: '/portal/owner/users',
+      icon: UserCog,
+      roles: ['owner'],
+    },
+
     {
       name: 'Settings',
       path: '/portal/settings',
       icon: Settings,
+      roles: 'all',
     },
   ];
 
-  const generalNavItems: NavItem[] = [
-    {
-      name: 'Dashboard',
-      path: '/portal',
-      icon: LayoutDashboard,
-    },
-    {
-      name: 'Projects',
-      path: '/portal/projects',
-      icon: FolderKanban,
-    },
-    {
-      name: 'Documents',
-      path: '/portal/documents',
-      icon: FileText,
-    },
-    {
-      name: 'Activity',
-      path: '/portal/activity',
-      icon: BellRing,
-    },
-    {
-      name: 'Settings',
-      path: '/portal/settings',
-      icon: Settings,
-    },
-  ];
+  const visibleNavItems =
+    navItems.filter((item) => {
+      if (item.roles === 'all') {
+        return true;
+      }
 
-  const getNavItems = (): NavItem[] => {
-    switch (portalSection) {
-      case 'owner':
-        return ownerNavItems;
+      return item.roles.some((role) =>
+        normalizedRoles.includes(role)
+      );
+    });
 
-      case 'admin':
-        return adminNavItems;
+  const otherWorkspaces =
+    availableWorkspaces.filter(
+      (workspace) =>
+        workspace.key !==
+        currentWorkspaceKey
+    );
 
-      case 'connector':
-        return connectorNavItems;
-
-      case 'operator':
-        return operatorNavItems;
-
-      case 'client':
-        return clientNavItems;
-
-      default:
-        return generalNavItems;
-    }
-  };
-
-  const visibleNavItems = getNavItems();
-
-  /*
-   * ============================================================
-   * WORKSPACE COUNT
-   * ============================================================
-   */
-
-  const workspaceCount = [
-    canAccessOwner,
-    canAccessAdmin,
-    canAccessConnector,
-    canAccessOperator,
-    canAccessClient,
-  ].filter(Boolean).length;
-
-  const hasMultipleWorkspaces =
-    workspaceCount > 1;
-
-  /*
-   * ============================================================
-   * SECTION LABEL
-   * ============================================================
-   */
-
-  const getSectionLabel = () => {
-    switch (portalSection) {
-      case 'owner':
-        return 'Owner Portal';
-
-      case 'admin':
-        return 'Admin Portal';
-
-      case 'connector':
-        return 'Connector Portal';
-
-      case 'operator':
-        return 'Operator Portal';
-
-      case 'client':
-        return 'Client Portal';
-
-      default:
-        return 'Avelixa Portal';
-    }
-  };
-
-  /*
-   * ============================================================
-   * ACTIVE NAVIGATION
-   * ============================================================
-   */
-
-  const isActive = (path: string) => {
-    if (path === '/portal') {
-      return location.pathname === '/portal';
+  const isNavItemActive = (
+    path: string
+  ) => {
+    if (
+      path === dashboardPath
+    ) {
+      return (
+        location.pathname ===
+        path
+      );
     }
 
     return (
       location.pathname === path ||
-      location.pathname.startsWith(`${path}/`)
+      location.pathname.startsWith(
+        `${path}/`
+      )
     );
   };
 
-  /*
-   * ============================================================
-   * WORKSPACE SWITCHING
-   * ============================================================
-   *
-   * The workspace is stored BEFORE navigation.
-   * This is the critical fix for accounts that have multiple roles.
-   */
+  const renderWorkspaceSwitcher =
+    () => {
+      if (
+        availableWorkspaces.length <=
+        1
+      ) {
+        return null;
+      }
 
-  const switchWorkspace = (
-    workspace: Exclude<
-      PortalSection,
-      'general'
-    >,
-    path: string
-  ) => {
-    try {
-      sessionStorage.setItem(
-        ACTIVE_WORKSPACE_KEY,
-        workspace
+      const CurrentIcon =
+        currentWorkspace.icon;
+
+      return (
+        <div className="rounded-2xl border border-accent-500/20 bg-accent-500/5 p-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-accent-400">
+            <ArrowLeftRight className="w-4 h-4" />
+            Workspace
+          </div>
+
+          <div className="mt-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-accent-500/10 border border-accent-500/20 flex items-center justify-center shrink-0">
+              <CurrentIcon className="w-5 h-5 text-accent-400" />
+            </div>
+
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-white">
+                {currentWorkspace.label}{' '}
+                Portal
+              </div>
+
+              <div className="text-xs text-gray-500 mt-0.5">
+                {availableWorkspaces.length}{' '}
+                workspaces available
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {otherWorkspaces.map(
+              (workspace) => {
+                const WorkspaceIcon =
+                  workspace.icon;
+
+                return (
+                  <button
+                    key={
+                      workspace.key
+                    }
+                    type="button"
+                    onClick={() =>
+                      switchWorkspace(
+                        workspace
+                      )
+                    }
+                    className="w-full inline-flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs font-semibold text-gray-300 transition-all hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-accent-300"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <WorkspaceIcon className="w-4 h-4" />
+                      Switch to{' '}
+                      {workspace.label}
+                    </span>
+
+                    <ArrowLeftRight className="w-4 h-4" />
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </div>
       );
-    } catch {
-      // Ignore sessionStorage errors.
-    }
+    };
 
-    setSidebarOpen(false);
-
-    navigate(path);
-  };
-
-  /*
-   * ============================================================
-   * SIDEBAR
-   * ============================================================
-   */
-
-  const SidebarContent = ({
-    mobile = false,
-  }: {
-    mobile?: boolean;
-  }) => (
-    <>
-      <div
-        className={`h-20 flex items-center ${
-          mobile
-            ? 'justify-between px-6'
-            : 'px-6'
-        } border-b border-ink-800/50 shrink-0`}
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-accent-600 flex items-center justify-center rotate-3">
-            <Sparkles
-              className="w-4 h-4 text-white"
-              strokeWidth={2.5}
-            />
-          </div>
-
-          <div>
-            <div className="font-medium tracking-tight text-white text-lg">
-              Avelixa
-            </div>
-
-            <div className="text-[10px] uppercase tracking-[0.2em] text-accent-500">
-              {getSectionLabel()}
-            </div>
-          </div>
-        </div>
-
-        {mobile && (
-          <button
-            onClick={() =>
-              setSidebarOpen(false)
-            }
-            className="text-gray-400"
-            aria-label="Close menu"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        )}
-      </div>
-
-      <div className="flex-1 overflow-y-auto py-6 px-4">
-        <nav className="space-y-1">
-          {visibleNavItems.map((item) => {
-            const Icon = item.icon;
-
-            return (
-              <Link
-                key={item.name}
-                to={item.path}
-                onClick={() => {
-                  if (mobile) {
-                    setSidebarOpen(false);
-                  }
-                }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                  isActive(item.path)
-                    ? 'text-accent-400 bg-white/5'
-                    : 'text-gray-400 hover:text-accent-400 hover:bg-white/5'
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                {item.name}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {hasMultipleWorkspaces && (
-          <div className="mt-8">
-            <div className="px-4 mb-3 text-[10px] uppercase tracking-[0.25em] text-gray-500">
-              Switch workspace
-            </div>
-
-            <div className="space-y-1">
-              {canAccessOwner && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    switchWorkspace(
-                      'owner',
-                      '/portal/owner'
-                    )
-                  }
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    portalSection === 'owner'
-                      ? 'text-accent-400 bg-white/5'
-                      : 'text-gray-400 hover:text-accent-400 hover:bg-white/5'
-                  }`}
-                >
-                  <Crown className="w-5 h-5" />
-                  Owner Portal
-                </button>
-              )}
-
-              {canAccessAdmin && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    switchWorkspace(
-                      'admin',
-                      '/portal/admin'
-                    )
-                  }
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    portalSection === 'admin'
-                      ? 'text-accent-400 bg-white/5'
-                      : 'text-gray-400 hover:text-accent-400 hover:bg-white/5'
-                  }`}
-                >
-                  <ShieldCheck className="w-5 h-5" />
-                  Admin Portal
-                </button>
-              )}
-
-              {canAccessConnector && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    switchWorkspace(
-                      'connector',
-                      '/portal/connector'
-                    )
-                  }
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    portalSection === 'connector'
-                      ? 'text-accent-400 bg-white/5'
-                      : 'text-gray-400 hover:text-accent-400 hover:bg-white/5'
-                  }`}
-                >
-                  <ConnectorIcon className="w-5 h-5" />
-                  Connector Portal
-                </button>
-              )}
-
-              {canAccessOperator && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    switchWorkspace(
-                      'operator',
-                      '/portal/operator'
-                    )
-                  }
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    portalSection === 'operator'
-                      ? 'text-accent-400 bg-white/5'
-                      : 'text-gray-400 hover:text-accent-400 hover:bg-white/5'
-                  }`}
-                >
-                  <ArrowLeftRight className="w-5 h-5" />
-                  Operator Portal
-                </button>
-              )}
-
-              {canAccessClient && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    switchWorkspace(
-                      'client',
-                      '/portal'
-                    )
-                  }
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    portalSection === 'client'
-                      ? 'text-accent-400 bg-white/5'
-                      : 'text-gray-400 hover:text-accent-400 hover:bg-white/5'
-                  }`}
-                >
-                  <Users className="w-5 h-5" />
-                  Client Portal
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="p-4 border-t border-ink-800/50">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="w-10 h-10 rounded-full bg-ink-800 flex items-center justify-center text-white font-medium uppercase shrink-0">
-            {user?.email?.charAt(0) || 'U'}
-          </div>
-
-          <div className="overflow-hidden">
-            <div className="text-sm font-medium text-white truncate">
-              {user?.email}
-            </div>
-
-            <div className="text-xs text-accent-500 uppercase tracking-widest">
-              {roles.length > 0
-                ? roles.join(', ')
-                : 'User'}
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={handleLogout}
-          className="mt-2 w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
-        >
-          <LogOut className="w-5 h-5" />
-          Sign out
-        </button>
-      </div>
-    </>
-  );
+  const userInitial =
+    user?.email
+      ?.charAt(0)
+      .toUpperCase() || 'U';
 
   return (
     <div className="min-h-screen bg-ink-950 flex overflow-hidden">
-      <aside className="hidden md:flex w-64 flex-col border-r border-ink-800/50 bg-ink-950 z-20">
-        <SidebarContent />
-      </aside>
-
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <div className="absolute top-0 -left-32 w-[500px] h-[500px] rounded-full bg-accent-500/5 blur-[120px] pointer-events-none" />
-
-        <header className="h-20 flex items-center justify-between px-6 border-b border-ink-800/50 md:hidden bg-ink-950/80 backdrop-blur-md z-10 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-accent-600 flex items-center justify-center rotate-3">
-              <Sparkles
-                className="w-4 h-4 text-white"
-                strokeWidth={2.5}
+      <aside className="hidden md:flex w-64 flex-col border-r border-ink-800/50 bg-ink-950 z-20 shrink-0">
+        <div className="h-20 flex items-center px-6 border-b border-ink-800/50 shrink-0">
+          <Link
+            to={currentWorkspace.path}
+            className="flex items-center gap-3 group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center overflow-hidden shrink-0 transition-all group-hover:border-accent-500/40">
+              <img
+                src="/logo.avif"
+                alt="Avelixa"
+                className="w-full h-full object-contain"
               />
             </div>
 
             <div>
-              <span className="font-medium tracking-tight text-white text-lg">
+              <div className="font-medium tracking-tight text-white text-lg">
                 Avelixa
-              </span>
+              </div>
 
-              <div className="text-[10px] uppercase tracking-[0.2em] text-accent-500">
-                {getSectionLabel()}
+              <div className="text-[9px] uppercase tracking-[0.2em] text-accent-400 mt-0.5">
+                {currentWorkspace.label}{' '}
+                Portal
+              </div>
+            </div>
+          </Link>
+        </div>
+
+        <div className="px-4 pt-5">
+          {renderWorkspaceSwitcher()}
+        </div>
+
+        <div className="flex-1 overflow-y-auto py-6 px-4">
+          <nav className="space-y-1">
+            {visibleNavItems.map(
+              (item) => {
+                const active =
+                  isNavItemActive(
+                    item.path
+                  );
+
+                return (
+                  <Link
+                    key={
+                      item.name
+                    }
+                    to={item.path}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                      active
+                        ? 'text-accent-400 bg-accent-500/10 border border-accent-500/10'
+                        : 'text-gray-400 hover:text-accent-400 hover:bg-white/5 border border-transparent'
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5 shrink-0" />
+
+                    {item.name}
+                  </Link>
+                );
+              }
+            )}
+          </nav>
+        </div>
+
+        <div className="p-4 border-t border-ink-800/50">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <div className="w-10 h-10 rounded-full bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-accent-400 font-semibold uppercase shrink-0">
+              {userInitial}
+            </div>
+
+            <div className="overflow-hidden min-w-0">
+              <div className="text-sm font-medium text-white truncate">
+                {user?.email ||
+                  'Avelixa User'}
+              </div>
+
+              <div className="text-[10px] text-accent-500 uppercase tracking-widest truncate mt-0.5">
+                {currentWorkspace.label}{' '}
+                Portal
               </div>
             </div>
           </div>
 
           <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-2 w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            Sign out
+          </button>
+        </div>
+      </aside>
+
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        <div className="absolute top-0 -left-32 w-[500px] h-[500px] rounded-full bg-accent-500/5 blur-[120px] pointer-events-none" />
+
+        <div className="absolute bottom-0 -right-40 w-[400px] h-[400px] rounded-full bg-brand-500/5 blur-[120px] pointer-events-none" />
+
+        <header className="h-20 flex items-center justify-between px-5 border-b border-ink-800/50 md:hidden bg-ink-950/90 backdrop-blur-md z-20 shrink-0">
+          <Link
+            to={currentWorkspace.path}
+            className="flex items-center gap-3"
+          >
+            <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+              <img
+                src="/logo.avif"
+                alt="Avelixa"
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            <div>
+              <div className="font-medium tracking-tight text-white text-lg">
+                Avelixa
+              </div>
+
+              <div className="text-[10px] uppercase tracking-widest text-accent-400">
+                {currentWorkspace.label}{' '}
+                Portal
+              </div>
+            </div>
+          </Link>
+
+          <button
+            type="button"
             onClick={() =>
               setSidebarOpen(true)
             }
-            className="text-white p-2"
-            aria-label="Open menu"
+            className="text-white p-2 rounded-xl hover:bg-white/5 transition-colors"
+            aria-label="Open portal menu"
           >
             <Menu className="w-6 h-6" />
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6 md:p-10 z-10">
+        <div className="flex-1 overflow-y-auto p-5 md:p-10 z-10">
           <div className="max-w-6xl mx-auto">
             <Outlet />
           </div>
@@ -857,8 +644,115 @@ export default function PortalLayout() {
             }
           />
 
-          <div className="relative w-64 max-w-sm bg-ink-900 h-full flex flex-col border-r border-ink-800/50">
-            <SidebarContent mobile />
+          <div className="relative w-72 max-w-[85vw] bg-ink-900 h-full flex flex-col border-r border-ink-800/50 shadow-2xl">
+            <div className="h-20 flex items-center justify-between px-5 border-b border-ink-800/50">
+              <Link
+                to={currentWorkspace.path}
+                onClick={() =>
+                  setSidebarOpen(false)
+                }
+                className="flex items-center gap-3"
+              >
+                <div className="w-9 h-9 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center overflow-hidden">
+                  <img
+                    src="/logo.avif"
+                    alt="Avelixa"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+
+                <div>
+                  <div className="font-medium tracking-tight text-white text-lg">
+                    Avelixa
+                  </div>
+
+                  <div className="text-[9px] uppercase tracking-[0.2em] text-accent-400">
+                    {currentWorkspace.label}{' '}
+                    Portal
+                  </div>
+                </div>
+              </Link>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSidebarOpen(false)
+                }
+                className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-colors"
+                aria-label="Close portal menu"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="px-4 pt-5">
+              {renderWorkspaceSwitcher()}
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-6 px-4">
+              <nav className="space-y-1">
+                {visibleNavItems.map(
+                  (item) => {
+                    const active =
+                      isNavItemActive(
+                        item.path
+                      );
+
+                    return (
+                      <Link
+                        key={
+                          item.name
+                        }
+                        to={item.path}
+                        onClick={() =>
+                          setSidebarOpen(
+                            false
+                          )
+                        }
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                          active
+                            ? 'text-accent-400 bg-accent-500/10 border border-accent-500/10'
+                            : 'text-gray-400 hover:text-accent-400 hover:bg-white/5 border border-transparent'
+                        }`}
+                      >
+                        <item.icon className="w-5 h-5 shrink-0" />
+
+                        {item.name}
+                      </Link>
+                    );
+                  }
+                )}
+              </nav>
+            </div>
+
+            <div className="p-4 border-t border-ink-800/50">
+              <div className="flex items-center gap-3 px-3 py-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-accent-400 font-semibold uppercase shrink-0">
+                  {userInitial}
+                </div>
+
+                <div className="overflow-hidden min-w-0">
+                  <div className="text-sm font-medium text-white truncate">
+                    {user?.email ||
+                      'Avelixa User'}
+                  </div>
+
+                  <div className="text-[10px] text-accent-500 uppercase tracking-widest truncate mt-0.5">
+                    {currentWorkspace.label}{' '}
+                    Portal
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+                Sign out
+              </button>
+            </div>
           </div>
         </div>
       )}

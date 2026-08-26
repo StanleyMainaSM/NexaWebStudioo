@@ -1,8 +1,8 @@
-﻿import express from "express";
+import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
-import { createClient } from "@Supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import "dotenv/config";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -425,6 +425,9 @@ app.get(
         });
       }
 
+      /*
+       * Load all Auth users.
+       */
       const authUsers: any[] = [];
 
       let page = 1;
@@ -461,6 +464,9 @@ app.get(
         page += 1;
       }
 
+      /*
+       * Load profiles.
+       */
       const {
         data: profiles,
         error: profilesError,
@@ -486,6 +492,9 @@ app.get(
         }
       );
 
+      /*
+       * Load roles.
+       */
       const {
         data: roleRows,
         error: rolesError,
@@ -518,6 +527,9 @@ app.get(
         }
       );
 
+      /*
+       * Build the Owner dashboard user list.
+       */
       const users =
         authUsers.map(
           (authUser) => {
@@ -558,6 +570,9 @@ app.get(
           }
         );
 
+      /*
+       * Keep the Owner at the top.
+       */
       users.sort(
         (a, b) => {
           const aOwner =
@@ -688,6 +703,9 @@ app.post(
       const normalizedEmail =
         email.trim().toLowerCase();
 
+      /*
+       * Prevent duplicate Auth accounts.
+       */
       const existingUser =
         await findAuthUserByEmail(
           normalizedEmail
@@ -700,10 +718,18 @@ app.post(
         });
       }
 
+      /*
+       * Invitation URL.
+       */
       const appUrl =
         process.env.APP_URL ||
         "http://localhost:3000";
 
+      /*
+       * Create account and send invitation.
+       *
+       * No plaintext password is created or stored.
+       */
       const {
         data: invitedUser,
         error: inviteError,
@@ -738,6 +764,9 @@ app.post(
       newlyCreatedAuthUserId =
         invitedUser.user.id;
 
+      /*
+       * Create/update profile.
+       */
       const {
         error: profileError,
       } = await supabaseAdmin
@@ -760,6 +789,9 @@ app.post(
         throw profileError;
       }
 
+      /*
+       * Assign selected role.
+       */
       const {
         error: roleError,
       } = await supabaseAdmin
@@ -780,6 +812,9 @@ app.post(
         throw roleError;
       }
 
+      /*
+       * Connector-specific profile.
+       */
       if (role === "connector") {
         const {
           error:
@@ -806,6 +841,9 @@ app.post(
         }
       }
 
+      /*
+       * Audit.
+       */
       const {
         error: auditError,
       } = await supabaseAdmin
@@ -851,6 +889,10 @@ app.post(
         error
       );
 
+      /*
+       * Roll back a newly created Auth account
+       * if something failed afterwards.
+       */
       if (
         newlyCreatedAuthUserId
       ) {
@@ -933,6 +975,9 @@ app.post(
         });
       }
 
+      /*
+       * Make sure target Auth user exists.
+       */
       const {
         data: targetUser,
         error:
@@ -972,6 +1017,10 @@ app.post(
         throw roleError;
       }
 
+      /*
+       * Connector profile is required when adding
+       * the Connector role.
+       */
       if (role === "connector") {
         const {
           error:
@@ -1083,9 +1132,11 @@ app.delete(
       const selectedRole =
         req.params.role;
 
+      /*
+       * Owner role is protected.
+       */
       if (
-        selectedRole ===
-        "owner"
+        selectedRole === "owner"
       ) {
         return res.status(400).json({
           error:
@@ -1114,6 +1165,9 @@ app.delete(
         });
       }
 
+      /*
+       * Remove role.
+       */
       const {
         data: removedRows,
         error: roleError,
@@ -1128,6 +1182,12 @@ app.delete(
         throw roleError;
       }
 
+      /*
+       * If Connector role was removed, deactivate the
+       * connector profile rather than deleting it.
+       *
+       * This preserves historical commission/lead data.
+       */
       if (
         selectedRole ===
         "connector"
@@ -1239,6 +1299,9 @@ app.delete(
       const targetUserId =
         req.params.id;
 
+      /*
+       * Never allow Owner self-deletion.
+       */
       if (
         targetUserId ===
         ownerUser.id
@@ -1249,6 +1312,10 @@ app.delete(
         });
       }
 
+      /*
+       * Load target user first so the audit record can
+       * contain useful information.
+       */
       const {
         data: targetUser,
         error:
@@ -1268,6 +1335,9 @@ app.delete(
         });
       }
 
+      /*
+       * Never allow deletion of another Owner.
+       */
       const {
         data: targetOwnerRole,
         error:
@@ -1295,6 +1365,9 @@ app.delete(
         });
       }
 
+      /*
+       * Audit before deletion.
+       */
       const {
         error: auditError,
       } = await supabaseAdmin
@@ -1324,6 +1397,13 @@ app.delete(
         );
       }
 
+      /*
+       * Supabase Auth deletion.
+       *
+       * Database records that reference the Auth user
+       * should follow the existing database foreign-key
+       * policies.
+       */
       const {
         error: deleteError,
       } =
@@ -1677,17 +1757,11 @@ async function startServer() {
 
     app.use(vite.middlewares);
   } else {
-    /*
-     * In the bundled production build, server.js is located
-     * directly inside the dist directory.
-     *
-     * Therefore __dirname already points to:
-     *
-     *   <project>/dist
-     *
-     * Do NOT append another "dist" directory here.
-     */
-    const distPath = __dirname;
+    const distPath =
+      path.join(
+        __dirname,
+        "dist"
+      );
 
     app.use(
       express.static(
@@ -1695,13 +1769,7 @@ async function startServer() {
       )
     );
 
-    /*
-     * Express 5 requires a named wildcard parameter.
-     * This preserves SPA fallback routing for every
-     * non-API path while remaining compatible with
-     * path-to-regexp used by Express 5.
-     */
-    app.get("/{*splat}", (_req, res) => {
+    app.get("*", (_req, res) => {
       res.sendFile(
         path.join(
           distPath,

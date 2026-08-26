@@ -1,0 +1,1849 @@
+﻿import { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Banknote,
+  CircleDollarSign,
+  Coins,
+  FileText,
+  Loader2,
+  RefreshCw,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+  CheckCircle2,
+  XCircle,
+  PlusCircle,
+} from 'lucide-react';
+import { supabase } from '../../../lib/supabase';
+
+type Invoice = {
+  id: string;
+  amount: number;
+  status: string | null;
+  created_at: string;
+  due_date: string | null;
+};
+
+type Payment = {
+  id: string;
+  invoice_id: string | null;
+  amount: number;
+  payment_method: string | null;
+  reference_number: string | null;
+  status: string | null;
+  payment_date: string | null;
+  created_at: string;
+};
+
+type Commission = {
+  id: string;
+  connector_id: string | null;
+  project_id: string | null;
+  payment_id: string | null;
+  eligible_amount: number;
+  commission_percentage: number;
+  amount: number;
+  status: string | null;
+  paid_at: string | null;
+  created_at: string;
+};
+
+type Project = {
+  id: string;
+  title: string;
+  operator_id: string | null;
+  operator_payment: number | null;
+  operator_payment_status: string;
+  operator_paid_at: string | null;
+  operator_payment_method: string | null;
+  operator_payment_reference: string | null;
+  status: string | null;
+};
+
+type Expense = {
+  id: string;
+  category: string;
+  description: string | null;
+  amount: number;
+  expense_date: string;
+  payment_method: string | null;
+  reference_number: string | null;
+  status: string;
+  created_at: string;
+};
+
+type FinancialRecord = {
+  id: string;
+  record_type: string;
+  category: string;
+  description: string | null;
+  amount: number;
+  reference_id: string | null;
+  reference_number: string | null;
+  record_date: string;
+  status: string;
+};
+
+type PaymentFormState = {
+  method: string;
+  reference: string;
+  verification: string;
+};
+
+type ClientPaymentFormState = {
+  invoiceId: string;
+  amount: string;
+  method: string;
+  reference: string;
+  verification: string;
+};
+
+function toNumber(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function formatCurrency(value: number) {
+  return `KSh ${value.toLocaleString('en-KE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  return date.toLocaleDateString('en-KE', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function formatStatus(value: string | null | undefined) {
+  if (!value) return 'Unknown';
+
+  return value
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function normalizeStatus(value: string | null | undefined) {
+  return (value || '').trim().toLowerCase();
+}
+
+function isSuccessfulPayment(status: string | null | undefined) {
+  const normalized = normalizeStatus(status);
+
+  return (
+    normalized === '' ||
+    normalized === 'paid' ||
+    normalized === 'completed' ||
+    normalized === 'successful' ||
+    normalized === 'success'
+  );
+}
+
+function isPaidCommission(status: string | null | undefined) {
+  const normalized = normalizeStatus(status);
+
+  return (
+    normalized === 'paid' ||
+    normalized === 'completed' ||
+    normalized === 'successful' ||
+    normalized === 'success'
+  );
+}
+
+function isPaidOperatorPayment(status: string | null | undefined) {
+  return normalizeStatus(status) === 'paid';
+}
+
+function getStatusClasses(status: string | null | undefined) {
+  const normalized = normalizeStatus(status);
+
+  if (
+    normalized === 'paid' ||
+    normalized === 'completed' ||
+    normalized === 'successful' ||
+    normalized === 'success'
+  ) {
+    return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400';
+  }
+
+  if (
+    normalized === 'pending' ||
+    normalized === 'unpaid' ||
+    normalized === 'due' ||
+    normalized === 'overdue'
+  ) {
+    return 'border-amber-500/20 bg-amber-500/10 text-amber-400';
+  }
+
+  if (
+    normalized === 'cancelled' ||
+    normalized === 'canceled' ||
+    normalized === 'failed' ||
+    normalized === 'rejected'
+  ) {
+    return 'border-red-500/20 bg-red-500/10 text-red-400';
+  }
+
+  return 'border-white/10 bg-white/5 text-gray-400';
+}
+
+export default function FinanceDashboard() {
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [commissions, setCommissions] = useState<Commission[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const [processingCommissionId, setProcessingCommissionId] =
+    useState<string | null>(null);
+
+  const [processingOperatorProjectId, setProcessingOperatorProjectId] =
+    useState<string | null>(null);
+
+  const [processingClientPayment, setProcessingClientPayment] =
+    useState(false);
+
+  const [showClientPaymentForm, setShowClientPaymentForm] =
+    useState(false);
+
+  const [operatorPaymentForms, setOperatorPaymentForms] =
+    useState<Record<string, PaymentFormState>>({});
+
+  const [commissionPaymentForms, setCommissionPaymentForms] =
+    useState<Record<string, PaymentFormState>>({});
+
+  const [clientPaymentForm, setClientPaymentForm] =
+    useState<ClientPaymentFormState>({
+      invoiceId: '',
+      amount: '',
+      method: '',
+      reference: '',
+      verification: '',
+    });
+
+  async function loadFinance() {
+    setLoading(true);
+    setError('');
+
+    try {
+      const [
+        invoicesResult,
+        paymentsResult,
+        commissionsResult,
+        projectsResult,
+        expensesResult,
+        recordsResult,
+      ] = await Promise.all([
+        supabase
+          .from('invoices')
+          .select('id, amount, status, created_at, due_date')
+          .order('created_at', { ascending: false }),
+
+        supabase
+          .from('payments')
+          .select(
+            'id, invoice_id, amount, payment_method, reference_number, status, payment_date, created_at'
+          )
+          .order('created_at', { ascending: false }),
+
+        supabase
+          .from('commissions')
+          .select(
+            'id, connector_id, project_id, payment_id, eligible_amount, commission_percentage, amount, status, paid_at, created_at'
+          )
+          .order('created_at', { ascending: false }),
+
+        supabase
+          .from('projects')
+          .select(
+            'id, title, operator_id, operator_payment, operator_payment_status, operator_paid_at, operator_payment_method, operator_payment_reference, status'
+          )
+          .order('created_at', { ascending: false }),
+
+        supabase
+          .from('expenses')
+          .select(
+            'id, category, description, amount, expense_date, payment_method, reference_number, status, created_at'
+          )
+          .order('expense_date', { ascending: false }),
+
+        supabase
+          .from('financial_records')
+          .select(
+            'id, record_type, category, description, amount, reference_id, reference_number, record_date, status'
+          )
+          .order('record_date', { ascending: false }),
+      ]);
+
+      const results = [
+        invoicesResult,
+        paymentsResult,
+        commissionsResult,
+        projectsResult,
+        expensesResult,
+        recordsResult,
+      ];
+
+      const failed = results.find((result) => result.error);
+
+      if (failed?.error) {
+        throw failed.error;
+      }
+
+      setInvoices((invoicesResult.data || []) as Invoice[]);
+      setPayments((paymentsResult.data || []) as Payment[]);
+      setCommissions((commissionsResult.data || []) as Commission[]);
+      setProjects((projectsResult.data || []) as Project[]);
+      setExpenses((expensesResult.data || []) as Expense[]);
+      setFinancialRecords((recordsResult.data || []) as FinancialRecord[]);
+    } catch (err) {
+      console.error('Finance dashboard error:', err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to load the finance dashboard.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadFinance();
+  }, []);
+
+  const statistics = useMemo(() => {
+    const successfulPayments = payments.filter((payment) =>
+      isSuccessfulPayment(payment.status)
+    );
+
+    const revenue = successfulPayments.reduce(
+      (total, payment) => total + toNumber(payment.amount),
+      0
+    );
+
+    const totalInvoiced = invoices.reduce(
+      (total, invoice) => total + toNumber(invoice.amount),
+      0
+    );
+
+    const outstanding = invoices.reduce((total, invoice) => {
+      const invoicePayments = successfulPayments
+        .filter((payment) => payment.invoice_id === invoice.id)
+        .reduce(
+          (paymentTotal, payment) =>
+            paymentTotal + toNumber(payment.amount),
+          0
+        );
+
+      const invoiceAmount = toNumber(invoice.amount);
+      const balance = Math.max(invoiceAmount - invoicePayments, 0);
+
+      return total + balance;
+    }, 0);
+
+    const totalExpenses = expenses
+      .filter(
+        (expense) =>
+          normalizeStatus(expense.status) !== 'cancelled' &&
+          normalizeStatus(expense.status) !== 'canceled'
+      )
+      .reduce(
+        (total, expense) => total + toNumber(expense.amount),
+        0
+      );
+
+    const paidOperatorPayments = projects
+      .filter((project) =>
+        isPaidOperatorPayment(project.operator_payment_status)
+      )
+      .reduce(
+        (total, project) =>
+          total + toNumber(project.operator_payment),
+        0
+      );
+
+    const pendingOperatorPayments = projects
+      .filter(
+        (project) =>
+          normalizeStatus(project.operator_payment_status) === 'pending' ||
+          !normalizeStatus(project.operator_payment_status)
+      )
+      .reduce(
+        (total, project) =>
+          total + toNumber(project.operator_payment),
+        0
+      );
+
+    const cancelledOperatorPayments = projects
+      .filter(
+        (project) =>
+          normalizeStatus(project.operator_payment_status) === 'cancelled'
+      )
+      .reduce(
+        (total, project) =>
+          total + toNumber(project.operator_payment),
+        0
+      );
+
+    const paidCommissions = commissions
+      .filter((commission) => isPaidCommission(commission.status))
+      .reduce(
+        (total, commission) => total + toNumber(commission.amount),
+        0
+      );
+
+    const totalCommissions = commissions.reduce(
+      (total, commission) => total + toNumber(commission.amount),
+      0
+    );
+
+    const pendingCommissions = commissions
+      .filter((commission) => !isPaidCommission(commission.status))
+      .reduce(
+        (total, commission) => total + toNumber(commission.amount),
+        0
+      );
+
+    const actualOutgoing =
+      totalExpenses +
+      paidCommissions +
+      paidOperatorPayments;
+
+    const actualProfit = revenue - actualOutgoing;
+
+    const totalOutstandingObligations =
+      pendingOperatorPayments + pendingCommissions;
+
+    const paidInvoices = invoices.filter((invoice) => {
+      const invoiceAmount = toNumber(invoice.amount);
+
+      if (invoiceAmount <= 0) {
+        return false;
+      }
+
+      const invoicePayments = successfulPayments
+        .filter((payment) => payment.invoice_id === invoice.id)
+        .reduce(
+          (total, payment) => total + toNumber(payment.amount),
+          0
+        );
+
+      return invoicePayments >= invoiceAmount;
+    }).length;
+
+    return {
+      revenue,
+      totalInvoiced,
+      outstanding,
+      totalExpenses,
+      paidOperatorPayments,
+      pendingOperatorPayments,
+      cancelledOperatorPayments,
+      paidCommissions,
+      totalCommissions,
+      pendingCommissions,
+      actualOutgoing,
+      actualProfit,
+      totalOutstandingObligations,
+      paidInvoices,
+    };
+  }, [invoices, payments, commissions, projects, expenses]);
+
+  const recentPayments = payments.slice(0, 8);
+  const recentExpenses = expenses.slice(0, 8);
+  const recentCommissions = commissions.slice(0, 8);
+
+  const operatorPaymentProjects = projects.filter(
+    (project) => toNumber(project.operator_payment) > 0
+  );
+
+  function getOperatorForm(projectId: string): PaymentFormState {
+    return (
+      operatorPaymentForms[projectId] || {
+        method: '',
+        reference: '',
+        verification: '',
+      }
+    );
+  }
+
+  function getCommissionForm(commissionId: string): PaymentFormState {
+    return (
+      commissionPaymentForms[commissionId] || {
+        method: '',
+        reference: '',
+        verification: '',
+      }
+    );
+  }
+
+  function updateOperatorForm(
+    projectId: string,
+    field: keyof PaymentFormState,
+    value: string
+  ) {
+    setOperatorPaymentForms((current) => ({
+      ...current,
+      [projectId]: {
+        ...getOperatorForm(projectId),
+        [field]: value,
+      },
+    }));
+  }
+
+  function updateCommissionForm(
+    commissionId: string,
+    field: keyof PaymentFormState,
+    value: string
+  ) {
+    setCommissionPaymentForms((current) => ({
+      ...current,
+      [commissionId]: {
+        ...getCommissionForm(commissionId),
+        [field]: value,
+      },
+    }));
+  }
+
+  function updateClientPaymentForm(
+    field: keyof ClientPaymentFormState,
+    value: string
+  ) {
+    setClientPaymentForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function getInvoiceRemaining(invoice: Invoice) {
+    const successfulPayments = payments.filter((payment) =>
+      isSuccessfulPayment(payment.status)
+    );
+
+    const paid = successfulPayments
+      .filter((payment) => payment.invoice_id === invoice.id)
+      .reduce((total, payment) => total + toNumber(payment.amount), 0);
+
+    return Math.max(toNumber(invoice.amount) - paid, 0);
+  }
+
+  async function recordClientPayment() {
+    setError('');
+    setSuccessMessage('');
+
+    if (!clientPaymentForm.invoiceId) {
+      setError('Select the invoice that this client payment belongs to.');
+      return;
+    }
+
+    const amount = toNumber(clientPaymentForm.amount);
+
+    if (amount <= 0) {
+      setError('Enter a valid payment amount.');
+      return;
+    }
+
+    if (!clientPaymentForm.method.trim()) {
+      setError('Select a payment method.');
+      return;
+    }
+
+    if (!clientPaymentForm.verification.trim()) {
+      setError(
+        'Paste the M-Pesa, bank, or other payment verification message before recording the payment.'
+      );
+      return;
+    }
+
+    const invoice = invoices.find(
+      (item) => item.id === clientPaymentForm.invoiceId
+    );
+
+    if (!invoice) {
+      setError('The selected invoice could not be found.');
+      return;
+    }
+
+    const remaining = getInvoiceRemaining(invoice);
+
+    if (amount > remaining && remaining > 0) {
+      setError(
+        `The entered payment is greater than the remaining invoice balance of ${formatCurrency(
+          remaining
+        )}.`
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Confirm receipt of ${formatCurrency(amount)} from the client?`
+    );
+
+    if (!confirmed) return;
+
+    setProcessingClientPayment(true);
+
+    try {
+      const paymentDate = new Date().toISOString();
+
+      const { data: payment, error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          invoice_id: invoice.id,
+          amount,
+          payment_method: clientPaymentForm.method.trim(),
+          reference_number:
+            clientPaymentForm.reference.trim() || null,
+          status: 'paid',
+          payment_date: paymentDate,
+        })
+        .select('id')
+        .single();
+
+      if (paymentError) {
+        throw paymentError;
+      }
+
+      const { error: recordError } = await supabase
+        .from('financial_records')
+        .insert({
+          record_type: 'income',
+          category: 'Client Payment',
+          description: clientPaymentForm.verification.trim(),
+          amount,
+          reference_id: payment?.id || invoice.id,
+          reference_number:
+            clientPaymentForm.reference.trim() || null,
+          record_date: paymentDate.slice(0, 10),
+          status: 'verified',
+        });
+
+      if (recordError) {
+        throw recordError;
+      }
+
+      setClientPaymentForm({
+        invoiceId: '',
+        amount: '',
+        method: '',
+        reference: '',
+        verification: '',
+      });
+
+      setShowClientPaymentForm(false);
+      setSuccessMessage(
+        'Client payment recorded and verification message saved successfully.'
+      );
+
+      await loadFinance();
+    } catch (err) {
+      console.error('Error recording client payment:', err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to record the client payment.'
+      );
+    } finally {
+      setProcessingClientPayment(false);
+    }
+  }
+
+  async function markCommissionPaid(commission: Commission) {
+    if (isPaidCommission(commission.status)) {
+      return;
+    }
+
+    const form = getCommissionForm(commission.id);
+
+    if (!form.method.trim()) {
+      setError('Select a payment method before confirming the commission payment.');
+      return;
+    }
+
+    if (!form.verification.trim()) {
+      setError(
+        'Paste the M-Pesa, bank, or other payment verification message before confirming the commission payment.'
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Confirm that you have paid ${formatCurrency(
+        toNumber(commission.amount)
+      )} commission?`
+    );
+
+    if (!confirmed) return;
+
+    setProcessingCommissionId(commission.id);
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      const paidAt = new Date().toISOString();
+
+      const { error: updateError } = await supabase
+        .from('commissions')
+        .update({
+          status: 'paid',
+          paid_at: paidAt,
+        })
+        .eq('id', commission.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      const { error: recordError } = await supabase
+        .from('financial_records')
+        .insert({
+          record_type: 'expense',
+          category: 'Connector Commission',
+          description: form.verification.trim(),
+          amount: toNumber(commission.amount),
+          reference_id: commission.id,
+          reference_number: form.reference.trim() || null,
+          record_date: paidAt.slice(0, 10),
+          status: 'verified',
+        });
+
+      if (recordError) {
+        throw recordError;
+      }
+
+      setCommissionPaymentForms((current) => {
+        const next = { ...current };
+        delete next[commission.id];
+        return next;
+      });
+
+      setSuccessMessage(
+        'Connector payment confirmed and verification message saved successfully.'
+      );
+
+      await loadFinance();
+    } catch (err) {
+      console.error('Error marking commission paid:', err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to mark the commission as paid.'
+      );
+    } finally {
+      setProcessingCommissionId(null);
+    }
+  }
+
+  async function markOperatorPaymentPaid(project: Project) {
+    if (isPaidOperatorPayment(project.operator_payment_status)) {
+      return;
+    }
+
+    const form = getOperatorForm(project.id);
+
+    if (!form.method.trim()) {
+      setError(
+        `Select a payment method before marking ${project.title} as paid.`
+      );
+      return;
+    }
+
+    if (!form.verification.trim()) {
+      setError(
+        'Paste the M-Pesa, bank, or other payment verification message before marking the operator payment as paid.'
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Confirm that you have paid ${formatCurrency(
+        toNumber(project.operator_payment)
+      )} to the operator for "${project.title}"?`
+    );
+
+    if (!confirmed) return;
+
+    setProcessingOperatorProjectId(project.id);
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      const paidAt = new Date().toISOString();
+
+      const { error: updateError } = await supabase
+        .from('projects')
+        .update({
+          operator_payment_status: 'paid',
+          operator_paid_at: paidAt,
+          operator_payment_method: form.method.trim(),
+          operator_payment_reference:
+            form.reference.trim() || null,
+        })
+        .eq('id', project.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      const { error: recordError } = await supabase
+        .from('financial_records')
+        .insert({
+          record_type: 'expense',
+          category: 'Operator Payment',
+          description: form.verification.trim(),
+          amount: toNumber(project.operator_payment),
+          reference_id: project.id,
+          reference_number: form.reference.trim() || null,
+          record_date: paidAt.slice(0, 10),
+          status: 'verified',
+        });
+
+      if (recordError) {
+        throw recordError;
+      }
+
+      setOperatorPaymentForms((current) => {
+        const next = { ...current };
+        delete next[project.id];
+        return next;
+      });
+
+      setSuccessMessage(
+        'Operator payment confirmed and verification message saved successfully.'
+      );
+
+      await loadFinance();
+    } catch (err) {
+      console.error('Error marking operator payment paid:', err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to mark the operator payment as paid.'
+      );
+    } finally {
+      setProcessingOperatorProjectId(null);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="glass rounded-2xl p-10 border border-ink-800/50">
+          <div className="flex items-center justify-center gap-3 text-gray-400">
+            <Loader2 className="w-5 h-5 animate-spin text-accent-500" />
+            Loading finance dashboard...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-3xl font-light text-white tracking-tight">
+            Finance
+          </h1>
+
+          <p className="text-gray-400 mt-1">
+            Monitor Avelixa revenue, payments, expenses, commissions and
+            profitability.
+          </p>
+        </div>
+
+        <button
+          onClick={loadFinance}
+          disabled={loading}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </button>
+      </div>
+
+      {error && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+          {error}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-400 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          {successMessage}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <div className="glass rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="w-11 h-11 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-emerald-400" />
+            </div>
+            <ArrowUpCircle className="w-4 h-4 text-gray-600" />
+          </div>
+
+          <div className="text-xs font-bold text-ink-500 uppercase tracking-widest">
+            Revenue
+          </div>
+
+          <div className="text-3xl font-light text-white mt-2">
+            {formatCurrency(statistics.revenue)}
+          </div>
+
+          <p className="text-sm text-gray-500 mt-2">
+            Successful client payments received and verified.
+          </p>
+        </div>
+
+        <div className="glass rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="w-11 h-11 rounded-xl bg-red-500/10 flex items-center justify-center">
+              <TrendingDown className="w-5 h-5 text-red-400" />
+            </div>
+            <ArrowDownCircle className="w-4 h-4 text-gray-600" />
+          </div>
+
+          <div className="text-xs font-bold text-ink-500 uppercase tracking-widest">
+            Expenses
+          </div>
+
+          <div className="text-3xl font-light text-white mt-2">
+            {formatCurrency(statistics.totalExpenses)}
+          </div>
+
+          <p className="text-sm text-gray-500 mt-2">
+            Recorded business expenses excluding cancelled items.
+          </p>
+        </div>
+
+        <div className="glass rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="w-11 h-11 rounded-xl bg-blue-500/10 flex items-center justify-center">
+              <Wallet className="w-5 h-5 text-blue-400" />
+            </div>
+            <Banknote className="w-4 h-4 text-gray-600" />
+          </div>
+
+          <div className="text-xs font-bold text-ink-500 uppercase tracking-widest">
+            Actual Outgoing
+          </div>
+
+          <div className="text-3xl font-light text-white mt-2">
+            {formatCurrency(statistics.actualOutgoing)}
+          </div>
+
+          <p className="text-sm text-gray-500 mt-2">
+            Expenses plus confirmed operator and connector payments.
+          </p>
+        </div>
+
+        <div className="glass rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div
+              className={`w-11 h-11 rounded-xl ${
+                statistics.actualProfit >= 0
+                  ? 'bg-emerald-500/10'
+                  : 'bg-red-500/10'
+              } flex items-center justify-center`}
+            >
+              <CircleDollarSign
+                className={`w-5 h-5 ${
+                  statistics.actualProfit >= 0
+                    ? 'text-emerald-400'
+                    : 'text-red-400'
+                }`}
+              />
+            </div>
+
+            <Coins className="w-4 h-4 text-gray-600" />
+          </div>
+
+          <div className="text-xs font-bold text-ink-500 uppercase tracking-widest">
+            Actual Profit
+          </div>
+
+          <div
+            className={`text-3xl font-light mt-2 ${
+              statistics.actualProfit >= 0
+                ? 'text-emerald-400'
+                : 'text-red-400'
+            }`}
+          >
+            {formatCurrency(statistics.actualProfit)}
+          </div>
+
+          <p className="text-sm text-gray-500 mt-2">
+            Verified revenue less actual recorded outgoing payments.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="glass rounded-2xl p-5 border border-ink-800/50">
+          <div className="text-xs uppercase tracking-widest text-ink-500">
+            Total Invoiced
+          </div>
+          <div className="mt-2 text-xl font-semibold text-white">
+            {formatCurrency(statistics.totalInvoiced)}
+          </div>
+        </div>
+
+        <div className="glass rounded-2xl p-5 border border-ink-800/50">
+          <div className="text-xs uppercase tracking-widest text-ink-500">
+            Outstanding
+          </div>
+          <div className="mt-2 text-xl font-semibold text-white">
+            {formatCurrency(statistics.outstanding)}
+          </div>
+        </div>
+
+        <div className="glass rounded-2xl p-5 border border-ink-800/50">
+          <div className="text-xs uppercase tracking-widest text-ink-500">
+            Paid Invoices
+          </div>
+          <div className="mt-2 text-xl font-semibold text-white">
+            {statistics.paidInvoices}
+          </div>
+        </div>
+
+        <div className="glass rounded-2xl p-5 border border-ink-800/50">
+          <div className="text-xs uppercase tracking-widest text-ink-500">
+            Pending Obligations
+          </div>
+          <div className="mt-2 text-xl font-semibold text-amber-400">
+            {formatCurrency(statistics.totalOutstandingObligations)}
+          </div>
+        </div>
+      </div>
+
+      <div className="glass rounded-2xl overflow-hidden border border-emerald-500/10">
+        <div className="p-6 border-b border-white/5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <Banknote className="w-5 h-5 text-emerald-400" />
+              <h2 className="text-xl font-medium text-white">
+                Record Client Payment
+              </h2>
+            </div>
+
+            <p className="text-sm text-gray-500 mt-1">
+              Record money actually received from a client and save the
+              verification message from M-Pesa, bank or another payment
+              provider.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              setShowClientPaymentForm((current) => !current)
+            }
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-500 transition-colors"
+          >
+            <PlusCircle className="w-4 h-4" />
+            {showClientPaymentForm ? 'Close' : 'Record Payment'}
+          </button>
+        </div>
+
+        {showClientPaymentForm && (
+          <div className="p-6 bg-white/[0.02]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-ink-500 mb-2">
+                  Invoice
+                </label>
+
+                <select style={{ colorScheme: 'dark' }} value={clientPaymentForm.invoiceId}
+                  onChange={(event) => {
+                    const invoiceId = event.target.value;
+                    const invoice = invoices.find(
+                      (item) => item.id === invoiceId
+                    );
+
+                    updateClientPaymentForm(
+                      'invoiceId',
+                      invoiceId
+                    );
+
+                    if (invoice) {
+                      const remaining = getInvoiceRemaining(invoice);
+
+                      setClientPaymentForm((current) => ({
+                        ...current,
+                        invoiceId,
+                        amount:
+                          remaining > 0
+                            ? remaining.toFixed(2)
+                            : '',
+                      }));
+                    }
+                  }}
+                  className="w-full rounded-xl border border-white/10 bg-gray-900 px-3 py-3 text-sm text-white outline-none focus:border-accent-500 [&>option]:bg-gray-900 [&>option]:text-white"
+                >
+                  <option value="">Select invoice</option>
+
+                  {invoices.map((invoice) => {
+                    const remaining = getInvoiceRemaining(invoice);
+
+                    return (
+                      <option key={invoice.id} value={invoice.id}>
+                        {formatCurrency(toNumber(invoice.amount))} •
+                        Remaining {formatCurrency(remaining)} •{' '}
+                        {formatDate(invoice.created_at)}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-ink-500 mb-2">
+                  Amount Received
+                </label>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={clientPaymentForm.amount}
+                  onChange={(event) =>
+                    updateClientPaymentForm(
+                      'amount',
+                      event.target.value
+                    )
+                  }
+                  placeholder="e.g. 15000"
+                  className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-gray-300 placeholder:text-gray-600 outline-none focus:border-accent-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-ink-500 mb-2">
+                  Payment Method
+                </label>
+
+                <select style={{ colorScheme: 'dark' }} value={clientPaymentForm.method}
+                  onChange={(event) =>
+                    updateClientPaymentForm(
+                      'method',
+                      event.target.value
+                    )
+                  }
+                  className="w-full rounded-xl border border-white/10 bg-gray-900 px-3 py-3 text-sm text-white outline-none focus:border-accent-500 [&>option]:bg-gray-900 [&>option]:text-white"
+                >
+                  <option value="">Select payment method</option>
+                  <option value="M-Pesa">M-Pesa</option>
+                  <option value="Bank Transfer">
+                    Bank Transfer
+                  </option>
+                  <option value="Cash">Cash</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-ink-500 mb-2">
+                  Reference / Transaction Number
+                </label>
+
+                <input
+                  type="text"
+                  value={clientPaymentForm.reference}
+                  onChange={(event) =>
+                    updateClientPaymentForm(
+                      'reference',
+                      event.target.value
+                    )
+                  }
+                  placeholder="e.g. M-Pesa transaction code"
+                  className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-gray-300 placeholder:text-gray-600 outline-none focus:border-accent-500"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs uppercase tracking-widest text-ink-500 mb-2">
+                  Payment Verification Message
+                </label>
+
+                <textarea
+                  value={clientPaymentForm.verification}
+                  onChange={(event) =>
+                    updateClientPaymentForm(
+                      'verification',
+                      event.target.value
+                    )
+                  }
+                  rows={5}
+                  placeholder="Paste the complete M-Pesa, bank or payment-provider verification message here..."
+                  className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-gray-300 placeholder:text-gray-600 outline-none focus:border-accent-500 resize-y"
+                />
+
+                <p className="text-xs text-gray-600 mt-2">
+                  This message is stored in Financial Records as the
+                  verification evidence for the payment.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-5">
+              <button
+                type="button"
+                onClick={recordClientPayment}
+                disabled={processingClientPayment}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-medium text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+              >
+                {processingClientPayment ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving Payment...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    Confirm Payment Received
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="glass rounded-2xl p-6 border border-amber-500/10">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <Wallet className="w-5 h-5 text-amber-400" />
+
+              <h2 className="text-xl font-medium text-white">
+                Financial Obligations
+              </h2>
+            </div>
+
+            <p className="text-sm text-gray-500 mt-1">
+              Amounts still awaiting your confirmation of payment. They are
+              not deducted from actual profit until you mark them as paid.
+            </p>
+          </div>
+
+          <div className="text-xl font-semibold text-amber-400">
+            {formatCurrency(statistics.totalOutstandingObligations)}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+            <div className="text-xs uppercase tracking-widest text-ink-500">
+              Operator Payment Obligations
+            </div>
+
+            <div className="mt-2 text-lg font-semibold text-white">
+              {formatCurrency(statistics.pendingOperatorPayments)}
+            </div>
+
+            <p className="text-xs text-gray-500 mt-1">
+              Operator payments that you have not yet confirmed as paid.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+            <div className="text-xs uppercase tracking-widest text-ink-500">
+              Unpaid Commission Obligations
+            </div>
+
+            <div className="mt-2 text-lg font-semibold text-white">
+              {formatCurrency(statistics.pendingCommissions)}
+            </div>
+
+            <p className="text-xs text-gray-500 mt-1">
+              Connector commissions not marked as paid.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="p-6 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <Banknote className="w-5 h-5 text-accent-500" />
+
+              <div>
+                <h2 className="text-xl font-medium text-white">
+                  Payment History
+                </h2>
+
+                <p className="text-sm text-gray-500 mt-1">
+                  Recent client payments recorded in Avelixa.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {recentPayments.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No payments recorded yet.
+            </div>
+          ) : (
+            <div className="divide-y divide-white/5">
+              {recentPayments.map((payment) => (
+                <div
+                  key={payment.id}
+                  className="p-5 flex items-center justify-between gap-4"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-white">
+                      {formatCurrency(toNumber(payment.amount))}
+                    </div>
+
+                    <div className="text-xs text-gray-500 mt-1">
+                      {payment.payment_method ||
+                        'Payment method not specified'}
+                    </div>
+
+                    <div className="text-xs text-gray-600 mt-1">
+                      {formatDate(
+                        payment.payment_date || payment.created_at
+                      )}
+                      {payment.reference_number
+                        ? ` • ${payment.reference_number}`
+                        : ''}
+                    </div>
+                  </div>
+
+                  <span
+                    className={`shrink-0 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${getStatusClasses(
+                      payment.status
+                    )}`}
+                  >
+                    {formatStatus(payment.status)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="p-6 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <TrendingDown className="w-5 h-5 text-red-400" />
+
+              <div>
+                <h2 className="text-xl font-medium text-white">
+                  Expenses
+                </h2>
+
+                <p className="text-sm text-gray-500 mt-1">
+                  Recently recorded business expenses.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {recentExpenses.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No expenses recorded yet.
+            </div>
+          ) : (
+            <div className="divide-y divide-white/5">
+              {recentExpenses.map((expense) => (
+                <div
+                  key={expense.id}
+                  className="p-5 flex items-center justify-between gap-4"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-white">
+                      {expense.category}
+                    </div>
+
+                    <div className="text-xs text-gray-500 mt-1 truncate">
+                      {expense.description || 'No description'}
+                    </div>
+
+                    <div className="text-xs text-gray-600 mt-1">
+                      {formatDate(expense.expense_date)}
+                      {expense.reference_number
+                        ? ` • ${expense.reference_number}`
+                        : ''}
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-medium text-red-400">
+                      -{formatCurrency(toNumber(expense.amount))}
+                    </div>
+
+                    <div className="text-xs text-gray-600 mt-1">
+                      {formatStatus(expense.status)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="glass rounded-2xl overflow-hidden">
+        <div className="p-6 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <Coins className="w-5 h-5 text-accent-500" />
+
+            <div>
+              <h2 className="text-xl font-medium text-white">
+                Connector Commissions
+              </h2>
+
+              <p className="text-sm text-gray-500 mt-1">
+                Confirm connector payments only after the money has actually
+                been sent and save the payment verification evidence.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {recentCommissions.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            No connector commissions recorded yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {recentCommissions.map((commission) => {
+              const paid = isPaidCommission(commission.status);
+              const processing =
+                processingCommissionId === commission.id;
+              const form = getCommissionForm(commission.id);
+
+              return (
+                <div key={commission.id} className="p-5">
+                  <div className="flex flex-col gap-5">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="text-sm font-medium text-white">
+                            Commission
+                          </div>
+
+                          <span
+                            className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${getStatusClasses(
+                              commission.status
+                            )}`}
+                          >
+                            {formatStatus(commission.status)}
+                          </span>
+                        </div>
+
+                        <div className="text-xs text-gray-500 mt-2">
+                          Eligible amount:{' '}
+                          {formatCurrency(
+                            toNumber(commission.eligible_amount)
+                          )}
+                          {' • '}
+                          {toNumber(
+                            commission.commission_percentage
+                          )}
+                          %
+                        </div>
+
+                        <div className="text-xs text-gray-600 mt-1">
+                          Created {formatDate(commission.created_at)}
+                          {commission.paid_at
+                            ? ` • Paid ${formatDate(
+                                commission.paid_at
+                              )}`
+                            : ''}
+                        </div>
+                      </div>
+
+                      <div className="text-sm font-medium text-white">
+                        {formatCurrency(toNumber(commission.amount))}
+                      </div>
+                    </div>
+
+                    {!paid && (
+                      <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+                        <div className="text-xs uppercase tracking-widest text-ink-500 mb-3">
+                          Confirm actual payment
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <select style={{ colorScheme: 'dark' }} value={form.method}
+                            onChange={(event) =>
+                              updateCommissionForm(
+                                commission.id,
+                                'method',
+                                event.target.value
+                              )
+                            }
+                            className="w-full rounded-xl border border-white/10 bg-gray-900 px-3 py-2.5 text-sm text-white outline-none focus:border-accent-500 [&>option]:bg-gray-900 [&>option]:text-white"
+                          >
+                            <option value="">
+                              Select payment method
+                            </option>
+                            <option value="M-Pesa">M-Pesa</option>
+                            <option value="Bank Transfer">
+                              Bank Transfer
+                            </option>
+                            <option value="Cash">Cash</option>
+                            <option value="Other">Other</option>
+                          </select>
+
+                          <input
+                            type="text"
+                            value={form.reference}
+                            onChange={(event) =>
+                              updateCommissionForm(
+                                commission.id,
+                                'reference',
+                                event.target.value
+                              )
+                            }
+                            placeholder="Payment reference / transaction number"
+                            className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-gray-300 placeholder:text-gray-600 outline-none focus:border-accent-500"
+                          />
+
+                          <textarea
+                            value={form.verification}
+                            onChange={(event) =>
+                              updateCommissionForm(
+                                commission.id,
+                                'verification',
+                                event.target.value
+                              )
+                            }
+                            rows={4}
+                            placeholder="Paste the M-Pesa, bank or payment verification message..."
+                            className="md:col-span-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-gray-300 placeholder:text-gray-600 outline-none focus:border-accent-500 resize-y"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              markCommissionPaid(commission)
+                            }
+                            disabled={processing}
+                            className="md:col-span-2 inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-500 disabled:opacity-50"
+                          >
+                            {processing ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="w-4 h-4" />
+                                Confirm Connector Paid
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {paid && (
+                      <div className="inline-flex items-center gap-2 text-sm text-emerald-400">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Connector payment confirmed as paid.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="glass rounded-2xl overflow-hidden">
+        <div className="p-6 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <Wallet className="w-5 h-5 text-blue-400" />
+
+            <div>
+              <h2 className="text-xl font-medium text-white">
+                Operator Payments
+              </h2>
+
+              <p className="text-sm text-gray-500 mt-1">
+                Confirm operator payments only after the money has actually
+                been sent.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {operatorPaymentProjects.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            No operator payment obligations have been assigned yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {operatorPaymentProjects.map((project) => {
+              const paid = isPaidOperatorPayment(
+                project.operator_payment_status
+              );
+
+              const cancelled =
+                normalizeStatus(project.operator_payment_status) ===
+                'cancelled';
+
+              const processing =
+                processingOperatorProjectId === project.id;
+
+              const form = getOperatorForm(project.id);
+
+              return (
+                <div key={project.id} className="p-5">
+                  <div className="flex flex-col gap-5">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <FileText className="w-4 h-4 text-gray-500 shrink-0 mt-1" />
+
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <div className="text-sm font-medium text-white truncate">
+                              {project.title}
+                            </div>
+
+                            <span
+                              className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${getStatusClasses(
+                                project.operator_payment_status
+                              )}`}
+                            >
+                              {formatStatus(
+                                project.operator_payment_status
+                              )}
+                            </span>
+                          </div>
+
+                          <div className="text-xs text-gray-500 mt-2">
+                            {project.status
+                              ? `Project status: ${formatStatus(
+                                  project.status
+                                )}`
+                              : 'Operator payment assigned'}
+                          </div>
+
+                          {paid && (
+                            <div className="text-xs text-gray-600 mt-1">
+                              Paid{' '}
+                              {formatDate(
+                                project.operator_paid_at
+                              )}
+                              {project.operator_payment_method
+                                ? ` • ${project.operator_payment_method}`
+                                : ''}
+                              {project.operator_payment_reference
+                                ? ` • ${project.operator_payment_reference}`
+                                : ''}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-lg font-medium text-amber-400 shrink-0">
+                        {formatCurrency(
+                          toNumber(project.operator_payment)
+                        )}
+                      </div>
+                    </div>
+
+                    {!paid && !cancelled && (
+                      <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+                        <div className="text-xs uppercase tracking-widest text-ink-500 mb-3">
+                          Confirm actual payment
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <select style={{ colorScheme: 'dark' }} value={form.method}
+                            onChange={(event) =>
+                              updateOperatorForm(
+                                project.id,
+                                'method',
+                                event.target.value
+                              )
+                            }
+                            className="w-full rounded-xl border border-white/10 bg-gray-900 px-3 py-2.5 text-sm text-white outline-none focus:border-accent-500 [&>option]:bg-gray-900 [&>option]:text-white"
+                          >
+                            <option value="">
+                              Select payment method
+                            </option>
+                            <option value="M-Pesa">M-Pesa</option>
+                            <option value="Bank Transfer">
+                              Bank Transfer
+                            </option>
+                            <option value="Cash">Cash</option>
+                            <option value="Other">Other</option>
+                          </select>
+
+                          <input
+                            type="text"
+                            value={form.reference}
+                            onChange={(event) =>
+                              updateOperatorForm(
+                                project.id,
+                                'reference',
+                                event.target.value
+                              )
+                            }
+                            placeholder="Payment reference / transaction number"
+                            className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-gray-300 placeholder:text-gray-600 outline-none focus:border-accent-500"
+                          />
+
+                          <textarea
+                            value={form.verification}
+                            onChange={(event) =>
+                              updateOperatorForm(
+                                project.id,
+                                'verification',
+                                event.target.value
+                              )
+                            }
+                            rows={4}
+                            placeholder="Paste the M-Pesa, bank or payment verification message..."
+                            className="md:col-span-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-gray-300 placeholder:text-gray-600 outline-none focus:border-accent-500 resize-y"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              markOperatorPaymentPaid(project)
+                            }
+                            disabled={processing}
+                            className="md:col-span-2 inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-500 disabled:opacity-50"
+                          >
+                            {processing ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="w-4 h-4" />
+                                Confirm Operator Paid
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {paid && (
+                      <div className="inline-flex items-center gap-2 text-sm text-emerald-400">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Operator payment confirmed as paid.
+                      </div>
+                    )}
+
+                    {cancelled && (
+                      <div className="inline-flex items-center gap-2 text-sm text-red-400">
+                        <XCircle className="w-4 h-4" />
+                        Operator payment cancelled.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="glass rounded-2xl overflow-hidden">
+        <div className="p-6 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <FileText className="w-5 h-5 text-accent-500" />
+
+            <div>
+              <h2 className="text-xl font-medium text-white">
+                Financial Records
+              </h2>
+
+              <p className="text-sm text-gray-500 mt-1">
+                Recorded financial transactions and their verification
+                evidence.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {financialRecords.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            No financial records recorded yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {financialRecords.slice(0, 10).map((record) => (
+              <div
+                key={record.id}
+                className="p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-sm font-medium text-white">
+                      {formatStatus(record.record_type)}
+                    </span>
+
+                    <span className="text-xs text-gray-500">
+                      {record.category}
+                    </span>
+
+                    <span
+                      className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${getStatusClasses(
+                        record.status
+                      )}`}
+                    >
+                      {formatStatus(record.status)}
+                    </span>
+                  </div>
+
+                  <div className="text-xs text-gray-500 mt-2 whitespace-pre-wrap break-words">
+                    {record.description || 'No verification message'}
+                  </div>
+
+                  <div className="text-xs text-gray-600 mt-1">
+                    {formatDate(record.record_date)}
+                    {record.reference_number
+                      ? ` • ${record.reference_number}`
+                      : ''}
+                  </div>
+                </div>
+
+                <div className="text-sm font-medium text-white shrink-0">
+                  {formatCurrency(toNumber(record.amount))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+

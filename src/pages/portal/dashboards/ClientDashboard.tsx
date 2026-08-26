@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
@@ -36,6 +36,17 @@ interface Invoice {
   created_at: string;
   due_date: string | null;
   project_id?: string | null;
+}
+
+interface Payment {
+  id: string;
+  invoice_id: string | null;
+  amount: number | null;
+  payment_date: string | null;
+  payment_method: string | null;
+  reference_number: string | null;
+  status: string | null;
+  created_at: string | null;
 }
 
 interface ActivityItem {
@@ -87,6 +98,63 @@ function formatCurrency(value: number | null | undefined) {
   }
 
   return `KSh ${value.toLocaleString()}`;
+}
+
+function isSuccessfulPayment(payment: Payment) {
+  const status = (payment.status || '').toLowerCase();
+
+  return (
+    status === '' ||
+    status === 'paid' ||
+    status === 'completed' ||
+    status === 'successful' ||
+    status === 'success'
+  );
+}
+
+function getInvoicePaidAmount(
+  invoice: Invoice,
+  payments: Payment[]
+) {
+  return payments
+    .filter(
+      (payment) =>
+        payment.invoice_id === invoice.id &&
+        isSuccessfulPayment(payment)
+    )
+    .reduce(
+      (total, payment) => total + Number(payment.amount || 0),
+      0
+    );
+}
+
+function getInvoiceBalance(
+  invoice: Invoice,
+  payments: Payment[]
+) {
+  const invoiceAmount = Number(invoice.amount || 0);
+  const paidAmount = getInvoicePaidAmount(invoice, payments);
+
+  return Math.max(invoiceAmount - paidAmount, 0);
+}
+
+function getInvoiceStatus(
+  invoice: Invoice,
+  payments: Payment[]
+) {
+  const invoiceAmount = Number(invoice.amount || 0);
+  const paidAmount = getInvoicePaidAmount(invoice, payments);
+  const balance = Math.max(invoiceAmount - paidAmount, 0);
+
+  if (invoiceAmount > 0 && balance <= 0) {
+    return 'paid';
+  }
+
+  if (paidAmount > 0 && balance > 0) {
+    return 'partial';
+  }
+
+  return (invoice.status || 'pending').toLowerCase();
 }
 
 function getStatusStyle(status: string | null | undefined) {
@@ -195,6 +263,7 @@ export default function ClientDashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -206,6 +275,7 @@ export default function ClientDashboard() {
       setProfile(null);
       setProjects([]);
       setInvoices([]);
+      setPayments([]);
       return;
     }
 
@@ -245,11 +315,33 @@ export default function ClientDashboard() {
         if (projectsResult.error) throw projectsResult.error;
         if (invoicesResult.error) throw invoicesResult.error;
 
+        const invoiceRows = (invoicesResult.data || []) as Invoice[];
+        const invoiceIds = invoiceRows.map((invoice) => invoice.id);
+
+        let paymentRows: Payment[] = [];
+
+        if (invoiceIds.length > 0) {
+          const {
+            data: paymentsData,
+            error: paymentsError,
+          } = await supabase
+            .from('payments')
+            .select(
+              'id, invoice_id, amount, payment_date, payment_method, reference_number, status, created_at'
+            )
+            .in('invoice_id', invoiceIds);
+
+          if (paymentsError) throw paymentsError;
+
+          paymentRows = (paymentsData || []) as Payment[];
+        }
+
         if (!mounted) return;
 
         setProfile(profileResult.data as Profile | null);
         setProjects((projectsResult.data || []) as Project[]);
-        setInvoices((invoicesResult.data || []) as Invoice[]);
+        setInvoices(invoiceRows);
+        setPayments(paymentRows);
       } catch (err) {
         console.error('Error loading client dashboard:', err);
 
@@ -297,31 +389,23 @@ export default function ClientDashboard() {
 
   const totalInvoiced = invoices.reduce(
     (total, invoice) =>
-      total + (typeof invoice.amount === 'number' ? invoice.amount : 0),
+      total + Number(invoice.amount || 0),
     0
   );
 
-  const paidAmount = invoices
-    .filter(
-      (invoice) =>
-        invoice.status?.toLowerCase() === 'paid' ||
-        invoice.status?.toLowerCase() === 'completed'
-    )
-    .reduce(
-      (total, invoice) =>
-        total + (typeof invoice.amount === 'number' ? invoice.amount : 0),
-      0
-    );
-
-  const outstandingInvoices = invoices.filter(
-    (invoice) =>
-      invoice.status?.toLowerCase() !== 'paid' &&
-      invoice.status?.toLowerCase() !== 'completed'
+  const paidAmount = invoices.reduce(
+    (total, invoice) =>
+      total + getInvoicePaidAmount(invoice, payments),
+    0
   );
 
-  const outstandingAmount = outstandingInvoices.reduce(
+  const outstandingInvoices = invoices.filter(
+    (invoice) => getInvoiceBalance(invoice, payments) > 0
+  );
+
+  const outstandingAmount = invoices.reduce(
     (total, invoice) =>
-      total + (typeof invoice.amount === 'number' ? invoice.amount : 0),
+      total + getInvoiceBalance(invoice, payments),
     0
   );
 
@@ -353,7 +437,9 @@ export default function ClientDashboard() {
     ...invoices.slice(0, 4).map((invoice) => ({
       id: `invoice-${invoice.id}`,
       title: `Invoice ${invoice.id.slice(0, 8)}`,
-      description: `Invoice status: ${formatStatus(invoice.status)}`,
+      description: `Invoice status: ${formatStatus(
+        getInvoiceStatus(invoice, payments)
+      )}`,
       createdAt: invoice.created_at,
       type: 'invoice' as const,
     })),
@@ -396,8 +482,6 @@ export default function ClientDashboard() {
 
   return (
     <div className="space-y-6 pb-8">
-
-      {/* Welcome */}
       <section className="relative overflow-hidden rounded-3xl border border-ink-800/50 bg-gradient-to-br from-accent-600/20 via-white/[0.04] to-transparent p-6 md:p-8">
         <div className="absolute -right-10 -top-10 h-56 w-56 rounded-full bg-accent-500/10 blur-3xl" />
         <div className="absolute bottom-0 left-1/3 h-32 w-32 rounded-full bg-accent-500/5 blur-3xl" />
@@ -419,7 +503,6 @@ export default function ClientDashboard() {
         </div>
       </section>
 
-      {/* Next action */}
       <section className="overflow-hidden rounded-3xl border border-accent-500/20 bg-accent-500/5 p-6 md:p-7">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-4">
@@ -452,7 +535,6 @@ export default function ClientDashboard() {
         </div>
       </section>
 
-      {/* Overview statistics */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="glass rounded-2xl border border-ink-800/50 p-5">
           <div className="flex items-center justify-between">
@@ -519,10 +601,7 @@ export default function ClientDashboard() {
         </div>
       </section>
 
-      {/* Project + progress */}
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_0.6fr]">
-
-        {/* Current project */}
         <div className="glass rounded-3xl border border-ink-800/50 p-6 md:p-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -573,7 +652,6 @@ export default function ClientDashboard() {
                 </div>
               </div>
 
-              {/* Progress */}
               <div className="mt-8">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-white">
@@ -660,7 +738,6 @@ export default function ClientDashboard() {
           )}
         </div>
 
-        {/* Quick access */}
         <div className="glass rounded-3xl border border-ink-800/50 p-6 md:p-7">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-ink-500">
             Client resources
@@ -754,7 +831,6 @@ export default function ClientDashboard() {
         </div>
       </section>
 
-      {/* Billing */}
       <section className="glass rounded-3xl border border-ink-800/50 p-6 md:p-7">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -854,10 +930,7 @@ export default function ClientDashboard() {
         )}
       </section>
 
-      {/* Activity + documents */}
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-
-        {/* Recent activity */}
         <div className="glass rounded-3xl border border-ink-800/50 p-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-ink-500">
@@ -913,7 +986,6 @@ export default function ClientDashboard() {
           )}
         </div>
 
-        {/* Documents */}
         <div className="glass rounded-3xl border border-ink-800/50 p-6">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-ink-500">
             Project resources

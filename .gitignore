@@ -27,3 +27,4 @@ dist-ssr
 .git-corrupted-backup/
 
 supabase/.temp/
+.vercel
