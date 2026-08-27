@@ -1,37 +1,70 @@
-﻿import {
+import { useEffect, useState } from 'react';
+import {
   Navigate,
   Outlet,
   useLocation,
 } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
+import { supabase } from '../../lib/supabase';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children?: React.ReactNode;
   requiredRoles?: string[];
+  requiresConnectorTerms?: boolean;
 }
 
 export default function ProtectedRoute({
   children,
   requiredRoles,
+  requiresConnectorTerms = false,
 }: ProtectedRouteProps) {
-  const {
-    user,
-    loading,
-    roles,
-    rolesLoading,
-  } = useAuth();
-
+  const { user, loading, roles, rolesLoading } = useAuth();
   const location = useLocation();
+  const [connectorAccessLoading, setConnectorAccessLoading] = useState(requiresConnectorTerms);
+  const [connectorAccessAllowed, setConnectorAccessAllowed] = useState(!requiresConnectorTerms);
 
-  /*
-   * Wait until authentication and role
-   * resolution have both completed.
-   */
-  if (
-    loading ||
-    (user && rolesLoading)
-  ) {
+  useEffect(() => {
+    if (!requiresConnectorTerms || !user) {
+      setConnectorAccessLoading(false);
+      setConnectorAccessAllowed(!requiresConnectorTerms);
+      return;
+    }
+
+    let mounted = true;
+
+    const checkConnectorAccess = async () => {
+      setConnectorAccessLoading(true);
+
+      try {
+        const { data, error } = await supabase
+          .from('connector_profiles')
+          .select('is_active, terms_accepted_at, terms_version')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!mounted) return;
+
+        setConnectorAccessAllowed(Boolean(
+          data?.is_active && data?.terms_accepted_at && data?.terms_version,
+        ));
+      } catch (error) {
+        console.error('Connector access check failed:', error);
+        if (mounted) setConnectorAccessAllowed(false);
+      } finally {
+        if (mounted) setConnectorAccessLoading(false);
+      }
+    };
+
+    void checkConnectorAccess();
+
+    return () => {
+      mounted = false;
+    };
+  }, [requiresConnectorTerms, user?.id]);
+
+  if (loading || (user && rolesLoading) || connectorAccessLoading) {
     return (
       <div className="min-h-screen bg-ink-950 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-accent-400 animate-spin" />
@@ -39,100 +72,39 @@ export default function ProtectedRoute({
     );
   }
 
-  /*
-   * No authenticated session.
-   */
   if (!user) {
     return (
       <Navigate
         to="/login"
         replace
-        state={{
-          from: location.pathname,
-        }}
+        state={{ from: location.pathname }}
       />
     );
   }
 
-  /*
-   * Authentication-only route.
-   *
-   * This is used by the main client portal.
-   */
-  if (
-    !requiredRoles ||
-    requiredRoles.length === 0
-  ) {
-    return children ? (
-      <>{children}</>
-    ) : (
-      <Outlet />
-    );
+  if (!requiredRoles || requiredRoles.length === 0) {
+    return children ? <>{children}</> : <Outlet />;
   }
 
-  /*
-   * Normalize both the user's roles and
-   * the roles required by the route.
-   */
-  const normalizedUserRoles =
-    roles
-      .map((role) =>
-        String(role)
-          .trim()
-          .toLowerCase()
-      )
-      .filter(Boolean);
+  const normalizedUserRoles = roles
+    .map((role) => String(role).trim().toLowerCase())
+    .filter(Boolean);
 
-  const normalizedRequiredRoles =
-    requiredRoles
-      .map((role) =>
-        String(role)
-          .trim()
-          .toLowerCase()
-      )
-      .filter(Boolean);
+  const normalizedRequiredRoles = requiredRoles
+    .map((role) => String(role).trim().toLowerCase())
+    .filter(Boolean);
 
-  /*
-   * Role separation remains strict.
-   *
-   * A user only receives access when one of
-   * their actual assigned roles matches the
-   * role required by the route.
-   *
-   * Owner is NOT automatically treated as:
-   * - admin
-   * - operator
-   * - connector
-   * - client
-   *
-   * Routes must explicitly grant Owner access
-   * where appropriate.
-   */
-  const hasRequiredRole =
-    normalizedRequiredRoles.some(
-      (role) =>
-        normalizedUserRoles.includes(role)
-    );
+  const hasRequiredRole = normalizedRequiredRoles.some((role) =>
+    normalizedUserRoles.includes(role),
+  );
 
   if (!hasRequiredRole) {
-    /*
-     * The user is authenticated but does not
-     * have permission for this route.
-     *
-     * Send them to the main portal instead
-     * of exposing another role's dashboard.
-     */
-    return (
-      <Navigate
-        to="/portal"
-        replace
-      />
-    );
+    return <Navigate to="/portal" replace />;
   }
 
-  return children ? (
-    <>{children}</>
-  ) : (
-    <Outlet />
-  );
+  if (requiresConnectorTerms && !connectorAccessAllowed) {
+    return <Navigate to="/portal/connector/terms" replace />;
+  }
+
+  return children ? <>{children}</> : <Outlet />;
 }
