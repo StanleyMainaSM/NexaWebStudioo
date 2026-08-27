@@ -44,28 +44,56 @@ export default function ConnectorApplications() {
     void load();
   }, []);
 
-  const updateApplication = async (id: string, status: 'approved' | 'rejected') => {
-    setProcessing(id);
+  const getToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('Your session has expired. Please sign in again.');
+    }
+    return session.access_token;
+  };
+
+  const updateApplication = async (application: Application, status: 'approved' | 'rejected') => {
+    setProcessing(application.id);
     setError('');
     setMessage('');
+
     try {
-      const { error: updateError } = await supabase
-        .from('connector_applications')
-        .update({
-          status,
-          rejection_reason: status === 'rejected' ? 'Rejected by Avelixa administration.' : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .eq('status', 'pending');
+      if (status === 'approved') {
+        const token = await getToken();
+        const response = await fetch(`/api/admin/connector-applications/${application.id}/approve`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-      if (updateError) throw updateError;
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(result.error || 'Unable to approve Connector application.');
+        }
 
-      setMessage(status === 'approved' ? 'Connector application approved.' : 'Connector application rejected.');
+        setMessage(result.message || 'Connector application approved. A password setup invitation has been sent.');
+      } else {
+        const { error: updateError } = await supabase
+          .from('connector_applications')
+          .update({
+            status: 'rejected',
+            rejection_reason: 'Rejected by Avelixa administration.',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', application.id)
+          .eq('status', 'pending');
+
+        if (updateError) throw updateError;
+
+        setMessage('Connector application rejected. Connector access has been disabled.');
+      }
+
       await load();
     } catch (e: any) {
       console.error(e);
-      setError(e?.message || 'Unable to update Connector application.');
+      setError(e?.message || `Unable to ${status} Connector application.`);
     } finally {
       setProcessing(null);
     }
@@ -121,11 +149,11 @@ export default function ConnectorApplications() {
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 shrink-0">
-                  <button type="button" disabled={processing === application.id} onClick={() => void updateApplication(application.id, 'rejected')} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 px-5 py-3 text-sm font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-50">
+                  <button type="button" disabled={processing === application.id} onClick={() => void updateApplication(application, 'rejected')} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 px-5 py-3 text-sm font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-50">
                     {processing === application.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
                     Reject
                   </button>
-                  <button type="button" disabled={processing === application.id} onClick={() => void updateApplication(application.id, 'approved')} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-5 py-3 text-sm font-medium text-white hover:bg-accent-500 disabled:opacity-50">
+                  <button type="button" disabled={processing === application.id} onClick={() => void updateApplication(application, 'approved')} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-5 py-3 text-sm font-medium text-white hover:bg-accent-500 disabled:opacity-50">
                     {processing === application.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                     Approve Connector
                   </button>
