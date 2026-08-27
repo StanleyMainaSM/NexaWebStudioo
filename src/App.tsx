@@ -95,6 +95,7 @@ export default function App() {
 
             <Route path="leads/new" element={<ProtectedRoute requiredRoles={['connector']}><SubmitLead /></ProtectedRoute>} />
             <Route path="connector" element={<ProtectedRoute requiredRoles={['connector']}><ConnectorDashboard /></ProtectedRoute>} />
+            <Route path="connector/applications" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><ConnectorApplications /></ProtectedRoute>} />
 
             <Route path="admin" element={<ProtectedRoute requiredRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
             <Route path="admin/projects" element={<ProtectedRoute requiredRoles={['admin']}><AdminProjects /></ProtectedRoute>} />
