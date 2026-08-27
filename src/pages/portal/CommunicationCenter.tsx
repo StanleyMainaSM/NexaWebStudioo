@@ -183,20 +183,18 @@ export default function CommunicationCenter() {
   useEffect(() => {
     if (!user) return;
     let mounted = true;
-    const listen = async () => {
-      await supabase.realtime.setAuth();
-      const channel = supabase.channel(`user_calls:${user.id}`, { config: { private: true } });
-      channel.on('broadcast', { event: 'incoming_call' }, ({ payload }) => {
-        if (!mounted || activeCall) return;
-        const value = payload as ActiveCall;
-        setActiveCall({ ...value, isIncoming: true });
-      });
-      await channel.subscribe();
-      return channel;
-    };
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    void listen().then((created) => { channel = created; }).catch((listenError) => console.warn('Avelixa incoming call listener failed:', listenError));
-    return () => { mounted = false; if (channel) void supabase.removeChannel(channel); };
+    const channel = supabase.channel(`call-session-${user.id}`);
+    channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'call_sessions', filter: `callee_id=eq.${user.id}` }, async ({ new: row }) => {
+      if (!mounted || activeCall) return;
+      const callRow = row as { id: string; caller_id: string; callee_id: string; call_type: 'voice' | 'video'; status: string; direct_conversation_id: string | null; admin_conversation_id: string | null };
+      if (callRow.status !== 'ringing') return;
+      let remoteName = 'Avelixa User';
+      const { data: profile } = await supabase.from('profiles').select('full_name,email').eq('id', callRow.caller_id).maybeSingle();
+      if (profile) remoteName = displayName(profile.full_name, profile.email, remoteName);
+      setActiveCall({ id: callRow.id, callType: callRow.call_type, callerId: callRow.caller_id, calleeId: callRow.callee_id, remoteName, isIncoming: true, directConversationId: callRow.direct_conversation_id, adminConversationId: callRow.admin_conversation_id });
+    });
+    void channel.subscribe().catch((listenError) => console.warn('Avelixa call session listener failed:', listenError));
+    return () => { mounted = false; void supabase.removeChannel(channel); };
   }, [user, activeCall]);
 
   const findRecipient = async (event: FormEvent) => {
@@ -269,19 +267,7 @@ export default function CommunicationCenter() {
     const { data: session, error: callError } = await supabase.from('call_sessions').insert({ ...payload, caller_id: user.id, callee_id: calleeId, call_type: callType, status: 'ringing' }).select('id').single();
     if (callError) { setError(`Could not start call: ${errorText(callError)}`); return; }
     const call: ActiveCall = { id: session.id, callType, callerId: user.id, calleeId, remoteName, isIncoming: false, directConversationId: selected.kind === 'direct' ? selected.id : null, adminConversationId: selected.kind === 'admin' ? selected.id : null };
-    try {
-      await supabase.realtime.setAuth();
-      const signal = supabase.channel(`user_calls:${calleeId}`, { config: { private: true, broadcast: { ack: true } } });
-      signal.on('broadcast', { event: 'noop' }, () => undefined);
-      const subscription = await signal.subscribe();
-      if (subscription !== 'SUBSCRIBED') throw new Error('Could not reach the recipient.');
-      await signal.send({ type: 'broadcast', event: 'incoming_call', payload: { ...call, isIncoming: true, call_id: call.id } });
-      await supabase.removeChannel(signal);
-      setActiveCall(call);
-    } catch (signalError) {
-      await supabase.from('call_sessions').update({ status: 'failed', ended_at: new Date().toISOString() }).eq('id', session.id);
-      setError(`Could not notify the recipient: ${errorText(signalError)}`);
-    }
+    setActiveCall(call);
   };
 
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-accent-400" /></div>;
