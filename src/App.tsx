@@ -31,7 +31,7 @@ import Settings from './pages/portal/Settings';
 import SubmitLead from './pages/portal/SubmitLead';
 import ConnectorLeads from './pages/portal/ConnectorLeads';
 import ConnectorTerms from './pages/portal/ConnectorTerms';
-import Messages from './pages/portal/Messages';
+import CommunicationCenter from './pages/portal/CommunicationCenter';
 import ReviewsModeration from './pages/portal/ReviewsModeration';
 import PortfolioManagement from './pages/portal/PortfolioManagement';
 import FinanceDashboard from './pages/portal/FinanceDashboard';
@@ -95,7 +95,7 @@ export default function App() {
             <Route path="documents" element={<Documents />} />
             <Route path="activity" element={<Activity />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="messages" element={<Messages />} />
+            <Route path="messages" element={<CommunicationCenter />} />
 
             <Route path="connector/terms" element={<ProtectedRoute requiredRoles={['connector']}><ConnectorTerms /></ProtectedRoute>} />
             <Route path="leads/new" element={<ProtectedRoute requiredRoles={['connector']} requiresConnectorTerms><SubmitLead /></ProtectedRoute>} />
