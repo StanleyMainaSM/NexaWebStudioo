@@ -31,7 +31,7 @@ import Settings from './pages/portal/Settings';
 import SubmitLead from './pages/portal/SubmitLead';
 import ConnectorLeads from './pages/portal/ConnectorLeads';
 import ConnectorTerms from './pages/portal/ConnectorTerms';
-import CommunicationCenter from './pages/portal/CommunicationCenter';
+import CommunicationCenter from './pages/portal/CommunicationCenterV2';
 import ReviewsModeration from './pages/portal/ReviewsModeration';
 import PortfolioManagement from './pages/portal/PortfolioManagement';
 import FinanceDashboard from './pages/portal/FinanceDashboard';
