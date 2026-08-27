@@ -18,6 +18,7 @@ import { AuthProvider } from './lib/auth';
 import ProtectedRoute from './components/portal/ProtectedRoute';
 import Login from './pages/portal/Login';
 import Signup from './pages/portal/Signup';
+import ResetPassword from './pages/portal/ResetPassword';
 import PortalLayout from './pages/portal/PortalLayout';
 import PortalHome from './pages/portal/PortalHome';
 import Projects from './pages/portal/Projects';
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/portal/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           <Route path="/portal" element={<ProtectedRoute><PortalLayout /></ProtectedRoute>}>
             <Route index element={<PortalHome />} />
