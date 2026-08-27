@@ -11,6 +11,7 @@ type DirectConversation = { kind: 'direct'; id: string; otherUserId: string; oth
 type Conversation = AdminConversation | DirectConversation;
 type ChatMessage = { id: string; conversation_id: string; sender_id: string; recipient_id: string | null; content: string; read_at: string | null; created_at: string; kind: 'admin' | 'direct' };
 type Recipient = { user_id: string; full_name: string | null; email: string | null; role_context: string | null; connector_id: string | null };
+type CallSession = { id: string; caller_id: string; callee_id: string; call_type: 'voice' | 'video'; status: string; direct_conversation_id: string | null; admin_conversation_id: string | null };
 
 function errorText(error: unknown) {
   if (!error) return 'Unknown database error.';
@@ -124,18 +125,22 @@ export default function CommunicationCenter() {
   useEffect(() => {
     if (!user) return;
     let mounted = true;
-    const channel = supabase.channel(`call-session-${user.id}`);
-    channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'call_sessions', filter: `callee_id=eq.${user.id}` }, async ({ new: row }) => {
+    let lastCallId: string | null = null;
+    const poll = async () => {
       if (!mounted || activeCall) return;
-      const callRow = row as { id: string; caller_id: string; callee_id: string; call_type: 'voice' | 'video'; status: string; direct_conversation_id: string | null; admin_conversation_id: string | null };
-      if (callRow.status !== 'ringing') return;
+      const { data, error: pollError } = await supabase.from('call_sessions').select('id,caller_id,callee_id,call_type,status,direct_conversation_id,admin_conversation_id').eq('callee_id', user.id).eq('status', 'ringing').order('created_at', { ascending: false }).limit(1);
+      if (pollError || !mounted || !data?.length) return;
+      const callRow = data[0] as CallSession;
+      if (callRow.id === lastCallId) return;
+      lastCallId = callRow.id;
       let remoteName = 'Avelixa User';
       const { data: profile } = await supabase.from('profiles').select('full_name,email').eq('id', callRow.caller_id).maybeSingle();
       if (profile) remoteName = displayName(profile.full_name, profile.email, remoteName);
       setActiveCall({ id: callRow.id, callType: callRow.call_type, callerId: callRow.caller_id, calleeId: callRow.callee_id, remoteName, isIncoming: true, directConversationId: callRow.direct_conversation_id, adminConversationId: callRow.admin_conversation_id });
-    });
-    void channel.subscribe().catch((listenError) => console.warn('Avelixa call session listener failed:', listenError));
-    return () => { mounted = false; void supabase.removeChannel(channel); };
+    };
+    void poll();
+    const timer = window.setInterval(() => void poll(), 2000);
+    return () => { mounted = false; window.clearInterval(timer); };
   }, [user, activeCall]);
 
   const findRecipient = async (event: FormEvent) => {
