@@ -1,6 +1,7 @@
--- Allow notification triggers to safely use ON CONFLICT (dedupe_key).
--- The partial unique index permits multiple NULL dedupe keys while enforcing
--- uniqueness for generated notification deduplication keys.
-create unique index if not exists notifications_dedupe_key_unique_idx
-on public.notifications (dedupe_key)
-where dedupe_key is not null;
+-- Make the conflict target used by communication notification triggers
+-- unambiguous. A regular unique index still permits multiple NULL values,
+-- while ON CONFLICT (dedupe_key) can resolve the target without a predicate.
+drop index if exists public.notifications_dedupe_key_unique_idx;
+drop index if exists public.notifications_dedupe_key_uidx;
+create unique index notifications_dedupe_key_uidx
+  on public.notifications (dedupe_key);
