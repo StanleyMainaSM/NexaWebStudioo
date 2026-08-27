@@ -30,6 +30,7 @@ import Activity from './pages/portal/Activity';
 import Settings from './pages/portal/Settings';
 import SubmitLead from './pages/portal/SubmitLead';
 import ConnectorLeads from './pages/portal/ConnectorLeads';
+import ConnectorTerms from './pages/portal/ConnectorTerms';
 import Messages from './pages/portal/Messages';
 import ReviewsModeration from './pages/portal/ReviewsModeration';
 import PortfolioManagement from './pages/portal/PortfolioManagement';
@@ -96,9 +97,10 @@ export default function App() {
             <Route path="settings" element={<Settings />} />
             <Route path="messages" element={<Messages />} />
 
-            <Route path="leads/new" element={<ProtectedRoute requiredRoles={['connector']}><SubmitLead /></ProtectedRoute>} />
-            <Route path="connector" element={<ProtectedRoute requiredRoles={['connector']}><ConnectorDashboard /></ProtectedRoute>} />
-            <Route path="connector/leads" element={<ProtectedRoute requiredRoles={['connector']}><ConnectorLeads /></ProtectedRoute>} />
+            <Route path="connector/terms" element={<ProtectedRoute requiredRoles={['connector']}><ConnectorTerms /></ProtectedRoute>} />
+            <Route path="leads/new" element={<ProtectedRoute requiredRoles={['connector']} requiresConnectorTerms><SubmitLead /></ProtectedRoute>} />
+            <Route path="connector" element={<ProtectedRoute requiredRoles={['connector']} requiresConnectorTerms><ConnectorDashboard /></ProtectedRoute>} />
+            <Route path="connector/leads" element={<ProtectedRoute requiredRoles={['connector']} requiresConnectorTerms><ConnectorLeads /></ProtectedRoute>} />
             <Route path="connector/applications" element={<ProtectedRoute requiredRoles={['owner', 'admin']}><ConnectorApplications /></ProtectedRoute>} />
 
             <Route path="admin" element={<ProtectedRoute requiredRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
