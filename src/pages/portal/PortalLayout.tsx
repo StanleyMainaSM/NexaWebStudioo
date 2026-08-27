@@ -20,7 +20,7 @@ const workspaceDefinitions: Record<WorkspaceKey, Workspace> = {
 function getCurrentWorkspace(pathname: string, roles: string[]): WorkspaceKey {
   if (pathname.startsWith('/portal/owner')) return 'owner';
   if (pathname.startsWith('/portal/admin')) return 'admin';
-  if (pathname.startsWith('/portal/connector')) return 'connector';
+  if (pathname.startsWith('/portal/connector/')) return 'connector';
   if (pathname.startsWith('/portal/operator')) return 'operator';
   if (pathname.startsWith('/portal/clients') || pathname.startsWith('/portal/reviews') || pathname.startsWith('/portal/portfolio') || pathname.startsWith('/portal/services') || pathname.startsWith('/portal/website-packages') || pathname.startsWith('/portal/maintenance') || pathname.startsWith('/portal/hosting') || pathname.startsWith('/portal/revenue') || pathname.startsWith('/portal/connector-applications')) {
     if (roles.includes('owner')) return 'owner';
