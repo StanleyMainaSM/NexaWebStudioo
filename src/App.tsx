@@ -19,6 +19,7 @@ import ProtectedRoute from './components/portal/ProtectedRoute';
 import Login from './pages/portal/Login';
 import Signup from './pages/portal/Signup';
 import ResetPassword from './pages/portal/ResetPassword';
+import SetPassword from './pages/portal/SetPassword';
 import PortalLayout from './pages/portal/PortalLayout';
 import PortalHome from './pages/portal/PortalHome';
 import Projects from './pages/portal/Projects';
@@ -85,6 +86,7 @@ export default function App() {
           <Route path="/portal/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/set-password" element={<SetPassword />} />
 
           <Route path="/portal" element={<ProtectedRoute><PortalLayout /></ProtectedRoute>}>
             <Route index element={<PortalHome />} />
