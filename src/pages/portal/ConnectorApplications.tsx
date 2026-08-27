@@ -44,49 +44,36 @@ export default function ConnectorApplications() {
     void load();
   }, []);
 
-  const getToken = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
-      throw new Error('Your session has expired. Please sign in again.');
-    }
-    return session.access_token;
-  };
-
   const updateApplication = async (application: Application, status: 'approved' | 'rejected') => {
     setProcessing(application.id);
     setError('');
     setMessage('');
 
     try {
+      const { error: updateError } = await supabase
+        .from('connector_applications')
+        .update(
+          status === 'approved'
+            ? {
+                status: 'approved',
+                updated_at: new Date().toISOString(),
+              }
+            : {
+                status: 'rejected',
+                rejection_reason: 'Rejected by Avelixa administration.',
+                updated_at: new Date().toISOString(),
+              },
+        )
+        .eq('id', application.id)
+        .eq('status', 'pending');
+
+      if (updateError) throw updateError;
+
       if (status === 'approved') {
-        const token = await getToken();
-        const response = await fetch(`/api/admin/connector-applications/${application.id}/approve`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(result.error || 'Unable to approve Connector application.');
-        }
-
-        setMessage(result.message || 'Connector application approved. A password setup invitation has been sent.');
+        setMessage(
+          'Connector application approved. Account provisioning and the password setup invitation will be handled automatically.',
+        );
       } else {
-        const { error: updateError } = await supabase
-          .from('connector_applications')
-          .update({
-            status: 'rejected',
-            rejection_reason: 'Rejected by Avelixa administration.',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', application.id)
-          .eq('status', 'pending');
-
-        if (updateError) throw updateError;
-
         setMessage('Connector application rejected. Connector access has been disabled.');
       }
 
