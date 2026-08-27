@@ -1,1 +1,1 @@
-export { default } from './MessagesV3';
+export { default } from './MessagesV4';
