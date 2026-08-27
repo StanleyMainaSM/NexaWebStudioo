@@ -1,661 +1,106 @@
-import { useEffect, useState } from 'react';
-import {
-  Loader2,
-  Save,
-  Settings as SettingsIcon,
-  UserCircle2,
-  X,
-  Lock,
-  ShieldCheck,
-} from 'lucide-react';
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
+import { Bell, Camera, Loader2, Lock, Save, Settings as SettingsIcon, ShieldCheck, Volume2, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 
-interface ProfileRecord {
-  id: string;
-  email: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
+type Profile = { id: string; email: string; full_name: string | null; avatar_url: string | null };
+type NotificationPrefs = { user_id: string; message_notifications: boolean; call_notifications: boolean; sound_enabled: boolean; vibration_enabled: boolean; message_sound_url: string | null; voice_ringtone_url: string | null; video_ringtone_url: string | null };
 
 export default function Settings() {
   const { user } = useAuth();
-
-  const [profile, setProfile] = useState<ProfileRecord | null>(null);
-  const [formData, setFormData] = useState({
-    full_name: '',
-    avatar_url: '',
-  });
-
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [name, setName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
+  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
+  const [savingPrefs, setSavingPrefs] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [changingPassword, setChangingPassword] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordBusy, setPasswordBusy] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
-    const currentUserId = user?.id;
-
-    if (!currentUserId) {
+    if (!user?.id) { setLoading(false); return; }
+    let mounted = true;
+    const load = async () => {
+      setLoading(true); setError(null);
+      const [{ data: profileRow, error: profileError }, { data: prefRow, error: prefError }] = await Promise.all([
+        supabase.from('profiles').select('id,email,full_name,avatar_url').eq('id', user.id).maybeSingle(),
+        supabase.from('user_notification_preferences').select('*').eq('user_id', user.id).maybeSingle(),
+      ]);
+      if (!mounted) return;
+      if (profileError) setError('We could not load your profile right now.');
+      if (profileRow) { const p = profileRow as Profile; setProfile(p); setName(p.full_name || ''); setAvatarUrl(p.avatar_url || ''); }
+      if (prefError) console.warn('Notification preferences could not be loaded', prefError);
+      setPrefs((prefRow as NotificationPrefs | null) || { user_id: user.id, message_notifications: true, call_notifications: true, sound_enabled: true, vibration_enabled: true, message_sound_url: null, voice_ringtone_url: null, video_ringtone_url: null });
       setLoading(false);
-      return;
-    }
-
-    let isMounted = true;
-
-    async function loadProfile() {
-      setLoading(true);
-      setError(null);
-      setSuccess(null);
-
-      try {
-        const { data, error: profileError } = await supabase
-          .from('profiles')
-          .select(
-            'id, email, full_name, avatar_url, created_at, updated_at'
-          )
-          .eq('id', currentUserId)
-          .maybeSingle();
-
-        if (profileError) {
-          throw profileError;
-        }
-
-        if (!isMounted) {
-          return;
-        }
-
-        if (data) {
-          const profileData = data as ProfileRecord;
-
-          setProfile(profileData);
-
-          setFormData({
-            full_name: profileData.full_name ?? '',
-            avatar_url: profileData.avatar_url ?? '',
-          });
-
-          setEditing(false);
-        } else {
-          setProfile(null);
-          setFormData({
-            full_name: '',
-            avatar_url: '',
-          });
-          setEditing(true);
-        }
-      } catch (profileLoadError) {
-        console.error('Profile loading error:', profileLoadError);
-
-        if (isMounted) {
-          setError(
-            'We could not load your profile information right now.'
-          );
-          setProfile(null);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadProfile();
-
-    return () => {
-      isMounted = false;
     };
+    void load(); return () => { mounted = false; };
   }, [user?.id]);
 
-  const handleChange = (
-    field: 'full_name' | 'avatar_url',
-    value: string
-  ) => {
-    setFormData((current) => ({
-      ...current,
-      [field]: value,
-    }));
-  };
-
-  const resetFromProfile = () => {
-    if (profile) {
-      setFormData({
-        full_name: profile.full_name ?? '',
-        avatar_url: profile.avatar_url ?? '',
-      });
-    } else {
-      setFormData({
-        full_name: '',
-        avatar_url: '',
-      });
-    }
-
-    setEditing(false);
-    setError(null);
-    setSuccess(null);
-  };
-
-  const handleSave = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    if (!user?.id) {
-      return;
-    }
-
-    setSaving(true);
-    setError(null);
-    setSuccess(null);
-
+  const uploadAvatar = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]; if (!file || !user?.id) return;
+    if (!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)) { setError('Please choose a JPG, PNG, WebP, or GIF image.'); return; }
+    if (file.size > 5 * 1024 * 1024) { setError('Profile pictures must be 5 MB or smaller.'); return; }
+    setUploading(true); setError(null); setMessage(null);
     try {
-      const payload = {
-        id: user.id,
-        email: user.email ?? profile?.email ?? '',
-        full_name: formData.full_name.trim() || null,
-        avatar_url: formData.avatar_url.trim() || null,
-      };
-
-      const { data, error: saveError } = await supabase
-        .from('profiles')
-        .upsert(payload, {
-          onConflict: 'id',
-        })
-        .select(
-          'id, email, full_name, avatar_url, created_at, updated_at'
-        )
-        .single();
-
-      if (saveError) {
-        throw saveError;
-      }
-
-      const updatedProfile = data as ProfileRecord;
-
-      setProfile(updatedProfile);
-
-      setFormData({
-        full_name: updatedProfile.full_name ?? '',
-        avatar_url: updatedProfile.avatar_url ?? '',
-      });
-
-      setEditing(false);
-
-      setSuccess(
-        'Your profile information has been updated.'
-      );
-    } catch (saveProfileError) {
-      console.error(
-        'Profile save error:',
-        saveProfileError
-      );
-
-      setError(
-        'Your profile could not be saved right now. Please try again.'
-      );
-    } finally {
-      setSaving(false);
-    }
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `${user.id}/${crypto.randomUUID()}.${extension}`;
+      const { error: uploadError } = await supabase.storage.from('profile-avatars').upload(path, file, { upsert: true, contentType: file.type, cacheControl: '3600' });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from('profile-avatars').getPublicUrl(path);
+      const url = data.publicUrl;
+      const { error: profileError } = await supabase.from('profiles').upsert({ id: user.id, email: user.email || profile?.email || '', full_name: name.trim() || null, avatar_url: url }, { onConflict: 'id' });
+      if (profileError) throw profileError;
+      setAvatarUrl(url); setProfile((current) => current ? { ...current, avatar_url: url } : { id: user.id, email: user.email || '', full_name: name.trim() || null, avatar_url: url }); setMessage('Profile picture updated successfully.');
+    } catch (uploadError) { console.error(uploadError); setError('Your profile picture could not be uploaded. Please try again.'); }
+    finally { setUploading(false); if (fileRef.current) fileRef.current.value = ''; }
   };
 
-  const handleChangePassword = async (
-    event: React.FormEvent
-  ) => {
-    event.preventDefault();
-
-    setPasswordMessage(null);
-    setPasswordError(null);
-
-    if (!currentPassword) {
-      setPasswordError(
-        'Please enter your current password.'
-      );
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      setPasswordError(
-        'Your new password must be at least 8 characters long.'
-      );
-      return;
-    }
-
-    if (newPassword !== confirmNewPassword) {
-      setPasswordError(
-        'The new passwords do not match.'
-      );
-      return;
-    }
-
-    if (currentPassword === newPassword) {
-      setPasswordError(
-        'Your new password must be different from your current password.'
-      );
-      return;
-    }
-
-    if (!user?.email) {
-      setPasswordError(
-        'Your account email could not be determined.'
-      );
-      return;
-    }
-
-    setChangingPassword(true);
-
-    try {
-      const { error: verifyError } =
-        await supabase.auth.signInWithPassword({
-          email: user.email,
-          password: currentPassword,
-        });
-
-      if (verifyError) {
-        setPasswordError(
-          'Your current password is incorrect.'
-        );
-        return;
-      }
-
-      const { error: updateError } =
-        await supabase.auth.updateUser({
-          password: newPassword,
-        });
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmNewPassword('');
-
-      setPasswordMessage(
-        'Your password has been changed successfully.'
-      );
-    } catch (passwordChangeError: any) {
-      console.error(
-        'Password change error:',
-        passwordChangeError
-      );
-
-      setPasswordError(
-        passwordChangeError?.message ||
-          'Your password could not be changed right now. Please try again.'
-      );
-    } finally {
-      setChangingPassword(false);
-    }
+  const saveProfile = async (event: FormEvent) => {
+    event.preventDefault(); if (!user?.id) return; setSaving(true); setError(null); setMessage(null);
+    try { const { data, error: saveError } = await supabase.from('profiles').upsert({ id: user.id, email: user.email || profile?.email || '', full_name: name.trim() || null, avatar_url: avatarUrl.trim() || null }, { onConflict: 'id' }).select('id,email,full_name,avatar_url').single(); if (saveError) throw saveError; setProfile(data as Profile); setEditing(false); setMessage('Your profile information has been updated.'); } catch (saveError) { console.error(saveError); setError('Your profile could not be saved right now.'); } finally { setSaving(false); }
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-white">
-          Settings
-        </h1>
+  const savePreferences = async () => {
+    if (!user?.id || !prefs) return; setSavingPrefs(true); setError(null); setMessage(null);
+    const { error: prefError } = await supabase.from('user_notification_preferences').upsert({ ...prefs, user_id: user.id, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (prefError) setError('Notification preferences could not be saved.'); else setMessage('Notification preferences saved.'); setSavingPrefs(false);
+  };
 
-        <p className="mt-2 text-gray-400">
-          Manage your Avelixa client profile and account details.
-        </p>
+  const changePassword = async (event: FormEvent) => {
+    event.preventDefault(); setPasswordMessage(null); setPasswordError(null);
+    if (!user?.email) { setPasswordError('Your account email could not be determined.'); return; }
+    if (!currentPassword) { setPasswordError('Please enter your current password.'); return; }
+    if (newPassword.length < 8) { setPasswordError('Your new password must be at least 8 characters long.'); return; }
+    if (newPassword !== confirmPassword) { setPasswordError('The new passwords do not match.'); return; }
+    setPasswordBusy(true);
+    try { const { error: verifyError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword }); if (verifyError) { setPasswordError('Your current password is incorrect.'); return; } const { error: updateError } = await supabase.auth.updateUser({ password: newPassword }); if (updateError) throw updateError; setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); setPasswordMessage('Your password has been changed successfully.'); } catch (passwordChangeError) { console.error(passwordChangeError); setPasswordError(passwordChangeError instanceof Error ? passwordChangeError.message : 'Your password could not be changed right now.'); } finally { setPasswordBusy(false); }
+  };
+
+  if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-accent-400" /></div>;
+  const initials = (name || user?.email || 'U').trim().charAt(0).toUpperCase();
+  return <div className="space-y-6">
+    <div><h1 className="text-3xl font-semibold text-white">Settings</h1><p className="mt-2 text-gray-400">Manage your Avelixa profile, notifications, sounds and account security.</p></div>
+    {(message || error) && <div className={`rounded-xl border px-4 py-3 text-sm ${error ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'}`}>{error || message}</div>}
+    <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+      <div className="space-y-6">
+        <section className="glass rounded-2xl border border-ink-800/50 p-6 sm:p-8">
+          <div className="flex items-center gap-4"><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-500/10"><SettingsIcon className="h-6 w-6 text-accent-400" /></div><div><h2 className="text-xl font-medium text-white">Profile</h2><p className="text-sm text-gray-400">Your name and profile picture are used across Avelixa.</p></div></div>
+          <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-center"><div className="relative h-24 w-24 shrink-0"><div className="h-24 w-24 overflow-hidden rounded-full border border-white/10 bg-accent-500/10 flex items-center justify-center text-2xl font-semibold text-accent-300">{avatarUrl ? <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" /> : initials}</div><button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink-950 bg-accent-500 text-white shadow-lg hover:bg-accent-400 disabled:opacity-60" aria-label="Change profile picture">{uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}</button><input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={uploadAvatar} className="hidden" /></div><div><div className="text-sm font-semibold text-white">{name || 'No display name set'}</div><div className="mt-1 text-sm text-gray-400">{user?.email}</div><button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-300 hover:text-white disabled:opacity-60"><Camera className="h-4 w-4" />{uploading ? 'Uploadingâ€¦' : 'Change picture'}</button></div></div>
+          <form onSubmit={saveProfile} className="mt-7 space-y-5"><label className="block text-sm"><span className="mb-2 block text-gray-300">Full name</span><input value={name} onChange={(event) => setName(event.target.value)} disabled={!editing || saving} className="w-full rounded-xl border border-ink-800/60 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-accent-500 disabled:opacity-70" placeholder="Enter your full name" /></label><div className="flex gap-3">{!editing ? <button type="button" onClick={() => setEditing(true)} className="rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-500">Edit profile</button> : <><button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-500 disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Save changes</button><button type="button" onClick={() => { setName(profile?.full_name || ''); setEditing(false); }} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-sm text-gray-300 hover:text-white"><X className="h-4 w-4" />Cancel</button></>}</div></form>
+        </section>
+        <section className="glass rounded-2xl border border-ink-800/50 p-6"><div className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-accent-400" /><div><h3 className="text-lg font-medium text-white">Password & Security</h3><p className="text-sm text-gray-400">Change your Avelixa password.</p></div></div>{passwordMessage && <div className="mt-4 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">{passwordMessage}</div>}{passwordError && <div className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">{passwordError}</div>}<form onSubmit={changePassword} className="mt-5 space-y-4"><input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Current password" className="w-full rounded-xl border border-ink-800/60 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-accent-500" required /><input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password" className="w-full rounded-xl border border-ink-800/60 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-accent-500" required /><input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm new password" className="w-full rounded-xl border border-ink-800/60 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-accent-500" required /><button type="submit" disabled={passwordBusy} className="inline-flex items-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60">{passwordBusy && <Loader2 className="h-4 w-4 animate-spin" />}Change password</button></form></section>
       </div>
-
-      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <div className="space-y-6">
-          <div className="glass rounded-2xl border border-ink-800/50 p-6 sm:p-8">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-500/10">
-                <SettingsIcon className="h-6 w-6 text-accent-400" />
-              </div>
-
-              <div>
-                <h2 className="text-xl font-medium text-white">
-                  Profile settings
-                </h2>
-
-                <p className="text-sm text-gray-400">
-                  Keep your account details up to date for your portal experience.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-ink-800/50 bg-white/[0.03] p-5">
-              {loading ? (
-                <div className="flex items-center gap-3 text-sm text-gray-300">
-                  <Loader2 className="h-4 w-4 animate-spin text-accent-500" />
-                  Loading your profile...
-                </div>
-              ) : error && !profile ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-300">
-                    No profile information is available yet.
-                  </p>
-
-                  <p className="text-sm text-gray-400">
-                    You can create your profile details below using your authenticated account.
-                  </p>
-                </div>
-              ) : (
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-500/10 text-accent-400">
-                    <UserCircle2 className="h-6 w-6" />
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-white">
-                      {profile?.full_name ||
-                        'No display name set'}
-                    </div>
-
-                    <div className="mt-1 truncate text-sm text-gray-400">
-                      {profile?.email ||
-                        user?.email ||
-                        'No email available'}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {success ? (
-              <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-                {success}
-              </div>
-            ) : null}
-
-            {error ? (
-              <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                {error}
-              </div>
-            ) : null}
-
-            <form
-              className="mt-6 space-y-5"
-              onSubmit={handleSave}
-            >
-              <div className="grid gap-5 md:grid-cols-2">
-                <label className="block text-sm">
-                  <span className="mb-2 block text-gray-300">
-                    Full name
-                  </span>
-
-                  <input
-                    type="text"
-                    value={formData.full_name}
-                    onChange={(event) =>
-                      handleChange(
-                        'full_name',
-                        event.target.value
-                      )
-                    }
-                    disabled={!editing || saving}
-                    className="w-full rounded-xl border border-ink-800/60 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-accent-500 disabled:cursor-not-allowed disabled:opacity-70"
-                    placeholder="Enter your full name"
-                  />
-                </label>
-
-                <label className="block text-sm">
-                  <span className="mb-2 block text-gray-300">
-                    Avatar URL
-                  </span>
-
-                  <input
-                    type="url"
-                    value={formData.avatar_url}
-                    onChange={(event) =>
-                      handleChange(
-                        'avatar_url',
-                        event.target.value
-                      )
-                    }
-                    disabled={!editing || saving}
-                    className="w-full rounded-xl border border-ink-800/60 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-accent-500 disabled:cursor-not-allowed disabled:opacity-70"
-                    placeholder="https://example.com/avatar.png"
-                  />
-                </label>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                {!editing ? (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      setEditing(true);
-                    }}
-                    className="inline-flex items-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-500"
-                  >
-                    Edit profile
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="inline-flex items-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {saving ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4" />
-                      )}
-
-                      {saving
-                        ? 'Saving...'
-                        : 'Save changes'}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={resetFromProfile}
-                      disabled={saving}
-                      className="inline-flex items-center gap-2 rounded-xl border border-ink-800/60 bg-white/5 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:border-accent-500/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <X className="h-4 w-4" />
-                      Cancel
-                    </button>
-                  </>
-                )}
-              </div>
-            </form>
-          </div>
-
-          <div className="glass rounded-2xl border border-ink-800/50 p-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-500/10">
-                <ShieldCheck className="h-6 w-6 text-accent-400" />
-              </div>
-
-              <div>
-                <h3 className="text-lg font-medium text-white">
-                  Password & Security
-                </h3>
-
-                <p className="text-sm text-gray-400">
-                  Change your password while keeping your account signed in.
-                </p>
-              </div>
-            </div>
-
-            {passwordMessage && (
-              <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4" />
-                  {passwordMessage}
-                </div>
-              </div>
-            )}
-
-            {passwordError && (
-              <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                {passwordError}
-              </div>
-            )}
-
-            <form
-              onSubmit={handleChangePassword}
-              className="mt-6 space-y-4"
-            >
-              <div>
-                <label className="mb-2 block text-sm text-gray-300">
-                  Current password
-                </label>
-
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-
-                  <input
-                    type="password"
-                    value={currentPassword}
-                    onChange={(event) =>
-                      setCurrentPassword(event.target.value)
-                    }
-                    disabled={changingPassword}
-                    className="w-full rounded-xl border border-ink-800/60 bg-white/5 py-3 pl-11 pr-4 text-sm text-white outline-none transition focus:border-accent-500 disabled:cursor-not-allowed disabled:opacity-60"
-                    placeholder="Enter your current password"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm text-gray-300">
-                  New password
-                </label>
-
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(event) =>
-                      setNewPassword(event.target.value)
-                    }
-                    disabled={changingPassword}
-                    minLength={8}
-                    className="w-full rounded-xl border border-ink-800/60 bg-white/5 py-3 pl-11 pr-4 text-sm text-white outline-none transition focus:border-accent-500 disabled:cursor-not-allowed disabled:opacity-60"
-                    placeholder="Enter your new password"
-                    required
-                  />
-                </div>
-
-                <p className="mt-1.5 text-xs text-gray-500">
-                  Use at least 8 characters.
-                </p>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm text-gray-300">
-                  Confirm new password
-                </label>
-
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-
-                  <input
-                    type="password"
-                    value={confirmNewPassword}
-                    onChange={(event) =>
-                      setConfirmNewPassword(event.target.value)
-                    }
-                    disabled={changingPassword}
-                    minLength={8}
-                    className="w-full rounded-xl border border-ink-800/60 bg-white/5 py-3 pl-11 pr-4 text-sm text-white outline-none transition focus:border-accent-500 disabled:cursor-not-allowed disabled:opacity-60"
-                    placeholder="Confirm your new password"
-                    required
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={changingPassword}
-                className="inline-flex items-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {changingPassword ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Lock className="h-4 w-4" />
-                )}
-
-                {changingPassword
-                  ? 'Changing password...'
-                  : 'Change password'}
-              </button>
-            </form>
-
-            <div className="mt-5 border-t border-ink-800/50 pt-5">
-              <p className="text-xs leading-5 text-gray-500">
-                Forgot your password? Use the
-                <span className="text-accent-400">
-                  {' '}
-                  Forgot?{' '}
-                </span>
-                option on the login page to receive a password reset link.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="glass rounded-2xl border border-ink-800/50 p-6">
-            <h3 className="text-lg font-medium text-white">
-              Account information
-            </h3>
-
-            <div className="mt-4 space-y-4 text-sm text-gray-300">
-              <div>
-                <div className="text-xs uppercase tracking-[0.25em] text-ink-500">
-                  Signed in as
-                </div>
-
-                <div className="mt-1 text-white">
-                  {user?.email || 'No email available'}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs uppercase tracking-[0.25em] text-ink-500">
-                  Profile source
-                </div>
-
-                <div className="mt-1 text-white">
-                  Your profile is stored in the existing profiles table for this portal account.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="glass rounded-2xl border border-ink-800/50 p-6">
-            <h3 className="text-lg font-medium text-white">
-              Notes
-            </h3>
-
-            <ul className="mt-4 space-y-3 text-sm text-gray-400">
-              <li>
-                • Only your own profile can be viewed or updated through this page.
-              </li>
-
-              <li>
-                • Password changes require your current password.
-              </li>
-
-              <li>
-                • If you forget your password, use the Forgot? option on the login page.
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
+      <section className="glass rounded-2xl border border-ink-800/50 p-6 h-fit"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-500/10"><Bell className="h-5 w-5 text-accent-400" /></div><div><h3 className="text-lg font-medium text-white">Notifications & Sounds</h3><p className="text-sm text-gray-400">Control how Avelixa alerts you.</p></div></div>{prefs && <div className="mt-6 space-y-5"><label className="flex items-center justify-between gap-4"><span><span className="block text-sm font-medium text-white">Message notifications</span><span className="text-xs text-gray-500">Show new-message alerts and unread badges.</span></span><input type="checkbox" checked={prefs.message_notifications} onChange={(e) => setPrefs({ ...prefs, message_notifications: e.target.checked })} /></label><label className="flex items-center justify-between gap-4"><span><span className="block text-sm font-medium text-white">Call notifications</span><span className="text-xs text-gray-500">Allow incoming voice/video call alerts.</span></span><input type="checkbox" checked={prefs.call_notifications} onChange={(e) => setPrefs({ ...prefs, call_notifications: e.target.checked })} /></label><label className="flex items-center justify-between gap-4"><span className="flex items-center gap-2 text-sm font-medium text-white"><Volume2 className="h-4 w-4 text-accent-400" />Notification sounds</span><input type="checkbox" checked={prefs.sound_enabled} onChange={(e) => setPrefs({ ...prefs, sound_enabled: e.target.checked })} /></label><label className="flex items-center justify-between gap-4"><span className="block"><span className="block text-sm font-medium text-white">Vibration</span><span className="text-xs text-gray-500">Use vibration where the browser/device supports it.</span></span><input type="checkbox" checked={prefs.vibration_enabled} onChange={(e) => setPrefs({ ...prefs, vibration_enabled: e.target.checked })} /></label><div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><div className="text-sm font-medium text-white">Custom sounds</div><p className="mt-1 text-xs text-gray-500">The sound fields are stored in your notification preferences and are ready for the custom-audio uploader in the next notification-sound pass.</p></div><button type="button" onClick={() => void savePreferences()} disabled={savingPrefs} className="inline-flex items-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60">{savingPrefs && <Loader2 className="h-4 w-4 animate-spin" />}<Save className="h-4 w-4" />Save notification settings</button></div>}</section>
     </div>
-  );
+  </div>;
 }
-
