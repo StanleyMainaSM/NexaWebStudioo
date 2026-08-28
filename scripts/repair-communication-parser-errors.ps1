@@ -38,8 +38,8 @@ $v4=$v4.Replace("if(incoming?.id===c.id&&c.status!=='ringing')setIncoming(null)"
 $v4=$v4.Replace("},[user?.id,selectedId,incoming?.id]);","},[user?.id,selectedId]);")
 $v4=$v4.Replace("useEffect(()=>{if(!user)return;let alive=true;(async()=>{try{await supabase.rpc('communication_set_presence',{p_online:true});await Promise.all([loadConvos(),refreshContacts()])}catch(e){if(alive)setError(er(e))}finally{if(alive)setLoading(false)}})();const heartbeat=window.setInterval(()=>void supabase.rpc('communication_set_presence',{p_online:true}),25000);const off=()=>{void supabase.rpc('communication_set_presence',{p_online:false})};window.addEventListener('beforeunload',off);return()=>{alive=false;window.clearInterval(heartbeat);window.removeEventListener('beforeunload',off);off()}},[user?.id,management]);", "useEffect(()=>{if(!user)return;let alive=true;(async()=>{try{await Promise.all([loadConvos(),refreshContacts()])}catch(e){if(alive)setError(er(e))}finally{if(alive)setLoading(false)}})();return()=>{alive=false}},[user?.id,management]);")
 $v4=[regex]::Replace($v4,"\}\{incoming&&<Suspense fallback=\{null\}><CallOverlay[\s\S]*?</Suspense>\}\{activeCall&&<Suspense fallback=\{null\}><CallOverlay[\s\S]*?</Suspense>\}", '')
-# The realtime call history handlers remain; only the page-local overlay state is removed.
-$v4=$v4.Replace("}).on('postgres_changes',{event:'UPDATE',schema:'public',table:'user_presence'},({new:p}:any)=>setContacts", "}).on('postgres_changes',{event:'UPDATE',schema:'public',table:'user_presence'},({new:p}:any)=>setContacts")
+# Fix the extra closing parenthesis in the presence realtime callback if present in the branch copy.
+$v4=$v4.Replace("last_seen_at:p.last_seen_at||null}:x}))).subscribe();", "last_seen_at:p.last_seen_at||null}:x})).subscribe();")
 Set-Content $files[1] $v4 -Encoding UTF8
 
 $mv4=Get-RemoteFile 'src/pages/portal/MessagesV4.tsx'
@@ -54,7 +54,7 @@ Set-Content $files[3] $mv5 -Encoding UTF8
 $check=@{}
 foreach($p in $files){$check[$p]=Get-Content $p -Raw}
 if($check[$files[0]] -match "Enter the person's name") { throw 'V3 apostrophe syntax defect remains.' }
-if($check[$files[1]] -match 'CallOverlay|activeCall|incoming') { throw 'CommunicationCenterV4 still contains page-local call overlay state.' }
+if($check[$files[1]] -match 'CallOverlay|activeCall|setActiveCall|setIncoming|incoming&&') { throw 'CommunicationCenterV4 still contains page-local call overlay state.' }
 if($check[$files[1]] -match 'communication_set_presence') { throw 'CommunicationCenterV4 still owns presence state.' }
 
 Write-Host ''
