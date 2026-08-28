@@ -3,9 +3,7 @@ import { supabase } from '../../lib/supabase';
 import CallOverlayV2, { ActiveCall } from './CallOverlayV2';
 
 type IncomingRow={id:string;caller_id:string;callee_id:string;call_type:'voice'|'video';status:string;direct_conversation_id?:string|null;admin_conversation_id?:string|null};
-
 type ProfileRow={full_name?:string|null;email?:string|null;avatar_url?:string|null};
-
 const nameOf=(p:ProfileRow|undefined)=>p?.full_name?.trim()||p?.email?.trim()||'Avelixa User';
 
 export default function GlobalCallListener(){
@@ -22,10 +20,11 @@ export default function GlobalCallListener(){
     activeId.current=row.id;
     const {data}=await supabase.from('profiles').select('full_name,email,avatar_url').eq('id',row.caller_id).maybeSingle();
     if(!alive)return;
-    setCall({id:row.id,callType:row.call_type,callerId:row.caller_id,calleeId:row.callee_id,remoteName:nameOf(data as ProfileRow|undefined),isIncoming:true,directConversationId:row.direct_conversation_id||null,adminConversationId:row.admin_conversation_id||null});
+    const profile=data as ProfileRow|undefined;
+    setCall({id:row.id,callType:row.call_type,callerId:row.caller_id,calleeId:row.callee_id,remoteName:nameOf(profile),remoteAvatarUrl:profile?.avatar_url||null,isIncoming:true,directConversationId:row.direct_conversation_id||null,adminConversationId:row.admin_conversation_id||null});
    };
    const scan=async()=>{
-    if(!alive)return;
+    if(!alive||activeId.current)return;
     const {data}=await supabase.from('call_sessions').select('id,caller_id,callee_id,call_type,status,direct_conversation_id,admin_conversation_id').eq('callee_id',user.id).eq('status','ringing').order('created_at',{ascending:false}).limit(1);
     const row=(data||[])[0] as IncomingRow|undefined;
     if(row)await open(row);
