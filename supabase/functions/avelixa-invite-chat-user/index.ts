@@ -1,18 +1,51 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
 Deno.serve(async (req: Request) => {
-  if (req.method !== 'POST') return new Response(JSON.stringify({error:'Method not allowed'}),{status:405,headers:{'content-type':'application/json'}});
-  const url=Deno.env.get('SUPABASE_URL')!, anon=Deno.env.get('SUPABASE_ANON_KEY')!, service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const auth=req.headers.get('Authorization')||''; const client=createClient(url,anon,{global:{headers:{Authorization:auth}}});
-  const {data:{user},error:ae}=await client.auth.getUser(); if(ae||!user)return new Response(JSON.stringify({error:'Unauthorized'}),{status:401,headers:{'content-type':'application/json'}});
-  const body=await req.json().catch(()=>({})); const email=String(body.email||'').trim().toLowerCase(); const fullName=String(body.full_name||'').trim(); const requestedRedirect=String(body.redirect_to||'').trim();
-  if(!email||!fullName||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return new Response(JSON.stringify({error:'A valid name and email address are required.'}),{status:400,headers:{'content-type':'application/json'}});
-  const admin=createClient(url,service); const {data:existing}=await admin.from('profiles').select('id').eq('email',email).maybeSingle();
-  if(existing)return new Response(JSON.stringify({error:'This email is already registered on Avelixa.'}),{status:409,headers:{'content-type':'application/json'}});
-  const {data:pending}=await admin.from('chat_contact_invitations').select('id').eq('inviter_id',user.id).eq('email',email).eq('status','sent').maybeSingle();
-  if(!pending){const {error:ie}=await admin.from('chat_contact_invitations').insert({inviter_id:user.id,email,contact_name:fullName,status:'sent'});if(ie)return new Response(JSON.stringify({error:ie.message}),{status:400,headers:{'content-type':'application/json'}});}
-  const fallback=Deno.env.get('APP_URL')||'https://sabre.co.ke'; const base=requestedRedirect||fallback; const redirectTo=`${base.replace(/\/$/,'')}/set-password`;
-  const {error:inviteError}=await admin.auth.admin.inviteUserByEmail(email,{redirectTo,data:{invited_by:user.id,invited_contact_name:fullName,invitation_type:'chat'}});
-  if(inviteError)return new Response(JSON.stringify({error:inviteError.message}),{status:400,headers:{'content-type':'application/json'}});
-  return new Response(JSON.stringify({ok:true,message:`Invitation sent to ${email}.`}),{status:200,headers:{'content-type':'application/json'}});
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  const url = Deno.env.get("SUPABASE_URL");
+  const anon = Deno.env.get("SUPABASE_ANON_KEY");
+  const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !anon || !service) return json({ error: "Invitation service is not configured." }, 500);
+  const authorization = req.headers.get("Authorization");
+  if (!authorization) return json({ error: "Unauthorized" }, 401);
+
+  const userClient = createClient(url, anon, { global: { headers: { Authorization: authorization } } });
+  const { data: { user }, error: authError } = await userClient.auth.getUser();
+  if (authError || !user) return json({ error: "Unauthorized" }, 401);
+
+  const body = await req.json().catch(() => ({}));
+  const email = String(body.email ?? "").trim().toLowerCase();
+  const fullName = String(body.full_name ?? body.name ?? "").trim();
+  if (!fullName || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Enter a valid name and email address." }, 400);
+  if (email === String(user.email ?? "").toLowerCase()) return json({ error: "You cannot add yourself." }, 400);
+
+  const admin = createClient(url, service);
+  const { data: profile, error: profileError } = await admin.from("profiles").select("id,full_name,email,avatar_url").eq("email", email).maybeSingle();
+  if (profileError) return json({ error: profileError.message }, 500);
+  if (profile) return json({ registered: true, user: profile, message: "This person is already on Avelixa." });
+
+  const { data: existingInvite, error: lookupError } = await admin.from("chat_contact_invitations").select("id,status").eq("inviter_id", user.id).eq("email", email).maybeSingle();
+  if (lookupError) return json({ error: lookupError.message }, 500);
+  if (existingInvite?.status === "sent") return json({ invited: true, message: `An invitation has already been sent to ${email}.` });
+
+  const invitation = { inviter_id: user.id, email, contact_name: fullName, status: "sent" };
+  const saved = existingInvite
+    ? await admin.from("chat_contact_invitations").update(invitation).eq("id", existingInvite.id)
+    : await admin.from("chat_contact_invitations").insert(invitation);
+  if (saved.error) return json({ error: saved.error.message }, 400);
+
+  const siteUrl = (Deno.env.get("SITE_URL") || req.headers.get("origin") || "https://sabre.co.ke").replace(/\/$/, "");
+  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${siteUrl}/set-password`,
+    data: { invited_by: user.id, invited_contact_name: fullName, invitation_type: "chat", portal: "connector" }
+  });
+  if (inviteError) {
+    await admin.from("chat_contact_invitations").update({ status: "failed" }).eq("inviter_id", user.id).eq("email", email);
+    return json({ error: inviteError.message }, 400);
+  }
+
+  return json({ invited: true, registered: false, user_id: invited.user?.id ?? null, message: `Invitation sent to ${email}.` });
 });
