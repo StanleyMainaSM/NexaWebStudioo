@@ -5,7 +5,7 @@
   useRef,
   useState,
 } from 'react';
-import { User } from '@Supabase/supabase-js';
+import { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
 type AuthContextType = {

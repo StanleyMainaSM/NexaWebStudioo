@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { AlertTriangle, CheckCircle2, Loader2, LockKeyhole, RefreshCw, Trash2, UserPlus, X } from 'lucide-react';
+import { Loader2, LockKeyhole, RefreshCw, UserPlus, X } from 'lucide-react';
 
 interface ManagedUser { id:string; email:string; full_name:string; created_at:string|null; roles:string[] }
 type AllowedRole='client'|'operator'|'connector'|'admin';

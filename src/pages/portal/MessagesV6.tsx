@@ -20,7 +20,7 @@ export default function MessagesV6(){
  const [conversations,setConversations]=useState<Conversation[]>([]),[people,setPeople]=useState<Record<string,Person>>({}),[unread,setUnread]=useState<Record<string,number>>({});
  const [selected,setSelected]=useState<string|null>(null),[messages,setMessages]=useState<Message[]>([]),[calls,setCalls]=useState<Call[]>([]);
  const [query,setQuery]=useState(''),[chatQuery,setChatQuery]=useState('');
- const [addOpen,setAddOpen]=useState(false),[contactName,setContactName]=useState(''),[identifier,setIdentifier]=useState(''),[found,setFound]=useState<Person|null>(null),[lookupBusy,setLookupBusy]=useState(false);
+ const [addOpen,setAddOpen]=useState(false),[contactName,setContactName]=useState(''),[identifier,setIdentifier]=useState(''),[found,setFound]=useState<Person|null>(null),[lookupBusy,_setLookupBusy]=useState(false);
  const [text,setText]=useState(''),[menu,setMenu]=useState(false),[muted,setMuted]=useState(false),[blocked,setBlocked]=useState(false),[wallpaper,setWallpaper]=useState<string|null>(null),[loading,setLoading]=useState(true),[loadingChat,setLoadingChat]=useState(false),[busy,setBusy]=useState(false),[notice,setNotice]=useState<string|null>(null),[error,setError]=useState<string|null>(null),[activeCall,setActiveCall]=useState<ActiveCall|null>(null),[incoming,setIncoming]=useState<Call|null>(null);
  const pane=useRef<HTMLDivElement|null>(null); const selectedRef=useRef<string|null>(null); const nearBottom=useRef(true); const initialScroll=useRef(true);
  selectedRef.current=selected;

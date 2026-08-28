@@ -123,7 +123,7 @@ export default function Login() {
       () => {
         const standalone =
           standaloneMediaQuery.matches ||
-          window.navigator.standalone === true;
+          (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
 
         setIsStandaloneApp(
           standalone

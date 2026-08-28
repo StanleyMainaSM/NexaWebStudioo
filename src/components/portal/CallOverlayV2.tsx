@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, CameraOff, Loader2, Mic, MicOff, Phone, PhoneOff, Video, Volume2 } from 'lucide-react';
+import { Camera, CameraOff, Loader2, Mic, MicOff, Phone, PhoneOff, Volume2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AvelixaCallType, closePeerConnection, createLocalMediaStream, createPeerConnection, SignalCandidate, SignalDescription, stopMediaStream } from '../../lib/webrtc';
 
@@ -36,9 +36,9 @@ export default function CallOverlayV2({call,onClose}:{call:ActiveCall;onClose:()
  const decline=async()=>{if(ended.current)return;ended.current=true;await supabase.from('call_sessions').update({status:'declined',ended_at:new Date().toISOString()}).eq('id',call.id);cleanup();onClose()};
  useEffect(()=>{mounted.current=true;let alive=true;let timer:number|undefined;let statusTimer:number|undefined;
   const process=async(s:StoredSignal)=>{if(!alive||ended.current||seen.current.has(s.id)||s.sender_id===(incoming?call.calleeId:call.callerId))return;try{
-    if(s.kind==='ice'){if(!incoming||accepted.current){if(!remoteReady.current)queued.current.push(s.payload.candidate);else if(pc.current)await pc.current.addIceCandidate(s.payload.candidate);seen.current.add(s.id)}return}
-    if(s.kind==='offer'&&incoming){if(!accepted.current)return;const p=await startPeer(false);if(!p)return;if(p.signalingState!=='stable')return;await p.setRemoteDescription(s.payload.description);remoteReady.current=true;await flush();const answer=await p.createAnswer();await p.setLocalDescription(answer);if(p.localDescription)await send({kind:'answer',description:p.localDescription});seen.current.add(s.id);setStatus('connecting');return}
-    if(s.kind==='answer'&&!incoming){if(!pc.current)return;await pc.current.setRemoteDescription(s.payload.description);remoteReady.current=true;await flush();seen.current.add(s.id);return}
+    if(s.kind==='ice'){if(!incoming||accepted.current){if(!remoteReady.current)queued.current.push((s.payload as Extract<SignalPayload,{kind:'ice'}>).candidate);else if(pc.current)await pc.current.addIceCandidate((s.payload as Extract<SignalPayload,{kind:'ice'}>).candidate);seen.current.add(s.id)}return}
+    if(s.kind==='offer'&&incoming){if(!accepted.current)return;const p=await startPeer(false);if(!p)return;if(p.signalingState!=='stable')return;await p.setRemoteDescription((s.payload as Extract<SignalPayload,{kind:'offer'}>).description);remoteReady.current=true;await flush();const answer=await p.createAnswer();await p.setLocalDescription(answer);if(p.localDescription)await send({kind:'answer',description:p.localDescription});seen.current.add(s.id);setStatus('connecting');return}
+    if(s.kind==='answer'&&!incoming){if(!pc.current)return;await pc.current.setRemoteDescription((s.payload as Extract<SignalPayload,{kind:'answer'}>).description);remoteReady.current=true;await flush();seen.current.add(s.id);return}
   }catch(e){console.error('Avelixa call signaling',e);setError(errorText(e))}};
   const poll=async()=>{if(!alive||ended.current)return;const {data,error:e}=await supabase.from('call_signals').select('id,sender_id,kind,payload').eq('call_id',call.id).order('created_at',{ascending:true});if(e)return;for(const row of (data||[]) as StoredSignal[])await process(row)};
   const check=async()=>{if(!alive||ended.current)return;const {data}=await supabase.from('call_sessions').select('status').eq('id',call.id).maybeSingle();if(!data)return;if(['declined','ended','failed'].includes(data.status)){ended.current=true;setStatus(data.status as CallStatus);cleanup();window.setTimeout(onClose,200);return}if(!incoming&&data.status==='accepted'&&!pc.current)await startPeer(true)};

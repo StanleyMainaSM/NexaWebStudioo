@@ -159,20 +159,6 @@ function formatFileSize(value: number | null) {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function toDateTimeLocal(value: string | null) {
-  if (!value) return '';
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-
-  const offset = date.getTimezoneOffset();
-  const localDate = new Date(date.getTime() - offset * 60000);
-
-  return localDate.toISOString().slice(0, 16);
-}
 
 function getStatusClasses(status: string | null) {
   switch (status) {
@@ -1858,7 +1844,7 @@ export default function AdminProjects() {
                                     Number(operatorPayment)
                                   )
                                     ? Number(operatorPayment)
-                                    : selectedProject?.operator_payment
+                                    : selectedProject?.operator_payment ?? null
                                 )}
                               </div>
                             </div>

@@ -69,7 +69,6 @@ self.addEventListener(
         tag:
           data.notificationId ||
           `avelixa-${Date.now()}`,
-        renotify: true,
         data: {
           url,
           notificationId:

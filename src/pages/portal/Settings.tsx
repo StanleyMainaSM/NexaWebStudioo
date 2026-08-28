@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
-import { Bell, Camera, Loader2, Lock, Save, Settings as SettingsIcon, ShieldCheck, Volume2, X } from 'lucide-react';
+import { Bell, Camera, Loader2, Save, Settings as SettingsIcon, ShieldCheck, Volume2, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 

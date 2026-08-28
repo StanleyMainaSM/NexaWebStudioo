@@ -1,16 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  Camera,
-  CameraOff,
-  Loader2,
-  Mic,
-  MicOff,
-  Phone,
-  PhoneOff,
-  Video,
-  VideoOff,
-  Volume2,
-} from 'lucide-react';
+import { Camera, CameraOff, Loader2, Mic, MicOff, Phone, PhoneOff, Video, Volume2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import {
   AvelixaCallType,
@@ -400,11 +389,12 @@ export default function CallOverlay({
         },
       );
 
-      const subscription = await channel.subscribe();
-
-      if (subscription !== 'SUBSCRIBED') {
-        throw new Error('Avelixa could not connect the call signaling channel.');
-      }
+      await new Promise<void>((resolve, reject) => {
+        channel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') resolve();
+          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') reject(new Error('Avelixa could not connect the call signaling channel.'));
+        });
+      });
 
       if (call.isIncoming) {
         return;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Instagram, Facebook, MessageCircle, Mail, Globe2, Save, Loader2 } from 'lucide-react';
+import { CheckCircle2, Instagram, Facebook, MessageCircle, Mail, Save, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 type WebsiteLinks = {

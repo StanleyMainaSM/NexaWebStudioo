@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
-import { ArrowLeft, Ban, BellOff, Check, CheckCheck, Download, Loader2, MessageCirclePlus, MessageSquare, MoreVertical, Phone, Search, Send, Video, Volume2, X } from 'lucide-react';
+import { ArrowLeft, Ban, BellOff, Check, CheckCheck, Download, Loader2, MessageCirclePlus, MoreVertical, Phone, Search, Send, Video, Volume2, X } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import type { ActiveCall } from '../../components/portal/CallOverlayV2';
