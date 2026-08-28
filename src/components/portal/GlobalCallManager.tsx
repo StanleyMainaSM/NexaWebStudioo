@@ -58,6 +58,7 @@ export default function GlobalCallManager() {
         .select('id,caller_id,callee_id,call_type,status,direct_conversation_id,admin_conversation_id')
         .or(`caller_id.eq.${user.id},callee_id.eq.${user.id}`)
         .in('status', ['ringing', 'accepted'])
+        .gte('created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString())
         .order('created_at', { ascending: false })
         .limit(1);
       if (alive.current && data?.[0]) await openCall(data[0] as CallRow);
