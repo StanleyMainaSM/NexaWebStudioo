@@ -39,7 +39,6 @@ jobs:
                   return "import { " + ", ".join(parts) + " } from 'lucide-react';"
               p.write_text(re.sub(pattern, repl, text, count=1, flags=re.S), encoding='utf-8')
 
-          # Superseded/corrupted variants are not routed by App.tsx; keep legacy imports valid.
           (ROOT / 'src/pages/portal/CommunicationCenterV3.tsx').write_text("export { default } from './CommunicationCenterV4';\n", encoding='utf-8')
           (ROOT / 'src/pages/portal/MessagesV4.tsx').write_text("export { default } from './MessagesV6';\n", encoding='utf-8')
           (ROOT / 'src/pages/portal/MessagesV5.tsx').write_text("export { default } from './MessagesV6';\n", encoding='utf-8')
@@ -49,6 +48,7 @@ jobs:
           remove_lucide('src/pages/portal/CommunicationCenter.tsx', {'Wifi'})
           remove_lucide('src/pages/portal/CommunicationCenterV2.tsx', {'Volume2'})
           remove_lucide('src/pages/portal/CommunicationCenterV3.tsx', {'MessageSquare', 'Plus', 'UserPlus'})
+          remove_lucide('src/pages/portal/CommunicationCenterV4.tsx', {'MessageSquare'})
           remove_lucide('src/pages/portal/MessagesV3.tsx', {'Clipboard', 'MessageCirclePlus'})
           remove_lucide('src/pages/portal/OwnerUserManagement.tsx', {'AlertTriangle', 'CheckCircle2', 'Trash2'})
           remove_lucide('src/pages/portal/Settings.tsx', {'Lock'})
@@ -64,34 +64,29 @@ jobs:
           # CallOverlayV2: narrow the payload union explicitly by signal kind.
           p = ROOT / 'src/components/portal/CallOverlayV2.tsx'
           text = p.read_text(encoding='utf-8')
-          text = text.replace("queued.current.push(s.payload.candidate);else if(pc.current)await pc.current.addIceCandidate(s.payload.candidate);", "const candidate=(s.payload as Extract<SignalPayload,{kind:'ice'}>).candidate;if(!remoteReady.current)queued.current.push(candidate);else if(pc.current)await pc.current.addIceCandidate(candidate);")
+          text = text.replace("queued.current.push(s.payload.candidate);else if(pc.current)await pc.current.addIceCandidate(s.payload.candidate);", "queued.current.push((s.payload as Extract<SignalPayload,{kind:'ice'}>).candidate);else if(pc.current)await pc.current.addIceCandidate((s.payload as Extract<SignalPayload,{kind:'ice'}>).candidate);")
           text = text.replace("await p.setRemoteDescription(s.payload.description);", "await p.setRemoteDescription((s.payload as Extract<SignalPayload,{kind:'offer'}>).description);")
           text = text.replace("await pc.current.setRemoteDescription(s.payload.description);", "await pc.current.setRemoteDescription((s.payload as Extract<SignalPayload,{kind:'answer'}>).description);")
           p.write_text(text, encoding='utf-8')
 
-          # Supabase package casing must be identical everywhere.
           p = ROOT / 'src/lib/auth.tsx'
           p.write_text(p.read_text(encoding='utf-8').replace("'@Supabase/supabase-js'", "'@supabase/supabase-js'"), encoding='utf-8')
 
-          # PWA client types provide virtual:pwa-register and callback types.
           p = ROOT / 'src/vite-env.d.ts'
           text = p.read_text(encoding='utf-8')
           if 'vite-plugin-pwa/client' not in text:
               text += '/// <reference types="vite-plugin-pwa/client" />\n'
           p.write_text(text, encoding='utf-8')
 
-          # Login: Safari standalone is a non-standard Navigator API.
           p = ROOT / 'src/pages/portal/Login.tsx'
           p.write_text(p.read_text(encoding='utf-8').replace('window.navigator.standalone === true','(window.navigator as Navigator & { standalone?: boolean }).standalone === true'), encoding='utf-8')
 
-          # AdminProjects: remove unused helper and normalize optional operator payment.
           p = ROOT / 'src/pages/portal/dashboards/AdminProjects.tsx'
           text = p.read_text(encoding='utf-8')
           text = re.sub(r'\nfunction _?toDateTimeLocal\(value: string \| null\) \{.*?\n\}', '', text, count=1, flags=re.S)
           text = text.replace(': selectedProject?.operator_payment', ': selectedProject?.operator_payment ?? null')
           p.write_text(text, encoding='utf-8')
 
-          # MessagesV3: unused selection state and literal discriminants.
           p = ROOT / 'src/pages/portal/MessagesV3.tsx'
           text = p.read_text(encoding='utf-8')
           text = text.replace('[selected,setSelected]=useState<string[]>([])', '[_selected,_setSelected]=useState<string[]>([])')
@@ -99,7 +94,6 @@ jobs:
           text = text.replace("kind:'call',at:c.created_at,call:c", "kind:'call' as const,at:c.created_at,call:c")
           p.write_text(text, encoding='utf-8')
 
-          # MessagesV6: setter is unused; restore incoming-call state.
           p = ROOT / 'src/pages/portal/MessagesV6.tsx'
           text = p.read_text(encoding='utf-8').replace('[lookupBusy,setLookupBusy]', '[lookupBusy,_setLookupBusy]')
           if '[incoming,setIncoming]' not in text:
@@ -111,16 +105,15 @@ jobs:
                   text = text[:line_end] + "\n const [incoming,setIncoming]=useState<Call|null>(null);" + text[line_end:]
           p.write_text(text, encoding='utf-8')
 
-          # SettingsV2: Supabase responses expose error, not e/e1.
+          # SettingsV2: fix each Supabase error alias explicitly without touching unrelated catch variables.
           p = ROOT / 'src/pages/portal/SettingsV2.tsx'
           text = p.read_text(encoding='utf-8')
+          text = text.replace('{data,error:e}', '{data,error:profileError}').replace('if(e)throw e;if(!data)', 'if(profileError)throw profileError;if(!data)', 1)
           text = text.replace('{data,e1:e2}', '{data,error:e2}')
-          text = text.replace('{data,e}=await', '{data,error}=await')
-          text = text.replace('{data,e}=supabase', '{data,error}=supabase')
-          text = text.replace('if(e)throw e;', 'if(error)throw error;')
+          text = text.replace('{data,e}=supabase.from(\'user_notification_preferences\')', '{data,error:prefsError}=supabase.from(\'user_notification_preferences\')')
+          text = text.replace('if(e)throw e;setPrefs(data as Prefs)', 'if(prefsError)throw prefsError;setPrefs(data as Prefs)')
           p.write_text(text, encoding='utf-8')
 
-          # CommunicationCenterV2: Lucide icons use aria-label rather than title.
           p = ROOT / 'src/pages/portal/CommunicationCenterV2.tsx'
           text = p.read_text(encoding='utf-8')
           text = re.sub(r'\s+title="([^"]*)"', r' aria-label="\1"', text)
