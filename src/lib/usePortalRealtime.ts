@@ -5,6 +5,7 @@ const REALTIME_TABLES = [
   'projects', 'project_tasks', 'invoices', 'payments', 'finance_transactions', 'payouts', 'expenses',
   'project_files', 'reviews', 'connector_applications', 'leads', 'commissions', 'notifications',
   'messages', 'profiles', 'user_roles', 'activity_log', 'maintenance_subscriptions', 'portfolio_items', 'settings',
+  'user_presence',
 ] as const;
 
 export function usePortalRealtimeRefresh() {
@@ -33,27 +34,24 @@ export function usePortalRealtimeRefresh() {
   return refreshKey;
 }
 
-/** Global communication heartbeat. It runs for the entire authenticated portal, not only /messages. */
+/** Keeps the current authenticated user online regardless of which portal page is open. */
 export function useGlobalCommunicationPresence(userId?: string | null) {
   useEffect(() => {
     if (!userId) return;
     let alive = true;
-    const setOnline = () => { if (alive) void supabase.rpc('communication_set_presence', { p_online: true }); };
-    const setOffline = () => { if (alive) void supabase.rpc('communication_set_presence', { p_online: false }); };
-    setOnline();
-    const heartbeat = window.setInterval(setOnline, 15000);
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') setOnline();
-      else setOffline();
-    };
-    const handlePageHide = () => setOffline();
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('pagehide', handlePageHide);
+    const online = () => { if (alive) void supabase.rpc('communication_set_presence', { p_online: true }); };
+    const offline = () => { if (alive) void supabase.rpc('communication_set_presence', { p_online: false }); };
+    online();
+    const heartbeat = window.setInterval(online, 15000);
+    const visibility = () => document.visibilityState === 'visible' ? online() : offline();
+    const pageHide = () => offline();
+    document.addEventListener('visibilitychange', visibility);
+    window.addEventListener('pagehide', pageHide);
     return () => {
       alive = false;
       window.clearInterval(heartbeat);
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('pagehide', handlePageHide);
+      document.removeEventListener('visibilitychange', visibility);
+      window.removeEventListener('pagehide', pageHide);
       void supabase.rpc('communication_set_presence', { p_online: false });
     };
   }, [userId]);
