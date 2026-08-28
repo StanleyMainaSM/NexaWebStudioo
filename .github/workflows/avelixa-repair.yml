@@ -1,0 +1,170 @@
+name: Avelixa Repair Verification
+
+on:
+  push:
+    branches:
+      - avelixa-current-work
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Apply deterministic repairs
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          ROOT = Path('.')
+
+          def read(path):
+              return (ROOT / path).read_text(encoding='utf-8')
+
+          def write(path, text):
+              (ROOT / path).write_text(text, encoding='utf-8')
+
+          def remove_lucide(path, names):
+              p = ROOT / path
+              text = p.read_text(encoding='utf-8')
+              pattern = r"import\s*\{(?P<body>[^}]*)\}\s*from\s*['\"]lucide-react['\"];"
+              def repl(m):
+                  parts = [x.strip() for x in m.group('body').split(',') if x.strip()]
+                  parts = [x for x in parts if x not in names]
+                  return "import { " + ", ".join(parts) + " } from 'lucide-react';"
+              new = re.sub(pattern, repl, text, count=1, flags=re.S)
+              p.write_text(new, encoding='utf-8')
+
+          # Repair syntax introduced by the previous local typecheck script.
+          for path in [
+              'src/pages/portal/CommunicationCenterV3.tsx',
+              'src/pages/portal/MessagesV4.tsx',
+              'src/pages/portal/MessagesV5.tsx',
+          ]:
+              p = ROOT / path
+              text = p.read_text(encoding='utf-8')
+              text = re.sub(r"lines\.join\('\\\s*'\)", "lines.join('\\\\n')", text)
+              p.write_text(text, encoding='utf-8')
+
+          # CommunicationCenterV3: hoist helpers that were declared after JSX return.
+          p = ROOT / 'src/pages/portal/CommunicationCenterV3.tsx'
+          text = p.read_text(encoding='utf-8')
+          for old, new in [
+              ('const clearChat=async()=>{', 'async function clearChat(){'),
+              ('const toggleMute=async()=>{', 'async function toggleMute(){'),
+              ('const toggleBlock=async()=>{', 'async function toggleBlock(){'),
+              ('const setWallpaperValue=async(value:string)=>{', 'async function setWallpaperValue(value:string){'),
+              ('const exportChat=()=>{', 'function exportChat(){'),
+          ]:
+              text = text.replace(old, new)
+          text = text.replace('const [people,setPeople]=useState<Person[]>([]),', '')
+          p.write_text(text, encoding='utf-8')
+
+          remove_lucide('src/components/portal/CallOverlay.tsx', {'VideoOff'})
+          remove_lucide('src/pages/portal/CommunicationCenter.tsx', {'Wifi'})
+          remove_lucide('src/pages/portal/CommunicationCenterV2.tsx', {'Volume2'})
+          remove_lucide('src/pages/portal/CommunicationCenterV3.tsx', {'MessageSquare', 'Plus', 'UserPlus'})
+          remove_lucide('src/pages/portal/MessagesV3.tsx', {'Clipboard', 'MessageCirclePlus'})
+          remove_lucide('src/pages/portal/MessagesV4.tsx', {'Download', 'Trash2', 'VolumeX'})
+          remove_lucide('src/pages/portal/OwnerUserManagement.tsx', {'AlertTriangle', 'CheckCircle2', 'Trash2'})
+          remove_lucide('src/pages/portal/Settings.tsx', {'Lock'})
+          remove_lucide('src/pages/portal/WebsiteLinks.tsx', {'Globe2'})
+
+          # Supabase package casing must be identical everywhere.
+          p = ROOT / 'src/lib/auth.tsx'
+          text = p.read_text(encoding='utf-8').replace("'@Supabase/supabase-js'", "'@supabase/supabase-js'")
+          p.write_text(text, encoding='utf-8')
+
+          # PWA client types provide virtual:pwa-register and callback types.
+          p = ROOT / 'src/vite-env.d.ts'
+          text = p.read_text(encoding='utf-8')
+          if 'vite-plugin-pwa/client' not in text:
+              text += '/// <reference types="vite-plugin-pwa/client" />\n'
+          p.write_text(text, encoding='utf-8')
+
+          # Login: Safari standalone is non-standard Navigator API.
+          p = ROOT / 'src/pages/portal/Login.tsx'
+          text = p.read_text(encoding='utf-8').replace(
+              'window.navigator.standalone === true',
+              '(window.navigator as Navigator & { standalone?: boolean }).standalone === true'
+          )
+          p.write_text(text, encoding='utf-8')
+
+          # AdminProjects: optional operator payment may be undefined.
+          p = ROOT / 'src/pages/portal/dashboards/AdminProjects.tsx'
+          text = p.read_text(encoding='utf-8')
+          text = text.replace('function toDateTimeLocal(value: string | null) {', 'function _toDateTimeLocal(value: string | null) {')
+          text = text.replace(': selectedProject?.operator_payment', ': selectedProject?.operator_payment ?? null')
+          p.write_text(text, encoding='utf-8')
+
+          # MessagesV3: unused selection state and literal discriminants.
+          p = ROOT / 'src/pages/portal/MessagesV3.tsx'
+          text = p.read_text(encoding='utf-8')
+          text = text.replace('[selected,setSelected]=useState<string[]>([])', '[_selected,_setSelected]=useState<string[]>([])')
+          text = text.replace("kind:'message',at:m.created_at,message:m", "kind:'message' as const,at:m.created_at,message:m")
+          text = text.replace("kind:'call',at:c.created_at,call:c", "kind:'call' as const,at:c.created_at,call:c")
+          p.write_text(text, encoding='utf-8')
+
+          # MessagesV4: contacts value is intentionally write-only; keep setter.
+          p = ROOT / 'src/pages/portal/MessagesV4.tsx'
+          text = p.read_text(encoding='utf-8').replace('[contacts,setContacts]', '[_contacts,setContacts]')
+          p.write_text(text, encoding='utf-8')
+
+          # MessagesV6: setter is unused; incoming-call state was accidentally removed.
+          p = ROOT / 'src/pages/portal/MessagesV6.tsx'
+          text = p.read_text(encoding='utf-8').replace('[lookupBusy,setLookupBusy]', '[lookupBusy,_setLookupBusy]')
+          if '[incoming,setIncoming]' not in text:
+              anchor = "const [addOpen,setAddOpen]="
+              idx = text.find(anchor)
+              if idx >= 0:
+                  line_end = text.find('\n', idx)
+                  if line_end < 0:
+                      line_end = len(text)
+                  insertion = "\n const [incoming,setIncoming]=useState<Call|null>(null);"
+                  text = text[:line_end] + insertion + text[line_end:]
+          p.write_text(text, encoding='utf-8')
+
+          # SettingsV2: Supabase returns { data, error }, not { data, e }.
+          p = ROOT / 'src/pages/portal/SettingsV2.tsx'
+          text = p.read_text(encoding='utf-8')
+          text = text.replace('{data,e1:e2}', '{data,error:e2}')
+          text = text.replace('{data,e}=supabase.from', '{data,error}=supabase.from')
+          p.write_text(text, encoding='utf-8')
+
+          # CommunicationCenterV2: Lucide icons don't accept title; use aria-label.
+          p = ROOT / 'src/pages/portal/CommunicationCenterV2.tsx'
+          text = p.read_text(encoding='utf-8')
+          text = re.sub(r'\s+title="([^"]*)"', r' aria-label="\1"', text)
+          text = re.sub(r'^\s*const unreadTotal = useMemo\(\(\) => Object\.values\(unreadByConversation\)\.reduce\(\(a, b\) => a \+ b, 0\), \[unreadByConversation\]\);\s*$', '', text, flags=re.M)
+          p.write_text(text, encoding='utf-8')
+
+          # Service worker NotificationOptions doesn't expose renotify in this DOM lib.
+          p = ROOT / 'src/sw.ts'
+          text = p.read_text(encoding='utf-8').replace('        renotify: true,\n', '')
+          p.write_text(text, encoding='utf-8')
+
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Commit verified repairs and remove repair workflow
+        run: |
+          git config user.name "Avelixa Repair"
+          git config user.email "actions@users.noreply.github.com"
+          rm -f .github/workflows/avelixa-repair.yml
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: repair typecheck and build regressions"
+          git push origin HEAD:avelixa-current-work
