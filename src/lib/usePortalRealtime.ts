@@ -23,25 +23,41 @@ export function usePortalRealtimeRefresh() {
   return refreshKey;
 }
 
-/** Keeps the current authenticated user online regardless of which portal page is open. */
+/** Global presence: every authenticated portal keeps one authoritative heartbeat. */
 export function useGlobalCommunicationPresence(userId?: string | null) {
   useEffect(() => {
     if (!userId) return;
-    let alive = true;
-    const online = () => { if (alive) void supabase.rpc('communication_set_presence', { p_online: true }); };
-    const offline = () => { if (alive) void supabase.rpc('communication_set_presence', { p_online: false }); };
-    online();
-    const heartbeat = window.setInterval(online, 15000);
-    const visibility = () => { if (document.visibilityState === 'visible') online(); };
-    const pageShow = () => online();
-    document.addEventListener('visibilitychange', visibility);
-    window.addEventListener('pageshow', pageShow);
+    let disposed = false;
+    let timer: number | null = null;
+
+    const markOnline = async () => {
+      if (disposed || document.visibilityState !== 'visible') return;
+      const { error } = await supabase.rpc('communication_set_presence', { p_online: true });
+      if (error && !disposed) console.warn('Avelixa presence heartbeat failed:', error.message);
+    };
+
+    const markOffline = () => {
+      if (disposed) return;
+      disposed = true;
+      if (timer !== null) window.clearInterval(timer);
+      void supabase.rpc('communication_set_presence', { p_online: false });
+    };
+
+    void markOnline();
+    timer = window.setInterval(() => void markOnline(), 10000);
+
+    const onVisible = () => { if (document.visibilityState === 'visible') void markOnline(); };
+    const onPageShow = () => void markOnline();
+    const onPageHide = () => markOffline();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('pageshow', onPageShow);
+    window.addEventListener('pagehide', onPageHide);
+
     return () => {
-      alive = false;
-      window.clearInterval(heartbeat);
-      document.removeEventListener('visibilitychange', visibility);
-      window.removeEventListener('pageshow', pageShow);
-      offline();
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('pagehide', onPageHide);
+      markOffline();
     };
   }, [userId]);
 }
