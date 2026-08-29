@@ -14,7 +14,8 @@ export default function ConnectorLeadGenerationToolkit() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!user?.id || !roles.includes('connector')) {
+    const userId = user?.id;
+    if (!userId || !roles.includes('connector')) {
       setLoading(false);
       return;
     }
@@ -24,8 +25,8 @@ export default function ConnectorLeadGenerationToolkit() {
       setError('');
       try {
         const [leadsResult, projectsResult] = await Promise.all([
-          supabase.from('leads').select('status').eq('connector_id', user.id),
-          supabase.from('projects').select('id,status').eq('connector_id', user.id),
+          supabase.from('leads').select('status').eq('connector_id', userId),
+          supabase.from('projects').select('id,status').eq('connector_id', userId),
         ]);
         if (leadsResult.error) throw leadsResult.error;
         if (projectsResult.error) throw projectsResult.error;
