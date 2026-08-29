@@ -8,12 +8,14 @@ import {
   Users,
   Briefcase,
   Coins,
+  UserPlus,
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 export default function ConnectorApplication() {
   const [searchParams] = useSearchParams();
+  const referralFromLink = searchParams.get('ref')?.trim() || '';
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -29,14 +31,13 @@ export default function ConnectorApplication() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    const referral = searchParams.get('ref')?.trim() || '';
-    if (!referral) return;
+    if (!referralFromLink) return;
 
     setFormData((previous) => ({
       ...previous,
-      referringConnector: previous.referringConnector || referral,
+      referringConnector: previous.referringConnector || referralFromLink,
     }));
-  }, [searchParams]);
+  }, [referralFromLink]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,6 +120,16 @@ export default function ConnectorApplication() {
             <span className="text-2xl font-medium tracking-tight text-white">Avelixa</span>
           </div>
 
+          {referralFromLink && (
+            <div className="max-w-2xl mx-auto mb-8 rounded-2xl border border-accent-400/20 bg-accent-400/[0.06] px-5 py-4 flex items-start gap-3">
+              <UserPlus className="w-5 h-5 text-accent-300 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-white">You've been invited to become an Avelixa Connector.</p>
+                <p className="text-xs text-gray-400 mt-1">Your referring Connector has been captured from the invitation link. Avelixa validates the referral on submission.</p>
+              </div>
+            </div>
+          )}
+
           <div className="text-center max-w-2xl mx-auto">
             <div className="text-xs font-semibold uppercase tracking-widest text-accent-400 mb-3">Avelixa Connector Program</div>
             <h1 className="text-3xl md:text-5xl font-light text-white mb-4 tracking-tight">Help businesses discover Avelixa</h1>
@@ -149,9 +160,9 @@ export default function ConnectorApplication() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-ink-500 uppercase tracking-widest mb-2">Referring Connector ID (Optional)</label>
-                <input type="text" name="referringConnector" value={formData.referringConnector} onChange={handleChange} className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-accent-400/60 focus:bg-white/[0.07] transition-all" placeholder="AVL-XXXX" autoCapitalize="characters" />
+                <input type="text" name="referringConnector" value={formData.referringConnector} onChange={handleChange} readOnly={Boolean(referralFromLink)} aria-readonly={referralFromLink ? 'true' : undefined} className={`w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-accent-400/60 focus:bg-white/[0.07] transition-all ${referralFromLink ? 'cursor-not-allowed opacity-90' : ''}`} placeholder="AVL-XXXX" autoCapitalize="characters" />
                 <p className="text-gray-500 text-xs mt-2">If another Avelixa Connector referred you, enter their ID here. Referral IDs are validated by Avelixa when the application is submitted.</p>
-                {formData.referringConnector && (
+                {referralFromLink && formData.referringConnector && (
                   <p className="text-accent-300 text-xs mt-2">Referral captured from your invitation link.</p>
                 )}
               </div>

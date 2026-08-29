@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Clipboard, ExternalLink, MessageCircle, Share2, UserPlus } from 'lucide-react';
+import { CheckCircle2, Clipboard, ExternalLink, MessageCircle, Share2, UserPlus, Copy, Send, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 
@@ -28,11 +28,19 @@ export default function ConnectorRecruitmentCard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [messageCopied, setMessageCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
 
   const referralLink = useMemo(
     () => (avlId ? `${APPLICATION_URL}?ref=${encodeURIComponent(avlId)}` : ''),
     [avlId]
+  );
+
+  const recruitmentMessage = useMemo(
+    () => referralLink
+      ? `Hey! Avelixa is currently looking for Connectors. You can earn a 20% commission on eligible successful website projects by connecting businesses that need professional websites with Avelixa. You do not need to build the websites yourself. Apply here: ${referralLink}`
+      : '',
+    [referralLink]
   );
 
   async function load() {
@@ -62,22 +70,24 @@ export default function ConnectorRecruitmentCard() {
     void load();
   }, [user?.id]);
 
-  async function copyLink() {
-    if (!referralLink) return;
+  async function copyText(text: string, success: () => void) {
+    if (!text) return;
     setError('');
     try {
-      await navigator.clipboard.writeText(referralLink);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2200);
+      await navigator.clipboard.writeText(text);
+      success();
+      window.setTimeout(() => {
+        setCopied(false);
+        setMessageCopied(false);
+      }, 2200);
     } catch {
-      setError('Your browser did not allow clipboard access. Copy the link from the field instead.');
+      setError('Your browser did not allow clipboard access. You can select and copy the text directly.');
     }
   }
 
   function inviteWhatsApp() {
     if (!referralLink) return;
-    const message = `Hey! Avelixa is currently looking for Connectors. You can earn commission by connecting businesses that need professional websites with Avelixa. Apply here: ${referralLink}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://wa.me/?text=${encodeURIComponent(recruitmentMessage)}`, '_blank', 'noopener,noreferrer');
   }
 
   async function shareLink() {
@@ -99,13 +109,17 @@ export default function ConnectorRecruitmentCard() {
   if (!user?.id) return null;
 
   const applications = summary?.applications || [];
-  const stats = [
-    ['Invited', summary?.invited_count ?? 0],
-    ['Applications', (summary?.applied_count ?? 0) + (summary?.approved_count ?? 0)],
-    ['Approved', summary?.approved_count ?? 0],
-    ['Active', summary?.active_count ?? 0],
-    ['Successful', summary?.successful_referral_count ?? 0],
+  const appliedTotal = (summary?.applied_count ?? 0) + (summary?.approved_count ?? 0);
+  const funnel = [
+    { label: 'Invited', value: summary?.invited_count ?? 0 },
+    { label: 'Applied', value: appliedTotal },
+    { label: 'Approved', value: summary?.approved_count ?? 0 },
+    { label: 'Active', value: summary?.active_count ?? 0 },
+    { label: 'Successful', value: summary?.successful_referral_count ?? 0 },
   ];
+  const progress = funnel[0].value > 0
+    ? Math.min(100, Math.round((funnel[4].value / funnel[0].value) * 100))
+    : 0;
 
   return (
     <section className="rounded-2xl border border-accent-500/20 bg-accent-500/[0.045] p-6 sm:p-7">
@@ -117,7 +131,7 @@ export default function ConnectorRecruitmentCard() {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">Recruit a Connector</h2>
-              <p className="text-sm text-gray-400 mt-1">Invite people into the existing Avelixa Connector program using your AVL identity.</p>
+              <p className="text-sm text-gray-400 mt-1">Turn your network into new Avelixa opportunities with your personal referral link.</p>
             </div>
           </div>
         </div>
@@ -129,44 +143,57 @@ export default function ConnectorRecruitmentCard() {
       {error && <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>}
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold">Your AVL referral ID</p>
-            <p className="mt-1 font-mono text-lg text-accent-300">{loading ? 'Loading…' : avlId || 'Not assigned'}</p>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold">Your recruitment identity</p>
+            <div className="flex flex-wrap items-center gap-3 mt-1">
+              <p className="font-mono text-lg text-accent-300">{loading ? 'Loading…' : avlId || 'Not assigned'}</p>
+              <span className="text-xs text-gray-500">Use this existing AVL ID when inviting someone.</span>
+            </div>
           </div>
-          <span className="text-xs text-gray-500">This is the existing authoritative Connector ID.</span>
+          <a href={referralLink || APPLICATION_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-xs font-semibold text-accent-300 hover:text-accent-200">
+            Preview application <ExternalLink className="w-3.5 h-3.5" />
+          </a>
         </div>
-        <div className="flex flex-col md:flex-row gap-3">
+
+        <div className="flex flex-col xl:flex-row gap-3">
           <input
             readOnly
             value={loading ? 'Loading referral link…' : referralLink}
             aria-label="Personal Connector referral link"
             className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-gray-300 outline-none"
           />
-          <div className="grid grid-cols-2 sm:flex gap-2">
-            <button type="button" onClick={() => void copyLink()} disabled={!referralLink} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-4 py-3 text-sm font-semibold text-white hover:bg-accent-500 disabled:opacity-50">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:flex gap-2">
+            <button type="button" onClick={() => void copyText(referralLink, () => setCopied(true))} disabled={!referralLink} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-4 py-3 text-sm font-semibold text-white hover:bg-accent-500 disabled:opacity-50">
               <Clipboard className="w-4 h-4" /> {copied ? 'Link copied!' : 'Copy Link'}
             </button>
             <button type="button" onClick={inviteWhatsApp} disabled={!referralLink} className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-50">
               <MessageCircle className="w-4 h-4" /> WhatsApp
             </button>
             {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
-              <button type="button" onClick={() => void shareLink()} disabled={!referralLink || sharing} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white hover:bg-white/[0.08] disabled:opacity-50 col-span-2 sm:col-span-1">
+              <button type="button" onClick={() => void shareLink()} disabled={!referralLink || sharing} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white hover:bg-white/[0.08] disabled:opacity-50">
                 <Share2 className="w-4 h-4" /> {sharing ? 'Sharing…' : 'Share'}
               </button>
             )}
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-500">
-          <span>Find → Invite → Apply → Onboard → Successful referral</span>
-          <a href={referralLink || APPLICATION_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent-300 hover:text-accent-200">
-            Open application <ExternalLink className="w-3 h-3" />
-          </a>
+
+        <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="flex items-center gap-2">
+              <Send className="w-4 h-4 text-accent-300" />
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Ready-to-send invitation</p>
+            </div>
+            <button type="button" onClick={() => void copyText(recruitmentMessage, () => setMessageCopied(true))} disabled={!recruitmentMessage} className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-300 hover:text-accent-200 disabled:opacity-50">
+              <Copy className="w-3.5 h-3.5" /> {messageCopied ? 'Message copied!' : 'Copy message'}
+            </button>
+          </div>
+          <p className="text-sm text-gray-300 leading-relaxed">{loading ? 'Loading your invitation message…' : recruitmentMessage || 'Your referral link is not available yet.'}</p>
         </div>
       </div>
 
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {stats.map(([label, value]) => (
+        {funnel.map(({ label, value }) => (
           <div key={label} className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
             <p className="text-[10px] uppercase tracking-widest text-gray-500">{label}</p>
             <p className="mt-2 text-2xl font-light text-white">{loading ? '—' : String(value)}</p>
@@ -174,16 +201,33 @@ export default function ConnectorRecruitmentCard() {
         ))}
       </div>
 
+      <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-accent-300" />
+              <h3 className="text-sm font-semibold text-white">Recruitment progress</h3>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Invited → Applied → Approved → Active → Successful</p>
+          </div>
+          <span className="text-sm font-semibold text-accent-300">{loading ? '—' : `${progress}%`}</span>
+        </div>
+        <div className="mt-4 h-2 rounded-full bg-white/5 overflow-hidden" aria-label="Successful referral progress">
+          <div className="h-full rounded-full bg-accent-500 transition-all" style={{ width: `${progress}%` }} />
+        </div>
+        <p className="mt-3 text-xs text-gray-500">Progress is based only on database-backed referral applications and completed successful referrals. Page visits are not counted as invitations.</p>
+      </div>
+
       <div className="mt-6">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
-            <h3 className="text-sm font-semibold text-white">Recruitment progress</h3>
-            <p className="text-xs text-gray-500 mt-1">Only your own referral-attributed applicants are shown.</p>
+            <h3 className="text-sm font-semibold text-white">Your recruitment list</h3>
+            <p className="text-xs text-gray-500 mt-1">Only applicants attributed to your AVL ID are shown.</p>
           </div>
           <button type="button" onClick={() => void load()} className="text-xs font-semibold text-accent-300 hover:text-accent-200">Refresh</button>
         </div>
         {applications.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 text-sm text-gray-400">No Connector applications have been attributed to your AVL ID yet.</div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 text-sm text-gray-400">No Connector applications have been attributed to your AVL ID yet. Share your link to start building your recruitment pipeline.</div>
         ) : (
           <div className="space-y-2">
             {applications.map((application) => (

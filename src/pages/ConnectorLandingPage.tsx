@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import Connectors from './Connectors';
 
 const SITE_URL = 'https://www.avelixa.co.ke';
@@ -45,5 +47,16 @@ export default function ConnectorLandingPage() {
     canonical.setAttribute('href', `${SITE_URL}/connectors`);
   }, []);
 
-  return <Connectors />;
+  return (
+    <>
+      <Connectors />
+      <div className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4 md:hidden pointer-events-none">
+        <div className="mx-auto max-w-md rounded-2xl border border-accent-400/20 bg-ink-950/95 backdrop-blur-xl shadow-2xl p-2 pointer-events-auto">
+          <Link to="/connector-apply" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 px-5 py-3.5 text-black hover:bg-accent-400 transition-colors uppercase tracking-widest text-xs font-bold">
+            Become a Connector <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
+    </>
+  );
 }
