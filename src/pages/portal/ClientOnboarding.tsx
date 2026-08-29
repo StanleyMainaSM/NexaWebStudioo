@@ -25,7 +25,8 @@ export default function ClientOnboarding() {
   useEffect(() => {
     if (authLoading || rolesLoading) return;
 
-    if (!user) {
+    const currentUser = user;
+    if (!currentUser) {
       navigate('/login', { replace: true });
       return;
     }
@@ -47,12 +48,12 @@ export default function ClientOnboarding() {
           supabase
             .from('profiles')
             .select('client_referrer_connector_id, full_name')
-            .eq('id', user.id)
+            .eq('id', currentUser.id)
             .maybeSingle(),
           supabase
             .from('leads')
             .select('id')
-            .eq('client_id', user.id)
+            .eq('client_id', currentUser.id)
             .limit(1),
         ]);
 
@@ -65,7 +66,6 @@ export default function ClientOnboarding() {
 
         setReferred(hasReferral);
         setAlreadySubmitted(hasLead);
-        setBusinessName('');
         setContactName(profileResult.data?.full_name || '');
 
         if (hasLead) {
@@ -84,7 +84,7 @@ export default function ClientOnboarding() {
     return () => {
       mounted = false;
     };
-  }, [authLoading, rolesLoading, user?.id, roles, navigate]);
+  }, [authLoading, rolesLoading, user, roles, navigate]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
