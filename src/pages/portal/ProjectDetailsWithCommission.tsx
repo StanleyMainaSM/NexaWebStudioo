@@ -4,17 +4,205 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { CheckCircle2, Clock3, DollarSign, Loader2, Send } from 'lucide-react';
 
-type Finance = { connector_id: string | null; connector_name: string | null; connector_email: string | null; commission_rate: number | null; commission_id: string | null; commission_amount: number | null; commission_status: string | null; payout_id: string | null; payout_amount: number | null; payout_status: string | null; confirmation_status: string | null; payment_reference: string | null; sent_at: string | null; confirmed_at: string | null };
-function money(v:number|null|undefined){return `KSh ${Number(v||0).toLocaleString('en-KE')}`}
-function pretty(v:string|null|undefined){return v ? v.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'Pending'}
+type Finance = {
+  connector_id: string | null;
+  connector_name: string | null;
+  connector_email: string | null;
+  commission_rate: number | null;
+  commission_id: string | null;
+  commission_amount: number | null;
+  commission_status: string | null;
+  payout_id: string | null;
+  payout_amount: number | null;
+  payout_status: string | null;
+  confirmation_status: string | null;
+  payment_reference: string | null;
+  sent_at: string | null;
+  confirmed_at: string | null;
+};
 
-export default function ProjectDetailsWithCommission(){
-  const { roles } = useAuth(); const [projectId,setProjectId]=useState<string|null>(null); const [finance,setFinance]=useState<Finance|null>(null); const [loading,setLoading]=useState(false); const [paying,setPaying]=useState(false); const [error,setError]=useState(''); const [method,setMethod]=useState('Avelixa internal transfer'); const [reference,setReference]=useState('');
-  useEffect(()=>{const match=window.location.pathname.match(/\/portal\/projects\/([^/?#]+)/);setProjectId(match?.[1]||null)},[]);
-  const load=async()=>{if(!projectId||!(roles.includes('owner')||roles.includes('admin')))return;setLoading(true);setError('');try{const {data,error:e}=await supabase.rpc('owner_get_project_connector_finance',{p_project_id:projectId});if(e)throw e;const row=Array.isArray(data)?data[0]:data;setFinance((row||null) as Finance|null)}catch(e){setError(e instanceof Error?e.message:'Unable to load connector commission.')}finally{setLoading(false)}};
-  useEffect(()=>{void load()},[projectId,roles.join('|')]);
-  async function pay(){if(!finance?.commission_id)return;setPaying(true);setError('');try{const ref=reference.trim()||`AVL-COM-${finance.commission_id.slice(0,8).toUpperCase()}`;const {data,error:e}=await supabase.rpc('owner_mark_connector_commission_sent',{p_commission_id:finance.commission_id,p_payment_method:method,p_reference:ref});if(e)throw e;setFinance(current=>current?{...current,payout_id:data.id,payout_amount:data.amount,payout_status:data.status,confirmation_status:data.confirmation_status,payment_reference:data.reference_number,sent_at:data.sent_at,confirmed_at:data.confirmed_at,commission_status:'approved'}:current);setReference('')}catch(e){setError(e instanceof Error?e.message:'Unable to initiate connector payment.')}finally{setPaying(false)}}
-  const ownerVisible=roles.includes('owner')||roles.includes('admin');
-  return <><ProjectDetails/>{ownerVisible&&<section className="mx-auto max-w-7xl px-4 pb-8"><div className="rounded-2xl border border-accent-500/20 bg-accent-500/5 p-6"><div className="flex items-center gap-3"><DollarSign className="w-5 h-5 text-accent-400"/><div><h3 className="text-lg font-medium text-white">Connector Commission</h3><p className="text-sm text-gray-500 mt-1">Manage the connector payout from this project's context.</p></div></div>{loading?<div className="mt-5 flex items-center gap-2 text-sm text-gray-400"><Loader2 className="w-4 h-4 animate-spin"/>Loading commission details...</div>:error?<div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>:!finance?.connector_id?<div className="mt-5 text-sm text-gray-400">No connector is associated with this project.</div>:!finance?.commission_id?<div className="mt-5 text-sm text-gray-400">No commission has been created yet. A qualifying completed client payment will create it automatically.</div>:<div className="mt-5 space-y-5"><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"><Info label="Connector" value={finance.connector_name||finance.connector_email||'Connector'}/><Info label="Commission Rate" value={`${Number(finance.commission_rate||0)}%`}/><Info label="Commission Amount" value={money(finance.commission_amount)}/><Info label="Status" value={finance.confirmation_status==='confirmed'?'Paid / Confirmed':finance.confirmation_status==='sent'?'Awaiting Connector Confirmation':pretty(finance.commission_status)}/></div><div className="rounded-xl border border-white/10 bg-white/[0.02] p-4"><div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4"><div><p className="text-xs text-gray-500">Payment Reference</p><p className="mt-1 font-mono text-sm text-white">{finance.payment_reference||'Not assigned'}</p>{finance.sent_at&&<p className="mt-2 text-xs text-gray-500">Sent {new Date(finance.sent_at).toLocaleString('en-KE')}</p>}{finance.confirmed_at&&<p className="mt-1 text-xs text-emerald-400">Confirmed {new Date(finance.confirmed_at).toLocaleString('en-KE')}</p>}</div>{finance.confirmation_status==='confirmed'?<span className="inline-flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-400"><CheckCircle2 className="w-4 h-4"/>Connector Confirmed Receipt</span>:finance.confirmation_status==='sent'?<span className="inline-flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-2.5 text-sm text-amber-400"><Clock3 className="w-4 h-4"/>Awaiting Connector Confirmation</span>:<div className="w-full lg:max-w-xl grid grid-cols-1 sm:grid-cols-3 gap-2"><input value={method} onChange={e=>setMethod(e.target.value)} placeholder="Payment method" className="rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white"/><input value={reference} onChange={e=>setReference(e.target.value)} placeholder="Avelixa reference (optional)" className="rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white"/><button onClick={()=>void pay()} disabled={paying} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{paying?<Loader2 className="w-4 h-4 animate-spin"/>:<Send className="w-4 h-4"/>}{paying?'Sending...':'Pay Connector'}</button></div>}</div></div></div>}</div></section>}}</>;
+function money(value: number | null | undefined) {
+  return `KSh ${Number(value || 0).toLocaleString('en-KE')}`;
 }
-function Info({label,value}:{label:string;value:string}){return <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4"><p className="text-xs text-gray-500">{label}</p><p className="mt-1 text-sm font-medium text-white truncate">{value}</p></div>}
+
+function pretty(value: string | null | undefined) {
+  return value
+    ? value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    : 'Pending';
+}
+
+export default function ProjectDetailsWithCommission() {
+  const { roles } = useAuth();
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [finance, setFinance] = useState<Finance | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [error, setError] = useState('');
+  const [method, setMethod] = useState('Avelixa internal transfer');
+  const [reference, setReference] = useState('');
+
+  useEffect(() => {
+    const match = window.location.pathname.match(/\/portal\/projects\/([^/?#]+)/);
+    setProjectId(match?.[1] || null);
+  }, []);
+
+  async function loadFinance() {
+    if (!projectId || !(roles.includes('owner') || roles.includes('admin'))) return;
+    setLoading(true);
+    setError('');
+    try {
+      const { data, error: rpcError } = await supabase.rpc(
+        'owner_get_project_connector_finance',
+        { p_project_id: projectId },
+      );
+      if (rpcError) throw rpcError;
+      const row = Array.isArray(data) ? data[0] : data;
+      setFinance((row || null) as Finance | null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load connector commission.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadFinance();
+  }, [projectId, roles.join('|')]);
+
+  async function pay() {
+    if (!finance?.commission_id) return;
+    setPaying(true);
+    setError('');
+    try {
+      const paymentReference = reference.trim() || `AVL-COM-${finance.commission_id.slice(0, 8).toUpperCase()}`;
+      const { data, error: rpcError } = await supabase.rpc(
+        'owner_mark_connector_commission_sent',
+        {
+          p_commission_id: finance.commission_id,
+          p_payment_method: method,
+          p_reference: paymentReference,
+        },
+      );
+      if (rpcError) throw rpcError;
+      setFinance((current) =>
+        current
+          ? {
+              ...current,
+              payout_id: data.id,
+              payout_amount: data.amount,
+              payout_status: data.status,
+              confirmation_status: data.confirmation_status,
+              payment_reference: data.reference_number,
+              sent_at: data.sent_at,
+              confirmed_at: data.confirmed_at,
+              commission_status: 'approved',
+            }
+          : current,
+      );
+      setReference('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to initiate connector payment.');
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  const ownerVisible = roles.includes('owner') || roles.includes('admin');
+
+  return (
+    <>
+      <ProjectDetails />
+      {ownerVisible && (
+        <section className="mx-auto max-w-7xl px-4 pb-8">
+          <div className="rounded-2xl border border-accent-500/20 bg-accent-500/5 p-6">
+            <div className="flex items-center gap-3">
+              <DollarSign className="w-5 h-5 text-accent-400" />
+              <div>
+                <h3 className="text-lg font-medium text-white">Connector Commission</h3>
+                <p className="text-sm text-gray-500 mt-1">Manage the connector payout from this project's context.</p>
+              </div>
+            </div>
+
+            {loading && (
+              <div className="mt-5 flex items-center gap-2 text-sm text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading commission details...
+              </div>
+            )}
+
+            {!loading && error && (
+              <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>
+            )}
+
+            {!loading && !error && !finance?.connector_id && (
+              <div className="mt-5 text-sm text-gray-400">No connector is associated with this project.</div>
+            )}
+
+            {!loading && !error && finance?.connector_id && !finance.commission_id && (
+              <div className="mt-5 text-sm text-gray-400">No commission has been created yet. A qualifying completed client payment will create it automatically.</div>
+            )}
+
+            {!loading && !error && finance?.commission_id && (
+              <div className="mt-5 space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Info label="Connector" value={finance.connector_name || finance.connector_email || 'Connector'} />
+                  <Info label="Commission Rate" value={`${Number(finance.commission_rate || 0)}%`} />
+                  <Info label="Commission Amount" value={money(finance.commission_amount)} />
+                  <Info
+                    label="Status"
+                    value={
+                      finance.confirmation_status === 'confirmed'
+                        ? 'Paid / Confirmed'
+                        : finance.confirmation_status === 'sent'
+                          ? 'Awaiting Connector Confirmation'
+                          : pretty(finance.commission_status)
+                    }
+                  />
+                </div>
+
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                  <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500">Payment Reference</p>
+                      <p className="mt-1 font-mono text-sm text-white">{finance.payment_reference || 'Not assigned'}</p>
+                      {finance.sent_at && <p className="mt-2 text-xs text-gray-500">Sent {new Date(finance.sent_at).toLocaleString('en-KE')}</p>}
+                      {finance.confirmed_at && <p className="mt-1 text-xs text-emerald-400">Confirmed {new Date(finance.confirmed_at).toLocaleString('en-KE')}</p>}
+                    </div>
+
+                    {finance.confirmation_status === 'confirmed' ? (
+                      <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-400">
+                        <CheckCircle2 className="w-4 h-4" />Connector Confirmed Receipt
+                      </span>
+                    ) : finance.confirmation_status === 'sent' ? (
+                      <span className="inline-flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-2.5 text-sm text-amber-400">
+                        <Clock3 className="w-4 h-4" />Awaiting Connector Confirmation
+                      </span>
+                    ) : (
+                      <div className="w-full lg:max-w-xl grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input value={method} onChange={(e) => setMethod(e.target.value)} placeholder="Payment method" className="rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white" />
+                        <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Avelixa reference (optional)" className="rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white" />
+                        <button onClick={() => void pay()} disabled={paying} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+                          {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                          {paying ? 'Sending...' : 'Pay Connector'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="mt-1 text-sm font-medium text-white truncate">{value}</p>
+    </div>
+  );
+}
