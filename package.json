@@ -8,7 +8,8 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.js",
     "start": "node dist/server.js",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "test:connector-leads": "node --experimental-strip-types tests/connectorLeadGeneration.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
