@@ -47,9 +47,17 @@ export function getClientLifecycleState(
             ? 'Project setup'
             : 'Project active';
 
-    const projectIndex = projectKey === 'completed' ? 4 : 5;
-    const labels = [...LEAD_STAGES, { key: 'project', label: 'Project active' }, { key: 'completed', label: 'Completed' }];
-    const currentIndex = projectKey === 'completed' ? labels.length - 1 : projectIndex;
+    const projectStepLabel = projectKey === 'completed'
+      ? 'Project active'
+      : projectKey === 'cancelled'
+        ? 'Cancelled'
+        : projectKey === 'review'
+          ? 'Ready for review'
+          : projectKey === 'project_pending'
+            ? 'Project setup'
+            : 'Project active';
+    const labels = [...LEAD_STAGES, { key: 'project', label: projectStepLabel }, { key: 'completed', label: 'Completed' }];
+    const currentIndex = projectKey === 'completed' ? labels.length - 1 : 5;
 
     return {
       key: projectKey,
@@ -66,7 +74,7 @@ export function getClientLifecycleState(
     return {
       key: 'lost',
       label: 'Not proceeding',
-      steps: LEAD_STAGES.map((step, index) => ({ ...step, completed: index < 0, current: false })),
+      steps: LEAD_STAGES.map((step) => ({ ...step, completed: false, current: false })),
     };
   }
 
