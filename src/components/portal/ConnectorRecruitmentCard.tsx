@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clipboard, ExternalLink, MessageCircle, Share2, UserPlus, Copy, Send, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
+import ConnectorClientReferralCard from './ConnectorClientReferralCard';
 
 type RecruitmentApplication = {
   id: string;
@@ -191,6 +192,8 @@ export default function ConnectorRecruitmentCard() {
           <p className="text-sm text-gray-300 leading-relaxed">{loading ? 'Loading your invitation message…' : recruitmentMessage || 'Your referral link is not available yet.'}</p>
         </div>
       </div>
+
+      <ConnectorClientReferralCard avlId={avlId} />
 
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {funnel.map(({ label, value }) => (
