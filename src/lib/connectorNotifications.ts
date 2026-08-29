@@ -15,6 +15,7 @@ const TYPE_MAP: Record<string, Omit<ConnectorNotificationPresentation, 'link'>> 
   connector_lead_status_changed: { label: 'Lead status changed', category: 'lead' },
   connector_lead_action_required: { label: 'Lead requires attention', category: 'lead' },
   project_created: { label: 'Project created', category: 'project' },
+  project_submitted_for_review: { label: 'Project submitted for review', category: 'project' },
   project_status_changed: { label: 'Project status changed', category: 'project' },
   project_progress_updated: { label: 'Project progress updated', category: 'project' },
   project_completed: { label: 'Project completed', category: 'project' },
@@ -38,9 +39,7 @@ const DEFAULT_LINKS: Record<ConnectorNotificationPresentation['category'], strin
   system: '/portal/activity',
 };
 
-export function getConnectorNotificationPresentation(
-  notification: ConnectorNotification,
-): ConnectorNotificationPresentation {
+export function getConnectorNotificationPresentation(notification: ConnectorNotification): ConnectorNotificationPresentation {
   const type = (notification.notification_type || '').trim().toLowerCase();
   const mapped = TYPE_MAP[type] || { label: notification.title?.trim() || 'Avelixa update', category: 'system' as const };
   return { ...mapped, link: notification.link?.trim() || DEFAULT_LINKS[mapped.category] };
