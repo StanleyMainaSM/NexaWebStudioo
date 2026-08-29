@@ -9,7 +9,7 @@ const links = [
   { label: 'Work', to: '/work' },
   { label: 'Pricing', to: '/pricing' },
   { label: 'Reviews', to: '/reviews' },
-  { label: 'Connectors', to: '/connector-apply' },
+  { label: 'Connectors', to: '/connectors' },
 ];
 
 export default function Nav() {
@@ -42,7 +42,7 @@ export default function Nav() {
         </div>
         <button onClick={() => setOpen(!open)} className="md:hidden p-2 text-white" aria-label="Menu">{open ? <X /> : <Menu />}</button>
       </nav>
-      {open && <div className="md:hidden absolute top-20 inset-x-0 mx-4 glass rounded-2xl p-4 flex flex-col gap-1">{links.map((l) => <Link key={l.to} to={l.to} className={`px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest ${location.pathname === l.to ? 'text-accent-400 bg-white/5' : 'text-gray-400 hover:bg-white/5'}`}>{l.label}</Link>)}<Link to="/login" className="px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest text-accent-400 bg-accent-400/10">Portal Login</Link><a href={whatsapp} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-zinc-100 text-black hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-medium"><MessageCircle className="w-4 h-4" />Message on WhatsApp</a></div>}
+      {open && <div className="md:hidden absolute top-20 inset-x-0 mx-4 glass rounded-2xl p-4 flex flex-col gap-1">{links.map((l) => <Link key={l.to} to={l.to} className={`px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest ${location.pathname === l.to ? 'text-accent-400 bg-white/5' : 'text-gray-400 hover:bg-white/5'}`}>{l.label}</Link>)}<Link to="/login" className="px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest text-accent-400 bg-accent-400/10">Portal Login</Link><Link to="/connector-apply" className="mt-2 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-zinc-100 text-black hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-bold">Become a Connector</Link><a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-white/10 text-white hover:bg-white/5 transition-colors uppercase tracking-widest text-sm font-medium"><MessageCircle className="w-4 h-4" />Message on WhatsApp</a></div>}
     </header>
   );
 }
