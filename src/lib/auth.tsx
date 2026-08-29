@@ -1,10 +1,24 @@
-﻿import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { useGlobalCommunicationPresence } from './usePortalRealtime';
 
-type AuthContextType = { user: User | null; roles: string[]; loading: boolean; rolesLoading: boolean };
-const AuthContext = createContext<AuthContextType>({ user: null, roles: [], loading: true, rolesLoading: true });
+export type PortalWorkspace = 'client' | 'connector' | 'operator' | 'admin' | 'owner';
+export type AuthProfile = { id: string; email: string | null; full_name: string | null; avatar_url: string | null };
+
+type AuthContextType = {
+  user: User | null;
+  roles: string[];
+  profile: AuthProfile | null;
+  activeWorkspace: PortalWorkspace | null;
+  setActiveWorkspace: (workspace: PortalWorkspace | null) => void;
+  loading: boolean;
+  rolesLoading: boolean;
+};
+
+const WORKSPACE_STORAGE_KEY = 'avelixa.activeWorkspace';
+const WORKSPACES: PortalWorkspace[] = ['client', 'connector', 'operator', 'admin', 'owner'];
+const AuthContext = createContext<AuthContextType>({ user: null, roles: [], profile: null, activeWorkspace: null, setActiveWorkspace: () => undefined, loading: true, rolesLoading: true });
 
 function normalizeRoles(roleValues: unknown): string[] {
   if (!Array.isArray(roleValues)) return [];
@@ -34,15 +48,32 @@ export function getPortalPathForRole(role: string | null): string {
   }
 }
 
+function isWorkspace(value: string | null): value is PortalWorkspace {
+  return !!value && WORKSPACES.includes(value as PortalWorkspace);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
+  const [profile, setProfile] = useState<AuthProfile | null>(null);
+  const [activeWorkspace, setActiveWorkspaceState] = useState<PortalWorkspace | null>(null);
   const [loading, setLoading] = useState(true);
   const [rolesLoading, setRolesLoading] = useState(true);
   const mountedRef = useRef(true);
   const rolesRequestRef = useRef(0);
 
   useGlobalCommunicationPresence(user?.id);
+
+  const setActiveWorkspace = (workspace: PortalWorkspace | null) => {
+    if (!workspace) {
+      setActiveWorkspaceState(null);
+      if (typeof window !== 'undefined') window.sessionStorage.removeItem(WORKSPACE_STORAGE_KEY);
+      return;
+    }
+    if (!roles.includes(workspace)) return;
+    setActiveWorkspaceState(workspace);
+    if (typeof window !== 'undefined') window.sessionStorage.setItem(WORKSPACE_STORAGE_KEY, workspace);
+  };
 
   const fetchRoles = async () => {
     const requestId = ++rolesRequestRef.current;
@@ -52,16 +83,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
       if (!currentUser) {
-        if (mountedRef.current && requestId === rolesRequestRef.current) setRoles([]);
+        if (mountedRef.current && requestId === rolesRequestRef.current) { setRoles([]); setProfile(null); setActiveWorkspaceState(null); }
         return;
       }
-      const { data, error } = await supabase.rpc('get_my_roles');
-      if (error) throw error;
+      const [{ data: roleData, error: roleError }, { data: profileData, error: profileError }] = await Promise.all([
+        supabase.rpc('get_my_roles'),
+        supabase.from('profiles').select('id,email,full_name,avatar_url').eq('id', currentUser.id).maybeSingle(),
+      ]);
+      if (roleError) throw roleError;
+      if (profileError) console.warn('Could not load user profile:', profileError.message);
       if (!mountedRef.current || requestId !== rolesRequestRef.current) return;
-      setRoles(normalizeRoles(data));
+      const normalized = normalizeRoles(roleData);
+      setRoles(normalized);
+      setProfile(profileData ? profileData as AuthProfile : null);
+      const stored = typeof window !== 'undefined' ? window.sessionStorage.getItem(WORKSPACE_STORAGE_KEY) : null;
+      const nextWorkspace = isWorkspace(stored) && normalized.includes(stored) ? stored : getPrimaryPortalRole(normalized) as PortalWorkspace | null;
+      setActiveWorkspaceState(nextWorkspace);
+      if (nextWorkspace && typeof window !== 'undefined') window.sessionStorage.setItem(WORKSPACE_STORAGE_KEY, nextWorkspace);
     } catch (error) {
-      console.error('Error loading user roles:', error);
-      if (mountedRef.current && requestId === rolesRequestRef.current) setRoles([]);
+      console.error('Error loading user roles/profile:', error);
+      if (mountedRef.current && requestId === rolesRequestRef.current) { setRoles([]); setProfile(null); }
     } finally {
       if (mountedRef.current && requestId === rolesRequestRef.current) setRolesLoading(false);
     }
@@ -79,10 +120,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(currentUser);
         setLoading(false);
         if (currentUser) await fetchRoles();
-        else { setRoles([]); setRolesLoading(false); }
+        else { setRoles([]); setProfile(null); setActiveWorkspaceState(null); setRolesLoading(false); }
       } catch (error) {
         console.error('Authentication initialization error:', error);
-        if (!cancelled && mountedRef.current) { setUser(null); setRoles([]); setLoading(false); setRolesLoading(false); }
+        if (!cancelled && mountedRef.current) { setUser(null); setRoles([]); setProfile(null); setActiveWorkspaceState(null); setLoading(false); setRolesLoading(false); }
       }
     };
     void initialize();
@@ -92,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       setLoading(false);
-      if (!currentUser) { setRoles([]); setRolesLoading(false); return; }
+      if (!currentUser) { setRoles([]); setProfile(null); setActiveWorkspaceState(null); setRolesLoading(false); return; }
       if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         setTimeout(() => { if (!cancelled && mountedRef.current) void fetchRoles(); }, 0);
       }
@@ -106,7 +147,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  return <AuthContext.Provider value={{ user, roles, loading, rolesLoading }}>{children}</AuthContext.Provider>;
+  useEffect(() => {
+    if (!user?.id) return;
+    let alive = true;
+    const channel = supabase.channel(`avelixa-profile-${user.id}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, ({ new: row }) => {
+      if (alive) setProfile(row as AuthProfile);
+    }).subscribe();
+    return () => { alive = false; void supabase.removeChannel(channel); };
+  }, [user?.id]);
+
+  return <AuthContext.Provider value={{ user, roles, profile, activeWorkspace, setActiveWorkspace, loading, rolesLoading }}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);
