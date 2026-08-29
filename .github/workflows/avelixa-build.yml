@@ -17,12 +17,14 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - name: Install dependencies
         run: npm ci
       - name: Connector notification tests
         run: npm run test:connector-notifications
+      - name: Client referral tests
+        run: npm run test:client-referrals
       - name: Typecheck
         run: npm run typecheck
       - name: Build
