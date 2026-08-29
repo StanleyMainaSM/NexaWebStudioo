@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Sparkles,
   ArrowRight,
@@ -16,6 +16,9 @@ import { supabase } from '../lib/supabase';
 export default function ConnectorApplication() {
   const [searchParams] = useSearchParams();
   const referralFromLink = searchParams.get('ref')?.trim() || '';
+  const initialReferralRef = useRef(referralFromLink);
+  const capturedReferral = initialReferralRef.current;
+
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -31,20 +34,22 @@ export default function ConnectorApplication() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    if (!referralFromLink) return;
+    if (!capturedReferral) return;
 
     setFormData((previous) => ({
       ...previous,
-      referringConnector: previous.referringConnector || referralFromLink,
+      referringConnector: capturedReferral,
     }));
-  }, [referralFromLink]);
+  }, [capturedReferral]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
     setError('');
 
     try {
+      const authoritativeReferral = capturedReferral || formData.referringConnector.trim() || null;
+
       const { data: applicationId, error: submissionError } =
         await supabase.rpc('submit_connector_application', {
           p_full_name: formData.fullName,
@@ -53,7 +58,7 @@ export default function ConnectorApplication() {
           p_national_id: formData.nationalId,
           p_county: formData.county,
           p_town: formData.town,
-          p_referring_connector: formData.referringConnector || null,
+          p_referring_connector: authoritativeReferral,
         });
 
       if (submissionError) {
@@ -83,8 +88,8 @@ export default function ConnectorApplication() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((previous) => ({ ...previous, [event.target.name]: event.target.value }));
   };
 
   if (success) {
@@ -120,7 +125,7 @@ export default function ConnectorApplication() {
             <span className="text-2xl font-medium tracking-tight text-white">Avelixa</span>
           </div>
 
-          {referralFromLink && (
+          {capturedReferral && (
             <div className="max-w-2xl mx-auto mb-8 rounded-2xl border border-accent-400/20 bg-accent-400/[0.06] px-5 py-4 flex items-start gap-3">
               <UserPlus className="w-5 h-5 text-accent-300 flex-shrink-0 mt-0.5" />
               <div>
@@ -160,9 +165,9 @@ export default function ConnectorApplication() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-ink-500 uppercase tracking-widest mb-2">Referring Connector ID (Optional)</label>
-                <input type="text" name="referringConnector" value={formData.referringConnector} onChange={handleChange} readOnly={Boolean(referralFromLink)} aria-readonly={referralFromLink ? 'true' : undefined} className={`w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-accent-400/60 focus:bg-white/[0.07] transition-all ${referralFromLink ? 'cursor-not-allowed opacity-90' : ''}`} placeholder="AVL-XXXX" autoCapitalize="characters" />
+                <input type="text" name="referringConnector" value={formData.referringConnector} onChange={handleChange} readOnly={Boolean(capturedReferral)} aria-readonly={capturedReferral ? 'true' : undefined} className={`w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-accent-400/60 focus:bg-white/[0.07] transition-all ${capturedReferral ? 'cursor-not-allowed opacity-90' : ''}`} placeholder="AVL-XXXX" autoCapitalize="characters" />
                 <p className="text-gray-500 text-xs mt-2">If another Avelixa Connector referred you, enter their ID here. Referral IDs are validated by Avelixa when the application is submitted.</p>
-                {referralFromLink && formData.referringConnector && (
+                {capturedReferral && formData.referringConnector && (
                   <p className="text-accent-300 text-xs mt-2">Referral captured from your invitation link.</p>
                 )}
               </div>
