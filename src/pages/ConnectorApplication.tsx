@@ -12,8 +12,6 @@ import {
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
-const REFERRAL_APPLICATION_URL = 'https://www.avelixa.co.ke/connector-apply';
-
 export default function ConnectorApplication() {
   const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState({
