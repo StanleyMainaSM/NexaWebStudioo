@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Sparkles,
   ArrowRight,
@@ -9,10 +9,13 @@ import {
   Briefcase,
   Coins,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
+const REFERRAL_APPLICATION_URL = 'https://www.avelixa.co.ke/connector-apply';
+
 export default function ConnectorApplication() {
+  const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -26,6 +29,16 @@ export default function ConnectorApplication() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    const referral = searchParams.get('ref')?.trim() || '';
+    if (!referral) return;
+
+    setFormData((previous) => ({
+      ...previous,
+      referringConnector: previous.referringConnector || referral,
+    }));
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +58,14 @@ export default function ConnectorApplication() {
         });
 
       if (submissionError) {
-        throw new Error(submissionError.message);
+        const message = submissionError.message || '';
+        if (message.toLowerCase().includes('active connector application')) {
+          throw new Error('An active Connector application already exists for this email address.');
+        }
+        if (message.toLowerCase().includes('referring connector id')) {
+          throw new Error('The referring Connector ID was not found or is inactive.');
+        }
+        throw new Error(message);
       }
 
       if (!applicationId) {
@@ -78,7 +98,7 @@ export default function ConnectorApplication() {
           </div>
           <h2 className="text-2xl font-bold text-white mb-4">Application Submitted</h2>
           <p className="text-gray-400 mb-8 leading-relaxed">
-            Thank you for applying to become an Avelixa Connector. Our team will review your application and contact you regarding the next steps.
+            Thank you for applying to become an Avelixa Connector. Your application has been received and will be reviewed by the Avelixa team.
           </p>
           <Link to="/" className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-colors font-medium">
             Return to Avelixa
@@ -131,8 +151,11 @@ export default function ConnectorApplication() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-ink-500 uppercase tracking-widest mb-2">Referring Connector ID (Optional)</label>
-                <input type="text" name="referringConnector" value={formData.referringConnector} onChange={handleChange} className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-accent-400/60 focus:bg-white/[0.07] transition-all" placeholder="AVL-XXXX" />
-                <p className="text-gray-500 text-xs mt-2">If another Avelixa Connector referred you, enter their ID here.</p>
+                <input type="text" name="referringConnector" value={formData.referringConnector} onChange={handleChange} className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-accent-400/60 focus:bg-white/[0.07] transition-all" placeholder="AVL-XXXX" autoCapitalize="characters" />
+                <p className="text-gray-500 text-xs mt-2">If another Avelixa Connector referred you, enter their ID here. Referral IDs are validated by Avelixa when the application is submitted.</p>
+                {formData.referringConnector && (
+                  <p className="text-accent-300 text-xs mt-2">Referral captured from your invitation link.</p>
+                )}
               </div>
               <div className="pt-4 border-t border-white/5">
                 <button type="submit" disabled={loading} className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-zinc-100 text-black hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">
@@ -143,7 +166,7 @@ export default function ConnectorApplication() {
             </form>
           </div>
         </div>
-        <div className="text-center mt-8"><Link to="/" className="text-sm text-gray-500 hover:text-accent-400 transition-colors">← Back to Avelixa</Link></div>
+        <div className="text-center mt-8"><Link to="/connectors" className="text-sm text-gray-500 hover:text-accent-400 transition-colors">← Back to Connector Program</Link></div>
       </div>
     </div>
   );
