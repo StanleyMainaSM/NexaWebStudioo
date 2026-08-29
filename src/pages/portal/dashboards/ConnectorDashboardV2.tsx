@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
+import ConnectorRecruitmentCard from '../../../components/portal/ConnectorRecruitmentCard';
 import { FolderKanban, Users, Link as LinkIcon, DollarSign, ArrowRight, Plus, CheckCircle2, Clock3, ReceiptText, UserPlus } from 'lucide-react';
 
 type Commission = {
@@ -169,6 +170,8 @@ export default function ConnectorDashboardV2() {
           <span className="text-sm text-gray-400">Commission rate: <strong className="text-accent-400">{profile.commission_rate ?? 0}%</strong></span>
         </div>
       )}
+
+      <ConnectorRecruitmentCard />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Stat icon={Users} label="My Leads" value={loading ? '—' : String(leads)} />
