@@ -7,7 +7,7 @@ import { connectorLeadStageLabel, getConnectorLeadStage, type ConnectorLeadStage
 
 type Lead={id:string;business_id:string;title:string;requirements:string|null;status:string|null;created_at:string};
 type Business={id:string;name:string;industry:string|null;contact_name:string|null;email:string|null;phone:string|null};
-type Project={id:string;business_id:string;connector_id:string|null;title:string|null;status:string|null};
+type Project={id:string;business_id:string;connector_id?:string|null;title?:string|null;status?:string|null};
 type Commission={id:string;project_id:string|null;amount:number|null;status:string|null};
 const money=(v:number)=>`KSh ${v.toLocaleString('en-KE',{maximumFractionDigits:2})}`;
 const stages:ConnectorLeadStage[]=['submitted','under_review','contacted','qualified','converted','project_active','completed','commission_earned'];
