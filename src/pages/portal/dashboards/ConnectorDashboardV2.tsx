@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
 import ConnectorRecruitmentCard from '../../../components/portal/ConnectorRecruitmentCard';
 import ConnectorLeadGenerationToolkit from '../../../components/portal/ConnectorLeadGenerationToolkit';
+import ConnectorActivity from '../../../components/portal/ConnectorActivity';
 import { FolderKanban, Users, Link as LinkIcon, DollarSign, ArrowRight, Plus, CheckCircle2, Clock3, ReceiptText, UserPlus } from 'lucide-react';
 
 type Commission = {
@@ -174,6 +175,7 @@ export default function ConnectorDashboardV2() {
 
       <ConnectorRecruitmentCard />
       <ConnectorLeadGenerationToolkit />
+      <ConnectorActivity />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Stat icon={Users} label="My Leads" value={loading ? '—' : String(leads)} />
