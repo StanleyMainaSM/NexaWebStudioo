@@ -45,6 +45,7 @@ export default function ProjectDetailsWithCommission() {
   const [finance, setFinance] = useState<Finance | null>(null);
   const [connectors, setConnectors] = useState<ConnectorOption[]>([]);
   const [loading, setLoading] = useState(false);
+  const [connectorsLoading, setConnectorsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [paying, setPaying] = useState(false);
   const [referenceSaving, setReferenceSaving] = useState(false);
@@ -58,12 +59,18 @@ export default function ProjectDetailsWithCommission() {
   const [editableReference, setEditableReference] = useState('');
 
   const ownerVisible = roles.includes('owner') || roles.includes('admin');
+  const normalizedCommissionStatus = String(finance?.commission_status || '').toLowerCase();
+  const normalizedPayoutStatus = String(finance?.payout_status || '').toLowerCase();
+  const normalizedConfirmationStatus = String(finance?.confirmation_status || '').toLowerCase();
   const locked = Boolean(
     finance?.commission_id &&
-      (finance.confirmation_status === 'sent' ||
-        finance.confirmation_status === 'confirmed' ||
-        ['paid', 'completed'].includes(String(finance.commission_status || '').toLowerCase())),
+      (normalizedConfirmationStatus === 'sent' ||
+        normalizedConfirmationStatus === 'confirmed' ||
+        ['paid', 'completed'].includes(normalizedCommissionStatus) ||
+        ['paid', 'completed'].includes(normalizedPayoutStatus)),
   );
+  const configurationDisabled = locked || saving || loading || connectorsLoading;
+  const hasConnector = Boolean(selectedConnectorId);
 
   useEffect(() => {
     const match = window.location.pathname.match(/\/portal\/projects\/([^/?#]+)/);
@@ -73,6 +80,7 @@ export default function ProjectDetailsWithCommission() {
   async function loadFinance() {
     if (!projectId || !ownerVisible) return;
     setLoading(true);
+    setConnectorsLoading(true);
     setError('');
     try {
       const [{ data, error: rpcError }, { data: connectorData, error: connectorError }] = await Promise.all([
@@ -93,6 +101,7 @@ export default function ProjectDetailsWithCommission() {
       setError(err instanceof Error ? err.message : 'Unable to load connector commission.');
     } finally {
       setLoading(false);
+      setConnectorsLoading(false);
     }
   }
 
@@ -101,13 +110,21 @@ export default function ProjectDetailsWithCommission() {
   }, [projectId, ownerVisible, roles.join('|')]);
 
   function handleConnectorChange(value: string) {
+    if (configurationDisabled) return;
     setSelectedConnectorId(value);
     const option = connectors.find((connector) => connector.connector_id === value);
-    if (option?.commission_rate != null) setCommissionRate(String(option.commission_rate));
+    setCommissionRate(option?.commission_rate == null ? '' : String(option.commission_rate));
+    setError('');
+  }
+
+  function handleRateChange(value: string) {
+    if (configurationDisabled || !hasConnector) return;
+    setCommissionRate(value);
+    setError('');
   }
 
   async function saveManagement() {
-    if (!projectId || locked) return;
+    if (!projectId || locked || !selectedConnectorId) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -119,7 +136,7 @@ export default function ProjectDetailsWithCommission() {
 
       const { error: rpcError } = await supabase.rpc('owner_manage_project_connector', {
         p_project_id: projectId,
-        p_connector_id: selectedConnectorId || null,
+        p_connector_id: selectedConnectorId,
         p_commission_rate: parsedRate,
         p_reason: reason.trim() || null,
       });
@@ -158,7 +175,7 @@ export default function ProjectDetailsWithCommission() {
   }
 
   async function correctReference() {
-    if (!finance?.payout_id || finance.confirmation_status !== 'sent') return;
+    if (!finance?.payout_id || normalizedConfirmationStatus !== 'sent') return;
     setReferenceSaving(true);
     setError('');
     setMessage('');
@@ -178,11 +195,21 @@ export default function ProjectDetailsWithCommission() {
     }
   }
 
+  const commissionPreview = (() => {
+    const currentRate = Number(commissionRate);
+    const currentAmount = Number(finance?.commission_amount || 0);
+    const storedRate = Number(finance?.commission_rate || 0);
+    if (!Number.isFinite(currentRate) || currentRate < 0 || currentRate > 100) return null;
+    if (currentRate === storedRate || !finance?.commission_id || !Number.isFinite(storedRate) || storedRate <= 0) return currentAmount || null;
+    const impliedPayment = currentAmount > 0 ? currentAmount / (storedRate / 100) : 0;
+    return impliedPayment > 0 ? Math.round(impliedPayment * currentRate) / 100 : null;
+  })();
+
   return (
     <>
       <ProjectDetails />
       {ownerVisible && (
-        <section className="mx-auto max-w-7xl px-4 pb-8">
+        <section className="relative z-30 mx-auto max-w-7xl px-4 pb-8 pointer-events-auto">
           <div className="rounded-2xl border border-accent-500/20 bg-accent-500/5 p-6">
             <div className="flex items-center gap-3">
               <DollarSign className="w-5 h-5 text-accent-400" />
@@ -215,8 +242,8 @@ export default function ProjectDetailsWithCommission() {
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
                     {locked
-                      ? 'This commission is locked because payment has been sent or confirmed.'
-                      : 'Before payout, changing the connector or rate updates the underlying relationship and recalculates the commission from the qualifying client payment.'}
+                      ? 'Locked: this commission has already been paid/sent and must not be rewritten from the normal management screen.'
+                      : 'Editable before payout. Select a connector, configure the rate, add an optional audit reason, then save.'}
                   </p>
 
                   <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -225,16 +252,20 @@ export default function ProjectDetailsWithCommission() {
                       <select
                         value={selectedConnectorId}
                         onChange={(event) => handleConnectorChange(event.target.value)}
-                        disabled={locked || saving}
-                        className="mt-2 w-full rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white disabled:opacity-50"
+                        disabled={configurationDisabled}
+                        aria-disabled={configurationDisabled}
+                        className="mt-2 w-full cursor-pointer appearance-auto rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <option value="">No connector</option>
+                        <option value="">Select an active connector</option>
                         {connectors.map((connector) => (
                           <option key={connector.connector_id} value={connector.connector_id}>
                             {connector.connector_name} — {connector.connector_email}
                           </option>
                         ))}
                       </select>
+                      {!connectorsLoading && connectors.length === 0 && !locked && (
+                        <span className="mt-1 block text-[11px] text-amber-400">No active Connector accounts are available.</span>
+                      )}
                     </label>
                     <label className="text-xs text-gray-500">
                       Connector commission rate (%)
@@ -244,33 +275,37 @@ export default function ProjectDetailsWithCommission() {
                         max="100"
                         step="0.01"
                         value={commissionRate}
-                        onChange={(event) => setCommissionRate(event.target.value)}
-                        disabled={locked || saving || !selectedConnectorId}
-                        className="mt-2 w-full rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white disabled:opacity-50"
+                        onChange={(event) => handleRateChange(event.target.value)}
+                        disabled={configurationDisabled || !hasConnector}
+                        aria-disabled={configurationDisabled || !hasConnector}
+                        className="mt-2 w-full cursor-text rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
                       />
+                      {!hasConnector && !locked && <span className="mt-1 block text-[11px] text-gray-500">Select a Connector first.</span>}
                     </label>
                     <label className="text-xs text-gray-500">
                       Reason / audit note
                       <input
                         value={reason}
                         onChange={(event) => setReason(event.target.value)}
-                        disabled={locked || saving}
+                        disabled={configurationDisabled}
+                        aria-disabled={configurationDisabled}
                         placeholder="Optional"
-                        className="mt-2 w-full rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white disabled:opacity-50"
+                        className="mt-2 w-full cursor-text rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     </label>
                   </div>
 
                   <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="text-xs text-gray-500">
-                      Amount is database-calculated from the qualifying client payment and rate; it is never entered manually.
+                      The database calculates the final amount from the qualifying client payment and configured rate; the frontend cannot set an arbitrary commission amount.
+                      {commissionPreview !== null && !locked && <span className="ml-2 text-accent-300">Current calculated preview: {money(commissionPreview)}</span>}
                     </div>
                     {!locked && (
                       <button
                         type="button"
                         onClick={() => void saveManagement()}
-                        disabled={saving || !selectedConnectorId}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                        disabled={saving || loading || connectorsLoading || !selectedConnectorId}
+                        className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         {saving ? 'Saving...' : 'Save Commission Settings'}
@@ -287,7 +322,7 @@ export default function ProjectDetailsWithCommission() {
 
                 {finance?.connector_id && !finance.commission_id && (
                   <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm text-gray-400">
-                    No commission exists yet. If a qualifying client payment has already been completed, saving the connector configuration will create the commission automatically. Otherwise the existing payment workflow will create it when the qualifying payment is completed.
+                    No commission exists yet. Saving the connector configuration establishes the project/lead attribution. The commission is created automatically when a qualifying client payment exists.
                   </div>
                 )}
 
@@ -300,9 +335,9 @@ export default function ProjectDetailsWithCommission() {
                       <Info
                         label="Status"
                         value={
-                          finance.confirmation_status === 'confirmed'
+                          normalizedConfirmationStatus === 'confirmed'
                             ? 'Paid / Confirmed'
-                            : finance.confirmation_status === 'sent'
+                            : normalizedConfirmationStatus === 'sent'
                               ? 'Awaiting Connector Confirmation'
                               : pretty(finance.commission_status)
                         }
@@ -313,18 +348,18 @@ export default function ProjectDetailsWithCommission() {
                       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
                         <div className="min-w-0 flex-1">
                           <p className="text-xs text-gray-500">Avelixa Payout Reference</p>
-                          {finance.confirmation_status === 'sent' ? (
+                          {normalizedConfirmationStatus === 'sent' ? (
                             <div className="mt-2 flex flex-col sm:flex-row gap-2">
                               <input
                                 value={editableReference}
                                 onChange={(event) => setEditableReference(event.target.value)}
-                                className="min-w-0 flex-1 rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm font-mono text-white"
+                                className="min-w-0 flex-1 cursor-text rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm font-mono text-white"
                               />
                               <button
                                 type="button"
                                 onClick={() => void correctReference()}
                                 disabled={referenceSaving}
-                                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white disabled:opacity-50"
+                                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 {referenceSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                 {referenceSaving ? 'Saving...' : 'Update Reference'}
@@ -337,11 +372,11 @@ export default function ProjectDetailsWithCommission() {
                           {finance.confirmed_at && <p className="mt-1 text-xs text-emerald-400">Confirmed {new Date(finance.confirmed_at).toLocaleString('en-KE')}</p>}
                         </div>
 
-                        {finance.confirmation_status === 'confirmed' ? (
+                        {normalizedConfirmationStatus === 'confirmed' ? (
                           <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-400">
                             <CheckCircle2 className="w-4 h-4" />Connector Confirmed Receipt
                           </span>
-                        ) : finance.confirmation_status === 'sent' ? (
+                        ) : normalizedConfirmationStatus === 'sent' ? (
                           <span className="inline-flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-2.5 text-sm text-amber-400">
                             <Clock3 className="w-4 h-4" />Awaiting Connector Confirmation
                           </span>
@@ -351,18 +386,19 @@ export default function ProjectDetailsWithCommission() {
                               value={method}
                               onChange={(event) => setMethod(event.target.value)}
                               placeholder="Payment method"
-                              className="rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white"
+                              className="cursor-text rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white"
                             />
                             <input
                               value={reference}
                               onChange={(event) => setReference(event.target.value)}
                               placeholder="Avelixa reference (optional)"
-                              className="rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white"
+                              className="cursor-text rounded-xl bg-ink-950 border border-ink-800 px-3 py-2.5 text-sm text-white"
                             />
                             <button
+                              type="button"
                               onClick={() => void pay()}
-                              disabled={paying}
-                              className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                              disabled={paying || locked}
+                              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                               {paying ? 'Sending...' : 'Pay Connector'}
