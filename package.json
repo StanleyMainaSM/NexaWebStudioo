@@ -16,7 +16,8 @@
     "test:client-referrals": "node --experimental-strip-types tests/clientReferral.test.mjs",
     "test:client-portal": "node --experimental-strip-types tests/clientPortal.test.mjs",
     "test:invoice-notifications": "node --experimental-strip-types tests/invoiceNotifications.test.mjs",
-    "test:payment-finance-handoff": "node --experimental-strip-types tests/paymentFinanceHandoff.test.mjs"
+    "test:payment-finance-handoff": "node --experimental-strip-types tests/paymentFinanceHandoff.test.mjs",
+    "test:client-payment-amount": "node --experimental-strip-types tests/clientPaymentAmount.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -29,7 +30,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
-    "@types/express": "^5.0.6",
+    "@types/express": "^5.0.0",
     "@types/node": "^26.2.0",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
