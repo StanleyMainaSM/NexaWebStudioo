@@ -25,6 +25,8 @@ jobs:
         run: npm run test:connector-notifications
       - name: Client referral tests
         run: npm run test:client-referrals
+      - name: Client portal lifecycle tests
+        run: npm run test:client-portal
       - name: Typecheck
         run: npm run typecheck
       - name: Build
