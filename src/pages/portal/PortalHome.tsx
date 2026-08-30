@@ -1,16 +1,8 @@
 import { useEffect } from 'react';
+import { ShieldCheck, Link as ConnectorIcon, Briefcase, UserCircle2, ArrowRight, Loader2, Crown } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
-import {
-  ShieldCheck,
-  Link as ConnectorIcon,
-  Briefcase,
-  UserCircle2,
-  ArrowRight,
-  Loader2,
-  Crown,
-} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import ClientDashboard from './dashboards/ClientDashboard';
+import ClientDashboard from './dashboards/ClientDashboardV2';
 
 export default function PortalHome() {
   const { user, roles, loading, rolesLoading, activeWorkspace } = useAuth();
@@ -40,7 +32,7 @@ export default function PortalHome() {
   const workspaceCards = [];
   if (canAccessOwner) workspaceCards.push({ key: 'owner', title: 'Owner Portal', description: 'Full business ownership, oversight, role management, and system control.', icon: Crown, path: '/portal/owner' });
   if (canAccessAdmin) workspaceCards.push({ key: 'admin', title: 'Admin Portal', description: 'Manage clients, projects, team operations, reviews, messages, and Avelixa administration.', icon: ShieldCheck, path: '/portal/admin' });
-  if (canAccessConnector) workspaceCards.push({ key: 'connector', title: 'Connector Portal', description: 'Manage your leads, submit new leads, and track your connector activity.', icon: ConnectorIcon, path: '/portal/connector' });
+  if (canAccessConnector) workspaceCards.push({ key: 'connector', title: 'Connector Portal', description: 'Manage your leads, submit new leads, and track your Connector activity.', icon: ConnectorIcon, path: '/portal/connector' });
   if (canAccessOperator) workspaceCards.push({ key: 'operator', title: 'Operator Portal', description: 'Access assigned projects, tasks, progress, documents, and communication.', icon: Briefcase, path: '/portal/operator' });
   if (canAccessClient) workspaceCards.push({ key: 'client', title: 'Client Portal', description: 'View your projects, invoices, documents, activity, and account information.', icon: UserCircle2, path: '/portal' });
 
