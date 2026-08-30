@@ -27,6 +27,8 @@ jobs:
         run: npm run test:client-referrals
       - name: Client portal lifecycle tests
         run: npm run test:client-portal
+      - name: Client payment amount tests
+        run: npm run test:client-payment-amount
       - name: Typecheck
         run: npm run typecheck
       - name: Build
