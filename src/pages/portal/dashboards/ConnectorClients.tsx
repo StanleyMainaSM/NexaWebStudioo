@@ -19,14 +19,15 @@ export default function ConnectorClients() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!user?.id) { setLoading(false); return; }
+    const userId = user?.id;
+    if (!userId) { setLoading(false); return; }
     let mounted = true;
     async function load() {
       setLoading(true); setError('');
       try {
         const [profileResult, leadResult] = await Promise.all([
-          supabase.from('connector_profiles').select('avl_id').eq('user_id', user.id).maybeSingle(),
-          supabase.from('leads').select('id,client_id,business_id,title,status,created_at').eq('connector_id', user.id).not('client_id', 'is', null).order('created_at', { ascending: false }),
+          supabase.from('connector_profiles').select('avl_id').eq('user_id', userId).maybeSingle(),
+          supabase.from('leads').select('id,client_id,business_id,title,status,created_at').eq('connector_id', userId).not('client_id', 'is', null).order('created_at', { ascending: false }),
         ]);
         if (profileResult.error) throw profileResult.error;
         if (leadResult.error) throw leadResult.error;
@@ -37,7 +38,7 @@ export default function ConnectorClients() {
         if (businessIds.length) {
           const [businessResult, projectResult] = await Promise.all([
             supabase.from('businesses').select('id,name,industry').in('id', businessIds),
-            supabase.from('projects').select('id,business_id,title,status').eq('connector_id', user.id).in('business_id', businessIds),
+            supabase.from('projects').select('id,business_id,title,status').eq('connector_id', userId).in('business_id', businessIds),
           ]);
           if (businessResult.error) throw businessResult.error;
           if (projectResult.error) throw projectResult.error;
@@ -45,10 +46,7 @@ export default function ConnectorClients() {
           ((projectResult.data || []) as Project[]).forEach((project) => { if (project.business_id) nextProjects[project.business_id] = project; });
         }
         if (!mounted) return;
-        setAvlId(profileResult.data?.avl_id || null);
-        setLeads(nextLeads);
-        setBusinesses(nextBusinesses);
-        setProjects(nextProjects);
+        setAvlId(profileResult.data?.avl_id || null); setLeads(nextLeads); setBusinesses(nextBusinesses); setProjects(nextProjects);
       } catch (loadError) {
         console.error('Connector client referrals load error:', loadError);
         if (mounted) setError(loadError instanceof Error ? loadError.message : 'Unable to load referred clients.');
