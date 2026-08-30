@@ -2,6 +2,7 @@
 -- Keep one invoice notification trigger and prevent client uploads from marking files internal.
 
 DROP TRIGGER IF EXISTS trg_notify_invoice_workflow_change ON public.invoices;
+DROP TRIGGER IF EXISTS trg_avelixa_invoice_workflow ON public.invoices;
 
 CREATE OR REPLACE FUNCTION private.notify_invoice_workflow()
 RETURNS trigger
@@ -71,6 +72,11 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+CREATE TRIGGER trg_avelixa_invoice_workflow
+AFTER INSERT OR UPDATE OF status ON public.invoices
+FOR EACH ROW
+EXECUTE FUNCTION private.notify_invoice_workflow();
 
 DROP POLICY IF EXISTS files_insert_authorized ON public.project_files;
 
