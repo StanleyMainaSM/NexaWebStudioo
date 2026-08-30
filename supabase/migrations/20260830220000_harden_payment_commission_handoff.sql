@@ -1,5 +1,6 @@
 -- AVELIXA FINANCE HANDOFF HARDENING
--- Keep client payment verification authoritative and make payment -> commission creation idempotent.
+-- Keep client payment verification authoritative, preserve partial invoice payments,
+-- and make payment -> commission creation idempotent.
 
 DROP INDEX IF EXISTS public.commissions_payment_id_unique_idx;
 
@@ -96,6 +97,8 @@ AS $$
 DECLARE
   v_payment public.payments;
   v_invoice public.invoices;
+  v_paid_amount numeric := 0;
+  v_remaining_balance numeric := 0;
   v_status text := lower(trim(coalesce(p_status, '')));
 BEGIN
   IF NOT private.user_has_any_role(auth.uid(), array['owner','admin']) THEN
@@ -132,18 +135,23 @@ BEGIN
     RAISE EXCEPTION 'Invoice is no longer awaiting payment verification';
   END IF;
 
-  IF v_status = 'completed' AND EXISTS (
-    SELECT 1
+  IF v_status = 'completed' THEN
+    SELECT coalesce(sum(p.amount), 0)
+    INTO v_paid_amount
     FROM public.payments p
     WHERE p.invoice_id = v_payment.invoice_id
       AND p.id <> v_payment.id
-      AND p.status IN ('completed', 'paid', 'successful', 'success')
-  ) THEN
-    RAISE EXCEPTION 'Another completed payment already exists for this invoice';
-  END IF;
+      AND p.status IN ('completed', 'paid', 'successful', 'success');
 
-  IF v_status = 'completed' AND v_payment.amount <> v_invoice.amount THEN
-    RAISE EXCEPTION 'Payment amount does not match the invoice amount';
+    v_remaining_balance := greatest(coalesce(v_invoice.amount, 0) - v_paid_amount, 0);
+
+    IF v_remaining_balance <= 0 THEN
+      RAISE EXCEPTION 'Invoice has no remaining balance for this payment';
+    END IF;
+
+    IF v_payment.amount <= 0 OR v_payment.amount > v_remaining_balance THEN
+      RAISE EXCEPTION 'Payment amount exceeds the remaining invoice balance';
+    END IF;
   END IF;
 
   UPDATE public.payments
@@ -187,5 +195,102 @@ BEGIN
   );
 
   RETURN v_payment;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.sync_maintenance_subscription_after_payment()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'private', 'pg_catalog'
+AS $$
+DECLARE
+  v_invoice public.invoices;
+  v_subscription_id uuid;
+  v_project_id uuid;
+  v_paid_amount numeric := 0;
+  v_invoice_fully_paid boolean := false;
+BEGIN
+  IF NEW.status NOT IN ('completed','verified','paid') THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.invoice_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT * INTO v_invoice
+  FROM public.invoices
+  WHERE id = NEW.invoice_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT coalesce(sum(p.amount), 0)
+  INTO v_paid_amount
+  FROM public.payments p
+  WHERE p.invoice_id = NEW.invoice_id
+    AND p.status IN ('completed','paid','successful','success');
+
+  v_invoice_fully_paid := v_paid_amount >= coalesce(v_invoice.amount, 0);
+
+  IF v_invoice_fully_paid THEN
+    UPDATE public.invoices
+    SET status = CASE WHEN status IN ('unpaid','overdue') THEN 'paid' ELSE status END,
+        updated_at = now()
+    WHERE id = NEW.invoice_id;
+  END IF;
+
+  IF v_invoice.recurring_service_id IS NULL OR NOT v_invoice_fully_paid THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT ms.id, ms.project_id
+    INTO v_subscription_id, v_project_id
+  FROM public.maintenance_subscriptions ms
+  WHERE ms.recurring_service_id = v_invoice.recurring_service_id
+    AND ms.status IN ('active','past_due')
+  ORDER BY ms.created_at DESC
+  LIMIT 1;
+
+  IF v_subscription_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  UPDATE public.maintenance_subscriptions
+  SET status = 'active',
+      updated_at = now()
+  WHERE id = v_subscription_id
+    AND status = 'past_due';
+
+  UPDATE public.recurring_services
+  SET status = 'active',
+      updated_at = now()
+  WHERE id = v_invoice.recurring_service_id
+    AND status = 'past_due';
+
+  PERFORM private.create_avelixa_notification(
+    (select client_id from public.maintenance_subscriptions where id = v_subscription_id),
+    'Maintenance payment received',
+    format('Your maintenance payment of KSh %s has been received and your recurring maintenance service is active.', new.amount),
+    '/portal/invoices/' || new.invoice_id::text,
+    'maintenance_payment_received',
+    'maintenance_subscription',
+    v_subscription_id,
+    jsonb_build_object('invoice_id', new.invoice_id, 'payment_id', new.id, 'project_id', v_project_id, 'amount', new.amount, 'automated', true),
+    'maintenance_payment_received:' || new.id
+  );
+
+  INSERT INTO public.automation_events(event_type, entity_type, entity_id, payload)
+  VALUES (
+    'maintenance_payment_received',
+    'maintenance_subscription',
+    v_subscription_id,
+    jsonb_build_object('invoice_id', new.invoice_id, 'payment_id', new.id, 'project_id', v_project_id, 'amount', new.amount)
+  );
+
+  RETURN NEW;
 END;
 $$;
