@@ -10,6 +10,8 @@ assert.equal(getClientLifecycleState('won', 'pending').label, 'Project setup');
 assert.equal(getClientLifecycleState('won', 'in_progress').label, 'Project active');
 assert.equal(getClientLifecycleState('won', 'review').label, 'Ready for review');
 assert.equal(getClientLifecycleState('won', 'pending_review').label, 'Ready for review');
+assert.equal(getClientLifecycleState('won', 'on_hold').label, 'On hold');
+assert.equal(getClientLifecycleState('won', 'maintenance').label, 'Maintenance');
 assert.equal(getClientLifecycleState('won', 'completed').label, 'Completed');
 assert.equal(getClientLifecycleState('won', 'cancelled').label, 'Cancelled');
 assert.equal(getClientLifecycleState('won', 'cancelled_by_client').label, 'Cancelled');
