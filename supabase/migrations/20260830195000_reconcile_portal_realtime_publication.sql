@@ -1,6 +1,6 @@
 -- Final realtime reconciliation after the complete Avelixa schema has been built.
 -- This preserves the intended publication membership without requiring every
--- table to have existed when the historical 20260827001000 migration ran.
+-- table to have existed when the historical realtime migrations ran.
 do $$
 declare
   v_table text;
@@ -34,7 +34,8 @@ begin
     'public.conversations',
     'public.admin_conversations',
     'public.connector_provisioning_events',
-    'public.connector_provisioning_queue'
+    'public.connector_provisioning_queue',
+    'public.call_sessions'
   ] loop
     if to_regclass(v_table) is not null then
       begin
@@ -42,6 +43,10 @@ begin
       exception
         when duplicate_object then null;
       end;
+
+      if v_table = 'public.call_sessions' then
+        execute 'alter table public.call_sessions replica identity full';
+      end if;
     end if;
   end loop;
 end $$;
