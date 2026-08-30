@@ -138,6 +138,18 @@ BEGIN
     RAISE EXCEPTION 'This account is not attributed to a Connector referral';
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.connector_profiles cp
+    JOIN public.user_roles ur
+      ON ur.user_id = cp.user_id
+     AND ur.role = 'connector'
+    WHERE cp.user_id = v_connector_id
+      AND cp.is_active = true
+  ) THEN
+    RAISE EXCEPTION 'The Connector who referred this account is no longer active';
+  END IF;
+
   IF NULLIF(BTRIM(p_business_name), '') IS NULL THEN
     RAISE EXCEPTION 'Business name is required';
   END IF;
