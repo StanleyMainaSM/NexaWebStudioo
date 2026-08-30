@@ -40,7 +40,11 @@ export function getClientLifecycleState(
           ? 'review'
           : normalizedProject === 'pending'
             ? 'project_pending'
-            : 'project_active';
+            : normalizedProject === 'on_hold'
+              ? 'on_hold'
+              : normalizedProject === 'maintenance'
+                ? 'maintenance'
+                : 'project_active';
 
     const projectLabel = projectKey === 'completed'
       ? 'Completed'
@@ -50,7 +54,11 @@ export function getClientLifecycleState(
           ? 'Ready for review'
           : projectKey === 'project_pending'
             ? 'Project setup'
-            : 'Project active';
+            : projectKey === 'on_hold'
+              ? 'On hold'
+              : projectKey === 'maintenance'
+                ? 'Maintenance'
+                : 'Project active';
 
     const projectStepLabel = projectKey === 'completed'
       ? 'Project completed'
@@ -60,7 +68,11 @@ export function getClientLifecycleState(
           ? 'Project review'
           : projectKey === 'project_pending'
             ? 'Project setup'
-            : 'Project active';
+            : projectKey === 'on_hold'
+              ? 'Project on hold'
+              : projectKey === 'maintenance'
+                ? 'Project maintenance'
+                : 'Project active';
 
     const labels = [
       ...LEAD_STAGES,
