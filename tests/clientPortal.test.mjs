@@ -9,7 +9,10 @@ assert.equal(getClientLifecycleState('won', null).label, 'Converted');
 assert.equal(getClientLifecycleState('won', 'pending').label, 'Project setup');
 assert.equal(getClientLifecycleState('won', 'in_progress').label, 'Project active');
 assert.equal(getClientLifecycleState('won', 'review').label, 'Ready for review');
+assert.equal(getClientLifecycleState('won', 'pending_review').label, 'Ready for review');
 assert.equal(getClientLifecycleState('won', 'completed').label, 'Completed');
+assert.equal(getClientLifecycleState('won', 'cancelled').label, 'Cancelled');
+assert.equal(getClientLifecycleState('won', 'cancelled_by_client').label, 'Cancelled');
 assert.equal(getClientLifecycleState('lost', null).label, 'Not proceeding');
 
 const active = getClientLifecycleState('won', 'in_progress');
