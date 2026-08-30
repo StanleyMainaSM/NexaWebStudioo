@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   buildClientReferralLink,
   getClientReferralIdFromSearch,
@@ -16,7 +17,7 @@ assert.equal(
 );
 assert.equal(buildClientReferralLink('', 'https://www.avelixa.co.ke'), '');
 
-const here = path.dirname(new URL(import.meta.url).pathname);
+const here = path.dirname(fileURLToPath(import.meta.url));
 const migrationRoot = path.resolve(here, '..', 'supabase', 'migrations');
 const onboardingMigration = fs.readFileSync(
   path.join(migrationRoot, '20260830220000_client_referral_self_onboarding.sql'),
