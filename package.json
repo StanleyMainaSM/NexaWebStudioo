@@ -15,7 +15,8 @@
     "test:connector-notifications": "node --experimental-strip-types tests/connectorNotifications.test.mjs",
     "test:client-referrals": "node --experimental-strip-types tests/clientReferral.test.mjs",
     "test:client-portal": "node --experimental-strip-types tests/clientPortal.test.mjs",
-    "test:invoice-notifications": "node --experimental-strip-types tests/invoiceNotifications.test.mjs"
+    "test:invoice-notifications": "node --experimental-strip-types tests/invoiceNotifications.test.mjs",
+    "test:payment-finance-handoff": "node --experimental-strip-types tests/paymentFinanceHandoff.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
