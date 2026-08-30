@@ -32,11 +32,11 @@ export function getClientLifecycleState(
   const normalizedLead = String(leadStatus || '').toLowerCase();
 
   if (normalizedProject) {
-    const projectKey = normalizedProject === 'completed'
-      ? 'completed'
-      : normalizedProject === 'cancelled'
-        ? 'cancelled'
-        : normalizedProject === 'review'
+    const projectKey = ['cancelled', 'cancelled_by_client'].includes(normalizedProject)
+      ? 'cancelled'
+      : normalizedProject === 'completed'
+        ? 'completed'
+        : ['review', 'pending_review'].includes(normalizedProject)
           ? 'review'
           : normalizedProject === 'pending'
             ? 'project_pending'
