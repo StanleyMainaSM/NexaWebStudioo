@@ -11,6 +11,11 @@ export type ClientLifecycleState = {
   steps: ClientLifecycleStep[];
 };
 
+export type ClientProjectPresentation = {
+  label: string;
+  nextAction: string;
+};
+
 const LEAD_STAGES = [
   { key: 'submitted', label: 'Request submitted' },
   { key: 'contacted', label: 'Contacted' },
@@ -48,15 +53,20 @@ export function getClientLifecycleState(
             : 'Project active';
 
     const projectStepLabel = projectKey === 'completed'
-      ? 'Project active'
+      ? 'Project completed'
       : projectKey === 'cancelled'
-        ? 'Cancelled'
+        ? 'Project cancelled'
         : projectKey === 'review'
-          ? 'Ready for review'
+          ? 'Project review'
           : projectKey === 'project_pending'
             ? 'Project setup'
             : 'Project active';
-    const labels = [...LEAD_STAGES, { key: 'project', label: projectStepLabel }, { key: 'completed', label: 'Completed' }];
+
+    const labels = [
+      ...LEAD_STAGES,
+      { key: 'project', label: projectStepLabel },
+      { key: 'completed', label: 'Completed' },
+    ];
     const currentIndex = projectKey === 'completed' ? labels.length - 1 : 5;
 
     return {
@@ -64,7 +74,7 @@ export function getClientLifecycleState(
       label: projectLabel,
       steps: labels.map((step, index) => ({
         ...step,
-        completed: index <= currentIndex,
+        completed: projectKey === 'cancelled' ? index < 5 : index <= currentIndex,
         current: index === currentIndex,
       })),
     };
@@ -97,4 +107,36 @@ export function getClientLifecycleState(
       current: index === leadIndex,
     })),
   };
+}
+
+export function getClientProjectPresentation(
+  status: string | null | undefined,
+): ClientProjectPresentation {
+  const normalized = String(status || '').trim().toLowerCase();
+
+  switch (normalized) {
+    case 'pending':
+      return { label: 'Project setup', nextAction: 'Review your project details' };
+    case 'in_progress':
+      return { label: 'In progress', nextAction: 'Review project progress' };
+    case 'review':
+    case 'pending_review':
+      return { label: 'Ready for review', nextAction: 'Review the latest project update' };
+    case 'completed':
+      return { label: 'Completed', nextAction: 'Review your completed project' };
+    case 'cancelled':
+    case 'cancelled_by_client':
+      return { label: 'Cancelled', nextAction: 'Contact Avelixa if you need help' };
+    case 'on_hold':
+      return { label: 'On hold', nextAction: 'Review the latest project update' };
+    case 'maintenance':
+      return { label: 'Maintenance', nextAction: 'Review your project' };
+    default:
+      return {
+        label: normalized
+          ? normalized.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+          : 'Pending',
+        nextAction: 'Review your project details',
+      };
+  }
 }
