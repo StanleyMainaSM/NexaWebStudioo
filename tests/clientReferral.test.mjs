@@ -33,11 +33,11 @@ const operationalMigration = fs.readFileSync(
 );
 
 // The later same-prefix self-onboarding migration must not overwrite the hardened RPC.
-assert.match(onboardingMigration, /cp\.user_id = v_connector_id/);
-assert.match(onboardingMigration, /cp\.is_active = true/);
+assert.match(onboardingMigration, /cp\.user_id\s*=\s*v_connector_id/);
+assert.match(onboardingMigration, /cp\.is_active\s*=\s*true/);
 assert.match(onboardingMigration, /The Connector who referred this account is no longer active/);
-assert.match(hardeningMigration, /cp\.user_id = v_connector_id/);
-assert.match(hardeningMigration, /cp\.is_active = true/);
+assert.match(hardeningMigration, /cp\.user_id\s*=\s*v_connector_id/);
+assert.match(hardeningMigration, /cp\.is_active\s*=\s*true/);
 
 // Connector operational notifications must preserve the live Client-facing lead path.
 assert.match(operationalMigration, /v_client_title := 'Request submitted'/);
