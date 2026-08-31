@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ArrowRight, Check, Loader2, Sparkles } from 'lucide-react';
+import { AlertCircle, ArrowRight, Check, Loader2, Palette, Sparkles } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
@@ -9,6 +9,8 @@ import WebsitePreviewRenderer from '../components/websiteCreation/WebsitePreview
 
 const emptyBusiness: BusinessInformation = { businessName: '', industry: '', businessDescription: '', services: [], products: [], targetAudience: '', location: '', phone: '', email: '', whatsapp: '', socialLinks: {}, logoUrl: '', brandColors: {}, imagery: [], websiteType: 'Business website', specialRequirements: '' };
 const splitList = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean);
+
+type HeroContent = { eyebrow?: string; title?: string; subtitle?: string; cta?: string };
 
 export default function WebsiteCreationStudio({ creationProjectId, leadId }: { creationProjectId?: string; leadId?: string }) {
   const { user, roles } = useAuth();
@@ -24,6 +26,7 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [savingProject, setSavingProject] = useState(false);
+  const [savingSpecification, setSavingSpecification] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const selectedTemplate = useMemo(() => templates.find((template) => template.id === selectedTemplateId) || null, [templates, selectedTemplateId]);
@@ -71,7 +74,7 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
     };
     void load();
     return () => { mounted = false; };
-  }, [creationProjectId, isAuthenticated, params, resolvedLeadId]);
+  }, [creationProjectId, isAuthenticated, params, resolvedLeadId, selectedTemplateId]);
 
   function toggleSection(section: WebsiteSectionId) { setRequestedSections((current) => current.includes(section) ? current.filter((item) => item !== section) : [...current, section]); }
 
@@ -92,10 +95,15 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
     const validation = validateBusinessInformation(business);
     if (validation.length) { setError(validation.join(' ')); return; }
     if (!selectedTemplate) { setError('Select a template first.'); return; }
-    if (!isAuthenticated) { setError('Sign in to generate a saved website preview and use the five-generation allowance.'); return; }
-    if (usage.remaining <= 0) { setError('Your five free template generations have been used. Upgrade access can be added later.'); return; }
+    if (isAuthenticated && usage.remaining <= 0) { setError('Your five free template generations have been used. Upgrade access can be added later.'); return; }
     setGenerating(true);
     try {
+      if (!isAuthenticated) {
+        const publicSpec = generateWebsiteSpecification(business, selectedTemplate, requestedSections, true);
+        setSpecification(publicSpec);
+        setNotice('Preview generated. Sign in when you want to save this creation and use your five saved generations.');
+        return;
+      }
       const currentProject = await ensureProject();
       const spec = generateWebsiteSpecification(business, selectedTemplate, requestedSections, currentProject.attribution_enabled);
       const result = await supabase.rpc('consume_creation_generation', { p_creation_project_id: currentProject.id, p_template_id: selectedTemplate.id, p_requested_sections: spec.sections, p_specification: spec });
@@ -108,12 +116,33 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
   }
 
   async function saveBusinessInformation() {
-    if (!project) { setNotice('Business information will be saved when you generate the first preview.'); return; }
+    if (!project) { setNotice(isAuthenticated ? 'Business information will be saved when you generate the first preview.' : 'Sign in to save this business information.'); return; }
     setSavingProject(true); setError('');
     const result = await supabase.from('creation_projects').update({ title: `${business.businessName || 'Website'} Preview`, business_info: business, requested_sections: requestedSections }).eq('id', project.id);
     if (result.error) setError(result.error.message); else setNotice('Business information saved.');
     setSavingProject(false);
   }
+
+  async function saveSpecification() {
+    if (!project || !specification) { setNotice('Generate and save a preview before saving specification edits.'); return; }
+    setSavingSpecification(true); setError('');
+    const result = await supabase.from('creation_projects').update({ business_info: specification.business, requested_sections: specification.sections, specification }).eq('id', project.id);
+    if (result.error) setError(result.error.message); else { setBusiness(specification.business); setRequestedSections(specification.sections); setProject((current) => current ? { ...current, business_info: specification.business, requested_sections: specification.sections, specification, updated_at: new Date().toISOString() } : current); setNotice('Preview edits saved.'); }
+    setSavingSpecification(false);
+  }
+
+  function updateHero(field: keyof HeroContent, value: string) {
+    setSpecification((current) => {
+      if (!current) return current;
+      const hero = { ...((current.content.hero || {}) as HeroContent), [field]: value };
+      return { ...current, content: { ...current.content, hero } };
+    });
+  }
+
+  function updateTheme(field: 'primary' | 'accent', value: string) {
+    setSpecification((current) => current ? { ...current, theme: { ...current.theme, [field]: value } } : current);
+  }
+
   async function requestDevelopment() {
     if (!project) return;
     const result = await supabase.from('creation_projects').update({ status: 'requested' }).eq('id', project.id);
@@ -121,6 +150,7 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
   }
 
   if (loading) return <div className="flex min-h-96 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-accent-400" /></div>;
+  const hero = (specification?.content.hero || {}) as HeroContent;
   return <div className="space-y-8">
     <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><div className="inline-flex items-center gap-2 rounded-full border border-accent-500/20 bg-accent-500/5 px-3 py-1 text-xs font-bold uppercase tracking-[.18em] text-accent-400"><Sparkles className="h-3.5 w-3.5" /> Template Studio</div><h1 className="mt-4 text-3xl font-bold tracking-tight text-white md:text-4xl">Create a polished website preview</h1><p className="mt-2 max-w-2xl text-gray-400">Enter the business details, choose a visual system, and generate a structured Avelixa preview.</p></div>{isAuthenticated && <div className="rounded-2xl border border-white/10 bg-white/[.03] px-4 py-3 text-sm"><span className="text-gray-400">Free generations</span><span className="ml-2 font-bold text-white">{usage.remaining} / {usage.limit} remaining</span></div>}</div>
     {(error || notice) && <div className={`rounded-2xl border px-4 py-3 text-sm ${error ? 'border-red-500/20 bg-red-500/5 text-red-300' : 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300'}`}>{error ? <AlertCircle className="mr-2 inline h-4 w-4" /> : <Check className="mr-2 inline h-4 w-4" />}{error || notice}</div>}
@@ -134,9 +164,10 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
           <label className="text-sm"><span className="mb-1.5 block text-gray-400">Special requirements</span><textarea rows={3} value={business.specialRequirements || ''} onChange={(event) => setBusiness((current) => ({ ...current, specialRequirements: event.target.value }))} className="w-full rounded-xl border border-white/10 bg-ink-950 px-3 py-2.5 text-white outline-none focus:border-accent-500/50" /></label></div>
         <button type="button" onClick={() => void saveBusinessInformation()} disabled={savingProject} className="w-full rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-gray-200 hover:bg-white/5 disabled:opacity-50">{savingProject ? 'Saving…' : 'Save business information'}</button>
       </div>
-      <div className="space-y-6"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{templates.map((template) => <button type="button" key={template.id} onClick={() => { setSelectedTemplateId(template.id); setRequestedSections([]); }} className={`text-left rounded-2xl border p-5 transition ${selectedTemplateId === template.id ? 'border-accent-500/50 bg-accent-500/10' : 'border-white/10 bg-white/[.03] hover:border-white/20'}`}><div className="flex items-center justify-between gap-3"><span className="font-semibold text-white">{template.name}</span>{selectedTemplateId === template.id && <Check className="h-4 w-4 text-accent-400" />}</div><p className="mt-2 text-xs leading-5 text-gray-500">{template.description}</p><div className="mt-4 flex flex-wrap gap-1.5">{template.categories.slice(0,3).map((category) => <span key={category} className="rounded-full bg-white/5 px-2 py-1 text-[10px] text-gray-400">{category}</span>)}</div></button>)}</div>
-        {selectedTemplate && <div className="rounded-3xl border border-white/10 bg-white/[.03] p-5"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><h2 className="font-semibold text-white">Sections</h2><p className="mt-1 text-xs text-gray-500">Leave empty to use the template’s default order.</p></div><button type="button" onClick={() => void generate()} disabled={generating || !isAuthenticated || usage.remaining <= 0} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-500 px-5 py-3 text-sm font-bold text-white hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-50">{generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{generating ? 'Generating…' : 'Generate preview'}<ArrowRight className="h-4 w-4" /></button></div><div className="mt-4 flex flex-wrap gap-2">{selectedTemplate.sections.map((section) => <button key={section} type="button" onClick={() => toggleSection(section)} className={`rounded-full border px-3 py-1.5 text-xs ${requestedSections.includes(section) ? 'border-accent-500/40 bg-accent-500/10 text-accent-300' : 'border-white/10 text-gray-400'}`}>{section}</button>)}</div></div>}
-        {specification ? <div className="rounded-[2rem] border border-white/10 bg-slate-200 p-2"><WebsitePreviewRenderer spec={specification} /></div> : <div className="grid min-h-[520px] place-items-center rounded-[2rem] border border-dashed border-white/10 bg-white/[.02] p-10 text-center"><div><Sparkles className="mx-auto h-8 w-8 text-accent-400" /><h2 className="mt-4 text-xl font-semibold text-white">Your preview will appear here</h2><p className="mx-auto mt-2 max-w-md text-sm text-gray-500">Select a template and generate a preview. The renderer consumes the same structured specification that will later power professional development.</p>{!isAuthenticated && <p className="mt-4 text-xs font-semibold text-accent-300">Sign in to use the five-generation allowance.</p>}</div></div>}
+      <div className="space-y-6"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{templates.map((template) => <button type="button" key={template.id} onClick={() => { setSelectedTemplateId(template.id); setRequestedSections([]); }} className={`overflow-hidden text-left rounded-2xl border transition ${selectedTemplateId === template.id ? 'border-accent-500/50 bg-accent-500/10' : 'border-white/10 bg-white/[.03] hover:border-white/20'}`}><div className="h-20 p-4" style={{ background: `linear-gradient(135deg, ${template.color_direction?.primary || '#111827'}, ${template.color_direction?.accent || '#7c3aed'})` }}><div className="flex items-center justify-between gap-3"><span className="font-semibold text-white">{template.name}</span>{selectedTemplateId === template.id && <Check className="h-4 w-4 text-white" />}</div></div><div className="p-5"><p className="text-xs leading-5 text-gray-500">{template.description}</p><div className="mt-4 flex flex-wrap gap-1.5">{template.categories.slice(0,3).map((category) => <span key={category} className="rounded-full bg-white/5 px-2 py-1 text-[10px] text-gray-400">{category}</span>)}</div></div></button>)}</div>
+        {selectedTemplate && <div className="rounded-3xl border border-white/10 bg-white/[.03] p-5"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><h2 className="font-semibold text-white">Sections</h2><p className="mt-1 text-xs text-gray-500">Leave empty to use the template’s default order.</p></div><button type="button" onClick={() => void generate()} disabled={generating || (isAuthenticated && usage.remaining <= 0)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-500 px-5 py-3 text-sm font-bold text-white hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-50">{generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{generating ? 'Generating…' : 'Generate preview'}<ArrowRight className="h-4 w-4" /></button></div><div className="mt-4 flex flex-wrap gap-2">{selectedTemplate.sections.map((section) => <button key={section} type="button" onClick={() => toggleSection(section)} className={`rounded-full border px-3 py-1.5 text-xs ${requestedSections.includes(section) ? 'border-accent-500/40 bg-accent-500/10 text-accent-300' : 'border-white/10 text-gray-400'}`}>{section}</button>)}</div></div>}
+        {specification && <div className="rounded-3xl border border-white/10 bg-white/[.03] p-5"><div className="flex items-center gap-2"><Palette className="h-4 w-4 text-accent-400"/><h2 className="font-semibold text-white">Refine preview</h2></div><div className="mt-4 grid gap-4 md:grid-cols-2"><label className="text-sm"><span className="mb-1.5 block text-gray-400">Hero title</span><input value={hero.title || ''} onChange={(event) => updateHero('title', event.target.value)} className="w-full rounded-xl border border-white/10 bg-ink-950 px-3 py-2.5 text-white outline-none focus:border-accent-500/50" /></label><label className="text-sm"><span className="mb-1.5 block text-gray-400">Hero CTA</span><input value={hero.cta || ''} onChange={(event) => updateHero('cta', event.target.value)} className="w-full rounded-xl border border-white/10 bg-ink-950 px-3 py-2.5 text-white outline-none focus:border-accent-500/50" /></label><label className="text-sm md:col-span-2"><span className="mb-1.5 block text-gray-400">Hero subtitle</span><textarea rows={3} value={hero.subtitle || ''} onChange={(event) => updateHero('subtitle', event.target.value)} className="w-full rounded-xl border border-white/10 bg-ink-950 px-3 py-2.5 text-white outline-none focus:border-accent-500/50" /></label><label className="text-sm"><span className="mb-1.5 block text-gray-400">Primary color</span><input type="text" value={specification.theme.primary} onChange={(event) => updateTheme('primary', event.target.value)} className="w-full rounded-xl border border-white/10 bg-ink-950 px-3 py-2.5 text-white outline-none focus:border-accent-500/50" /></label><label className="text-sm"><span className="mb-1.5 block text-gray-400">Accent color</span><input type="text" value={specification.theme.accent} onChange={(event) => updateTheme('accent', event.target.value)} className="w-full rounded-xl border border-white/10 bg-ink-950 px-3 py-2.5 text-white outline-none focus:border-accent-500/50" /></label></div><button type="button" onClick={() => void saveSpecification()} disabled={savingSpecification || !isAuthenticated} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-accent-500/30 bg-accent-500/10 px-4 py-2.5 text-sm font-semibold text-accent-300 hover:bg-accent-500/20 disabled:opacity-50">{savingSpecification ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Save preview edits</button></div>}
+        {specification ? <div className="rounded-[2rem] border border-white/10 bg-slate-200 p-2"><WebsitePreviewRenderer spec={specification} /></div> : <div className="grid min-h-[520px] place-items-center rounded-[2rem] border border-dashed border-white/10 bg-white/[.02] p-10 text-center"><div><Sparkles className="mx-auto h-8 w-8 text-accent-400" /><h2 className="mt-4 text-xl font-semibold text-white">Your preview will appear here</h2><p className="mx-auto mt-2 max-w-md text-sm text-gray-500">Select a template and generate a preview. The renderer consumes the same structured specification that will later power professional development.</p>{!isAuthenticated && <p className="mt-4 text-xs font-semibold text-accent-300">Public previews are free. Sign in to save one of your five creations.</p>}</div></div>}
         {project && specification && <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[.03] p-4"><div><div className="text-sm font-semibold text-white">Creation project</div><div className="mt-1 text-xs text-gray-500">Status: {project.status}</div></div>{roles.some((role) => role.toLowerCase() === 'client') && <button type="button" onClick={() => void requestDevelopment()} className="rounded-xl border border-accent-500/30 bg-accent-500/10 px-4 py-2.5 text-sm font-semibold text-accent-300 hover:bg-accent-500/20">Request professional development</button>}</div>}
       </div>
     </div>
