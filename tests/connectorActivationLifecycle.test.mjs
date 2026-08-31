@@ -18,8 +18,8 @@ assert.match(
 );
 assert.match(
   provisioner,
-  /const\s+ACTIVATION_REDIRECT\s*=\s*Deno\.env\.get\(\s*["']AVELIXA_ACTIVATION_REDIRECT["']\s*\)\s*\?\?\s*["']https:\/\/avelixa\.co\.ke["']/,
-  'Connector activation must have a production-safe fallback URL',
+  /configuredRedirect\s*=\s*Deno\.env\.get\(\s*["']AVELIXA_ACTIVATION_REDIRECT["']\s*\)\?\.trim\(\)\s*;[\s\S]*?const\s+ACTIVATION_REDIRECT\s*=\s*configuredRedirect\s*\|\|\s*["']https:\/\/avelixa\.co\.ke["']/,
+  'Connector activation must use a configured redirect with a production-safe fallback URL',
 );
 assert.doesNotMatch(
   provisioner,
