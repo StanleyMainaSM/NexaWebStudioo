@@ -48,7 +48,7 @@ assert.match(
 );
 assert.match(
   setPassword,
-  /supabase\.auth\.updateUser\(\{\s*password\s*\}\)/,
+  /supabase\.auth\.updateUser\(\{\s*password\s*,?\s*\}\)/,
   'Password setup must update the authenticated user password',
 );
 assert.match(
