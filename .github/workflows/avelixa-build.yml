@@ -44,6 +44,9 @@ jobs:
       - name: Connector notification tests
         run: npm run test:connector-notifications
 
+      - name: Connector portal routing tests
+        run: npm run test:connector-portal-routing
+
       - name: Client referral tests
         run: npm run test:client-referrals
 
