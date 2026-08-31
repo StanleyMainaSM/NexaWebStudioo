@@ -1,3 +1,13 @@
+create table if not exists public.chat_contact_invitations (
+  id uuid primary key default gen_random_uuid(),
+  inviter_id uuid not null references auth.users(id) on delete cascade,
+  email text not null,
+  contact_name text not null,
+  status text not null default 'sent' check (status in ('sent','accepted','expired','cancelled')),
+  created_at timestamptz not null default now(),
+  accepted_at timestamptz
+);
+
 alter table public.chat_contact_invitations add constraint chat_contact_invitations_inviter_email_key unique (inviter_id,email);
 alter table public.conversation_preferences add constraint conversation_preferences_user_conversation_key unique (user_id,conversation_id);
 alter table public.user_notification_preferences add constraint user_notification_preferences_user_key unique (user_id);
