@@ -79,6 +79,8 @@ export interface CreationProject {
   selected_template_id: string | null;
   specification: WebsiteSpecification | null;
   attribution_enabled: boolean;
+  public_preview_token: string | null;
+  preview_enabled: boolean;
   status: string;
   created_at: string;
   updated_at: string;
