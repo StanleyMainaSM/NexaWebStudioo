@@ -20,7 +20,10 @@
     "test:invoice-notifications": "node --experimental-strip-types tests/invoiceNotifications.test.mjs",
     "test:payment-finance-handoff": "node --experimental-strip-types tests/paymentFinanceHandoff.test.mjs",
     "test:client-payment-amount": "node --experimental-strip-types tests/clientPaymentAmount.test.mjs",
-    "test:website-creation-editor": "node --experimental-strip-types tests/websiteCreationEditor.test.mjs"
+    "test:website-creation-editor": "node --experimental-strip-types tests/websiteCreationEditor.test.mjs",
+    "test:website-creation-foundation": "node --experimental-strip-types tests/websiteCreationFoundation.test.mjs",
+    "test:website-creation-security": "node --experimental-strip-types tests/websiteCreationSecurity.test.mjs",
+    "test:website-creation-templates": "node --experimental-strip-types tests/websiteCreationTemplates.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

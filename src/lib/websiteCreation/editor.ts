@@ -7,6 +7,12 @@ export type WebsiteSpecificationPatch =
   | { kind: 'section_order'; sections: WebsiteSectionId[] };
 
 const unique = <T,>(values: T[]) => values.filter((value, index) => values.indexOf(value) === index);
+const navigationLabels: Record<WebsiteSectionId, string> = { navbar: 'Home', hero: 'Home', about: 'About', services: 'Services', products: 'Products', gallery: 'Gallery', testimonials: 'Testimonials', pricing: 'Pricing', faq: 'FAQ', contact: 'Contact', location: 'Location', footer: 'Contact' };
+const syncNavigation = (spec: WebsiteSpecification, sections: WebsiteSectionId[]) => ({
+  ...spec,
+  sections,
+  navigation: sections.filter((section) => !['navbar', 'footer', 'hero'].includes(section)).map((section) => ({ label: navigationLabels[section], section })),
+});
 
 export function applyWebsiteSpecificationPatch(spec: WebsiteSpecification, patch: WebsiteSpecificationPatch): WebsiteSpecification {
   switch (patch.kind) {
@@ -24,13 +30,13 @@ export function applyWebsiteSpecificationPatch(spec: WebsiteSpecification, patch
       const sections = patch.visible
         ? unique([...spec.sections, patch.section])
         : spec.sections.filter((section) => section !== patch.section);
-      return { ...spec, sections };
+      return syncNavigation(spec, sections);
     }
     case 'section_order': {
       const allowed = new Set(spec.sections);
       const ordered = unique(patch.sections).filter((section) => allowed.has(section));
       const missing = spec.sections.filter((section) => !ordered.includes(section));
-      return { ...spec, sections: [...ordered, ...missing] };
+      return syncNavigation(spec, [...ordered, ...missing]);
     }
   }
 }
