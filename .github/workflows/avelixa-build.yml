@@ -39,6 +39,7 @@ jobs:
         run: |
           npm run test:connector-notifications
           npm run test:connector-portal-routing
+          npm run test:connector-activation
           npm run test:client-referrals
           npm run test:client-portal
           npm run test:invoice-notifications
