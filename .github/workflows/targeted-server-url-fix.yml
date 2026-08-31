@@ -42,3 +42,5 @@ jobs:
           git diff --cached --check
           git commit -m 'fix: remove localhost invitation fallback'
           git push
+
+# One-shot source maintenance workflow; removed after successful application.
