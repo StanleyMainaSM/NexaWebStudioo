@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeftRight, BarChart3, BellRing, Briefcase, Crown, FileText, FolderKanban, Globe, LayoutDashboard, LogOut, Menu, MessageSquare, Package, ReceiptText, RefreshCw, Server, Settings, ShieldCheck, SlidersHorizontal, Star, UserCog, UserPlus, UserRound, Users, WalletCards, Wrench, X } from 'lucide-react';
+import { ArrowLeftRight, BarChart3, BellRing, Briefcase, Crown, FileText, FolderKanban, Globe, LayoutDashboard, LogOut, Menu, MessageSquare, Package, ReceiptText, RefreshCw, Server, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, UserCog, UserPlus, UserRound, Users, WalletCards, Wrench, X } from 'lucide-react';
 import { useLocation, useNavigate, Outlet, Link } from 'react-router-dom';
 import { useAuth, getPrimaryPortalRole, type PortalWorkspace } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
@@ -29,6 +29,7 @@ function getExplicitWorkspace(pathname: string): WorkspaceKey | null {
 const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/portal', icon: LayoutDashboard, roles: ['client'] },
   { name: 'Projects', path: '/portal/projects', icon: FolderKanban, roles: ['client', 'connector', 'operator', 'admin', 'owner'] },
+  { name: 'Template Studio', path: '/portal/creation-studio', icon: Sparkles, roles: ['client', 'connector', 'operator', 'admin', 'owner'] },
   { name: 'Invoices', path: '/portal/invoices', icon: ReceiptText, roles: ['client', 'admin', 'owner'] },
   { name: 'Documents', path: '/portal/documents', icon: FileText, roles: ['client', 'operator', 'admin', 'owner'] },
   { name: 'Messages', path: '/portal/messages', icon: MessageSquare, roles: ['client', 'connector', 'operator', 'admin', 'owner'] },
@@ -49,6 +50,7 @@ const navItems: NavItem[] = [
   { name: 'Revenue Operations', path: '/portal/revenue', icon: BarChart3, roles: ['admin', 'owner'] },
   { name: 'Finance', path: '/portal/owner/finance', icon: WalletCards, roles: ['owner'] },
   { name: 'Website Links', path: '/portal/website-links', icon: SlidersHorizontal, roles: ['owner'] },
+  { name: 'Creation Access', path: '/portal/owner/creation-access', icon: ShieldCheck, roles: ['owner'] },
   { name: 'User Management', path: '/portal/owner/users', icon: UserCog, roles: ['owner'] },
   { name: 'Settings', path: '/portal/settings', icon: Settings, roles: ['client', 'connector', 'operator', 'admin', 'owner'] },
 ];
