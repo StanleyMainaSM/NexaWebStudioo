@@ -29,6 +29,9 @@ jobs:
           node --experimental-strip-types tests/websiteCreationFoundation.test.mjs
           node --experimental-strip-types tests/websiteCreationSecurity.test.mjs
 
+      - name: Connector activation regression
+        run: npm run test:connector-activation
+
       - name: Typecheck
         run: npm run typecheck
 
