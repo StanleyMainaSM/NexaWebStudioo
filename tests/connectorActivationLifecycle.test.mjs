@@ -33,7 +33,7 @@ assert.match(
 );
 assert.match(
   provisioner,
-  /auth\.admin\.updateUserById\(\s*userId\s*,\s*\{\s*email_confirm\s*:\s*true\s*\}\s*\)/,
+  /auth\.admin\.updateUserById\(\s*userId\s*,\s*\{\s*email_confirm\s*:\s*true\s*,?\s*\}\s*\)/,
   'Existing connector accounts must also be confirmed during activation',
 );
 assert.match(
