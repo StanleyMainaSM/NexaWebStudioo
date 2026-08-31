@@ -35,6 +35,16 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Existing application regression tests
+        run: |
+          npm run test:connector-notifications
+          npm run test:connector-portal-routing
+          npm run test:client-referrals
+          npm run test:client-portal
+          npm run test:invoice-notifications
+          npm run test:payment-finance-handoff
+          npm run test:client-payment-amount
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -51,27 +61,6 @@ jobs:
 
       - name: Run complete local database regression suite
         run: supabase test db
-
-      - name: Connector notification tests
-        run: npm run test:connector-notifications
-
-      - name: Connector portal routing tests
-        run: npm run test:connector-portal-routing
-
-      - name: Client referral tests
-        run: npm run test:client-referrals
-
-      - name: Client portal lifecycle tests
-        run: npm run test:client-portal
-
-      - name: Invoice notification tests
-        run: npm run test:invoice-notifications
-
-      - name: Payment finance handoff tests
-        run: npm run test:payment-finance-handoff
-
-      - name: Client payment amount tests
-        run: npm run test:client-payment-amount
 
       - name: Stop local Supabase
         if: always()
