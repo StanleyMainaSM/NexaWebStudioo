@@ -1,21 +1,20 @@
 name: Temporary Connector URL Cleanup
 
 on:
-  push:
-    branches:
-      - avelixa-current-work
+  pull_request:
+    types: [opened, synchronize]
 
 permissions:
   contents: write
 
 jobs:
   cleanup:
-    if: ${{ !contains(github.event.head_commit.message, 'chore: apply canonical connector URL') }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: avelixa-current-work
+          ref: ${{ github.head_ref }}
 
       - name: Replace legacy localhost invitation fallback
         shell: bash
@@ -32,8 +31,11 @@ jobs:
           replacement = '''const appUrl = getCanonicalAppUrl();'''
 
           count = text.count(legacy)
-          if count != 4:
-              raise SystemExit(f'Expected exactly 4 legacy invitation URL blocks, found {count}')
+          if count == 0:
+              print('No legacy invitation URL blocks remain; nothing to change.')
+              raise SystemExit(0)
+          if count != 2:
+              raise SystemExit(f'Expected exactly 2 legacy invitation URL blocks, found {count}')
 
           text = text.replace(legacy, replacement)
 
@@ -53,10 +55,15 @@ jobs:
           fi
 
       - name: Commit canonical URL change
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- server.ts; then
+            echo 'No server.ts change required.'
+            exit 0
+          fi
           git add server.ts
           git diff --cached --check
           git commit -m "chore: apply canonical connector URL"
-          git push origin avelixa-current-work
+          git push origin HEAD:${{ github.head_ref }}
