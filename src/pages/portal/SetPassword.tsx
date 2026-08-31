@@ -17,20 +17,22 @@ export default function SetPassword() {
     const verifySession = async () => {
       try {
         const { data, error: sessionError } = await supabase.auth.getSession();
-
         if (!mounted) return;
 
-        if (sessionError || !data.session) {
+        if (sessionError) {
+          console.error('Connector activation session check failed:', sessionError);
+          setError('This invitation link could not be verified. Please request a new invitation.');
+          return;
+        }
+
+        if (!data.session) {
           setError('This invitation link is invalid or has expired. Please request a new invitation.');
         }
-      } catch {
-        if (mounted) {
-          setError('This invitation link could not be verified.');
-        }
+      } catch (sessionError) {
+        console.error('Connector activation session check failed:', sessionError);
+        if (mounted) setError('This invitation link could not be verified. Please request a new invitation.');
       } finally {
-        if (mounted) {
-          setChecking(false);
-        }
+        if (mounted) setChecking(false);
       }
     };
 
@@ -58,16 +60,74 @@ export default function SetPassword() {
     setSaving(true);
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({ password });
+      const {
+        data: { session: beforeSession },
+        error: beforeSessionError,
+      } = await supabase.auth.getSession();
 
-      if (updateError) {
-        throw updateError;
+      if (beforeSessionError) throw beforeSessionError;
+      if (!beforeSession?.user) {
+        throw new Error('Your activation session has expired. Please open the invitation link again.');
+      }
+
+      const { data: updatedUser, error: updateError } = await supabase.auth.updateUser({
+        password,
+      });
+
+      if (updateError) throw updateError;
+      if (!updatedUser.user) {
+        throw new Error('Avelixa could not confirm the activated account. Please try the invitation again.');
+      }
+
+      const {
+        data: { session: afterSession },
+        error: afterSessionError,
+      } = await supabase.auth.getSession();
+
+      if (afterSessionError) throw afterSessionError;
+      if (!afterSession?.user || afterSession.user.id !== updatedUser.user.id) {
+        throw new Error('Your password was updated, but the activation session could not be confirmed. Please open the invitation again.');
+      }
+
+      // Synchronize the account's authorization before entering the protected
+      // portal. This prevents navigation from racing AuthContext role loading.
+      const { data: roleData, error: roleError } = await supabase.rpc('get_my_roles');
+      if (roleError) throw roleError;
+
+      const roles = Array.isArray(roleData)
+        ? roleData.map((item: unknown) => {
+            if (typeof item === 'string') return item.trim().toLowerCase();
+            if (typeof item === 'object' && item !== null && 'role' in item) {
+              const role = (item as { role?: unknown }).role;
+              return typeof role === 'string' ? role.trim().toLowerCase() : '';
+            }
+            return '';
+          }).filter(Boolean)
+        : [];
+
+      if (!roles.includes('connector')) {
+        throw new Error('Your account was activated, but the Connector role is not available yet. Please request a new activation link.');
+      }
+
+      const { data: connectorProfile, error: connectorProfileError } = await supabase
+        .from('connector_profiles')
+        .select('id,is_active')
+        .eq('user_id', updatedUser.user.id)
+        .maybeSingle();
+
+      if (connectorProfileError) throw connectorProfileError;
+      if (!connectorProfile?.is_active) {
+        throw new Error('Your Connector profile is not active yet. Please contact Avelixa support.');
       }
 
       navigate('/portal/connector', { replace: true });
-    } catch (updateError) {
-      console.error('Connector password setup error:', updateError);
-      setError(updateError instanceof Error ? updateError.message : 'Unable to finish password setup. Please try again.');
+    } catch (activationError) {
+      console.error('Connector password activation error:', activationError);
+      setError(
+        activationError instanceof Error
+          ? activationError.message
+          : 'Unable to finish password setup. Please open the invitation link again and try again.',
+      );
     } finally {
       setSaving(false);
     }
