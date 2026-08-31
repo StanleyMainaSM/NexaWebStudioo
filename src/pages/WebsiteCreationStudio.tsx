@@ -74,7 +74,7 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
     };
     void load();
     return () => { mounted = false; };
-  }, [creationProjectId, isAuthenticated, params, resolvedLeadId, selectedTemplateId]);
+  }, [creationProjectId, isAuthenticated, params, resolvedLeadId]);
 
   function toggleSection(section: WebsiteSectionId) { setRequestedSections((current) => current.includes(section) ? current.filter((item) => item !== section) : [...current, section]); }
 
