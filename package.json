@@ -13,6 +13,7 @@
     "test:connector-earnings": "node --experimental-strip-types tests/connectorEarnings.test.mjs",
     "test:connector-lifecycle": "node --experimental-strip-types tests/connectorLeadLifecycle.test.mjs",
     "test:connector-notifications": "node --experimental-strip-types tests/connectorNotifications.test.mjs",
+    "test:connector-portal-routing": "node --experimental-strip-types tests/connectorPortalRouting.test.mjs",
     "test:client-referrals": "node --experimental-strip-types tests/clientReferral.test.mjs",
     "test:client-portal": "node --experimental-strip-types tests/clientPortal.test.mjs",
     "test:invoice-notifications": "node --experimental-strip-types tests/invoiceNotifications.test.mjs",
