@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
@@ -701,8 +701,7 @@ app.post(
       }
 
       const appUrl =
-        process.env.APP_URL ||
-        "http://localhost:3000";
+        process.env.APP_URL;
 
       const {
         data: invitedUser,
@@ -1435,8 +1434,7 @@ app.post(
 
       if (!authUser) {
         const appUrl =
-          process.env.APP_URL ||
-          "http://localhost:3000";
+          process.env.APP_URL;
 
         const {
           data: invitedUser,
