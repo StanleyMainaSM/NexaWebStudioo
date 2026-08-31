@@ -135,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       if (!currentUser) { setRoles([]); setProfile(null); setActiveWorkspaceState(null); setRolesLoading(false); return; }
       if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        setTimeout(() => { if (!cancelled && mountedRef.current) void fetchRoles(); }, 0);
+        queueMicrotask(() => { if (!cancelled && mountedRef.current) void fetchRoles(); });
       }
     });
 
