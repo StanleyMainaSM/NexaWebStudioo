@@ -18,18 +18,18 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
           p = Path('server.ts')
           s = p.read_text(encoding='utf-8-sig')
-          old = 'APP_URL || "http://localhost:3000"'
-          new = 'APP_URL'
-          count = s.count(old)
-          if count != 2:
-              raise SystemExit(f'Expected exactly 2 targeted occurrences, found {count}')
-          s2 = s.replace(old, new)
-          if s2.count(old) != 0:
-              raise SystemExit('Targeted replacement did not remove all expected occurrences')
+          pattern = r'process\.env\.APP_URL\s*\|\|\s*"http://localhost:3000"'
+          matches = list(re.finditer(pattern, s))
+          if len(matches) != 2:
+              raise SystemExit(f'Expected exactly 2 targeted invitation fallbacks, found {len(matches)}')
+          s2, count = re.subn(pattern, 'process.env.APP_URL', s)
+          if count != 2 or re.search(pattern, s2):
+              raise SystemExit('Targeted replacement verification failed')
           p.write_text(s2, encoding='utf-8')
-          print('Replaced exactly 2 targeted occurrences.')
+          print('Replaced exactly 2 targeted invitation fallbacks.')
           PY
           git diff --check
           git diff -- server.ts
@@ -40,5 +40,5 @@ jobs:
           git config user.email 'avelixa-maintenance@users.noreply.github.com'
           git add server.ts
           git diff --cached --check
-          git commit -m 'fix: remove localhost invitation fallback' || exit 0
+          git commit -m 'fix: remove localhost invitation fallback'
           git push
