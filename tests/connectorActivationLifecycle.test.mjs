@@ -13,12 +13,12 @@ const setPassword = readFileSync(
 
 assert.match(
   provisioner,
-  /Deno\.env\.get\("AVELIXA_ACTIVATION_REDIRECT"\)/,
+  /Deno\.env\.get\(\s*["']AVELIXA_ACTIVATION_REDIRECT["']\s*\)/,
   'Connector activation redirect must be environment-configurable',
 );
 assert.match(
   provisioner,
-  /const ACTIVATION_REDIRECT=configuredRedirect\|\|"https:\\/\\/avelixa\.co\.ke"/,
+  /const\s+ACTIVATION_REDIRECT\s*=\s*Deno\.env\.get\(\s*["']AVELIXA_ACTIVATION_REDIRECT["']\s*\)\s*\?\?\s*["']https:\/\/avelixa\.co\.ke["']/,
   'Connector activation must have a production-safe fallback URL',
 );
 assert.doesNotMatch(
@@ -28,17 +28,17 @@ assert.doesNotMatch(
 );
 assert.match(
   provisioner,
-  /email_confirm:true/,
+  /email_confirm\s*:\s*true/,
   'Connector provisioning must confirm the approved applicant email for normal password login',
 );
 assert.match(
   provisioner,
-  /auth\.admin\.updateUserById\(userId,\{email_confirm:true\}\)/,
+  /auth\.admin\.updateUserById\(\s*userId\s*,\s*\{\s*email_confirm\s*:\s*true\s*\}\s*\)/,
   'Existing connector accounts must also be confirmed during activation',
 );
 assert.match(
   provisioner,
-  /type:"recovery"/,
+  /type\s*:\s*["']recovery["']/,
   'Connector onboarding must use the existing recovery/password-setup flow',
 );
 assert.match(
@@ -53,12 +53,12 @@ assert.match(
 );
 assert.match(
   setPassword,
-  /supabase\.rpc\('get_my_roles'\)/,
+  /supabase\.rpc\(\s*['"]get_my_roles['"]\s*\)/,
   'Password setup must synchronize roles before entering the protected portal',
 );
 assert.match(
   setPassword,
-  /roles\.includes\('connector'\)/,
+  /roles\.includes\(\s*['"]connector['"]\s*\)/,
   'Password setup must verify the connector role before navigation',
 );
 assert.match(
@@ -68,7 +68,7 @@ assert.match(
 );
 assert.match(
   setPassword,
-  /navigate\('\/portal\/connector',\s*\{\s*replace:\s*true\s*\}\)/,
+  /navigate\(\s*['"]\/portal\/connector['"]\s*,\s*\{\s*replace\s*:\s*true\s*\}\s*\)/,
   'Successful activation must enter the existing connector portal',
 );
 
