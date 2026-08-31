@@ -5,7 +5,7 @@ const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8
 
 assert.match(
   appSource,
-  /<Route path="connector\/terms" element={<ProtectedRoute requiredRoles=\{\['connector'\]\}><ConnectorTerms \/><\/ProtectedRoute> \/>}/,
+  /<Route path="connector\/terms" element={<ProtectedRoute requiredRoles=\{\['connector'\]\}><ConnectorTerms \/><\/ProtectedRoute>\} \/>/,
   'Connector Terms must be reachable with connector-role protection only',
 );
 
