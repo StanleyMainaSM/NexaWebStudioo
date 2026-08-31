@@ -1,5 +1,5 @@
 import type { BusinessInformation, WebsiteSectionId, WebsiteSpecification, WebsiteTemplate, WebsiteTheme } from './types';
-import { templateSections } from './templates';
+import { templateSections } from './templates.ts';
 
 const clean = (value?: string) => value?.trim() || '';
 const list = (values?: string[]) => (values || []).map((value) => value.trim()).filter(Boolean);
@@ -7,7 +7,7 @@ const list = (values?: string[]) => (values || []).map((value) => value.trim()).
 export function validateBusinessInformation(business: BusinessInformation): string[] {
   const errors: string[] = [];
   if (!clean(business.businessName)) errors.push('Business name is required.');
-  if (business.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(business.email.trim())) errors.push('Email address is invalid.');
+  if (business.email && !/^\S+@\S+\.\S+$/.test(business.email.trim())) errors.push('Email address is invalid.');
   return errors;
 }
 
