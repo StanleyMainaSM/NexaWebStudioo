@@ -1,0 +1,44 @@
+name: Apply targeted server invitation URL fix
+
+on:
+  push:
+    branches:
+      - avelixa-current-work
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace only the two unsafe invitation fallbacks
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('server.ts')
+          s = p.read_text(encoding='utf-8-sig')
+          old = 'APP_URL || "http://localhost:3000"'
+          new = 'APP_URL'
+          count = s.count(old)
+          if count != 2:
+              raise SystemExit(f'Expected exactly 2 targeted occurrences, found {count}')
+          s2 = s.replace(old, new)
+          if s2.count(old) != 0:
+              raise SystemExit('Targeted replacement did not remove all expected occurrences')
+          p.write_text(s2, encoding='utf-8')
+          print('Replaced exactly 2 targeted occurrences.')
+          PY
+          git diff --check
+          git diff -- server.ts
+      - name: Commit targeted change
+        shell: bash
+        run: |
+          git config user.name 'avelixa-maintenance'
+          git config user.email 'avelixa-maintenance@users.noreply.github.com'
+          git add server.ts
+          git diff --cached --check
+          git commit -m 'fix: remove localhost invitation fallback' || exit 0
+          git push
