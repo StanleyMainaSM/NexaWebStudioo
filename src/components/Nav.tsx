@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, MessageCircle, LogIn } from 'lucide-react';
+import { Menu, X, MessageCircle, LogIn, Sparkles } from 'lucide-react';
 import { useSiteContactLinks, whatsappUrl } from '../lib/siteSettings';
 
 const links = [
@@ -37,12 +37,13 @@ export default function Nav() {
         <Link to="/" className="flex items-center gap-3"><img src="/logo.avif" alt="Avelixa" className="w-10 h-10 object-contain" /><span className="text-xl font-medium tracking-tight text-white">Avelixa</span></Link>
         <div className="hidden md:flex items-center gap-6 lg:gap-10 text-sm font-medium text-ink-600 uppercase tracking-widest">{links.map((l) => <Link key={l.to} to={l.to} className={`cursor-pointer transition-colors ${location.pathname === l.to ? 'text-accent-400' : 'hover:text-accent-400'}`}>{l.label}</Link>)}</div>
         <div className="hidden md:flex items-center gap-4 lg:gap-6">
+          <Link to="/studio" className="text-accent-400 hover:text-white transition-colors uppercase tracking-widest text-sm font-bold flex items-center gap-2"><Sparkles className="w-4 h-4" />Create a Website</Link>
           <Link to="/login" className="text-white hover:text-accent-400 transition-colors uppercase tracking-widest text-sm font-medium flex items-center gap-2"><LogIn className="w-4 h-4" />Portal</Link>
           <a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-5 py-2 bg-zinc-100 text-black rounded-full hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-medium"><MessageCircle className="w-4 h-4" />Start a Project</a>
         </div>
         <button onClick={() => setOpen(!open)} className="md:hidden p-2 text-white" aria-label="Menu">{open ? <X /> : <Menu />}</button>
       </nav>
-      {open && <div className="md:hidden absolute top-20 inset-x-0 mx-4 glass rounded-2xl p-4 flex flex-col gap-1">{links.map((l) => <Link key={l.to} to={l.to} className={`px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest ${location.pathname === l.to ? 'text-accent-400 bg-white/5' : 'text-gray-400 hover:bg-white/5'}`}>{l.label}</Link>)}<Link to="/login" className="px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest text-accent-400 bg-accent-400/10">Portal Login</Link><Link to="/connector-apply" className="mt-2 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-zinc-100 text-black hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-bold">Become a Connector</Link><a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-white/10 text-white hover:bg-white/5 transition-colors uppercase tracking-widest text-sm font-medium"><MessageCircle className="w-4 h-4" />Message on WhatsApp</a></div>}
+      {open && <div className="md:hidden absolute top-20 inset-x-0 mx-4 glass rounded-2xl p-4 flex flex-col gap-1">{links.map((l) => <Link key={l.to} to={l.to} className={`px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest ${location.pathname === l.to ? 'text-accent-400 bg-white/5' : 'text-gray-400 hover:bg-white/5'}`}>{l.label}</Link>)}<Link to="/studio" className="mt-2 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-accent-500 text-white hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-bold"><Sparkles className="w-4 h-4" />Create a Website</Link><Link to="/login" className="px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest text-accent-400 bg-accent-400/10">Portal Login</Link><Link to="/connector-apply" className="mt-2 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-zinc-100 text-black hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-bold">Become a Connector</Link><a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-white/10 text-white hover:bg-white/5 transition-colors uppercase tracking-widest text-sm font-medium"><MessageCircle className="w-4 h-4" />Message on WhatsApp</a></div>}
     </header>
   );
 }
