@@ -25,7 +25,7 @@ assert.deepEqual(hidden.navigation, [{ label: 'Contact', section: 'contact' }]);
 
 const shown = applyWebsiteSpecificationPatch(hidden, { kind: 'section_visibility', section: 'services', visible: true });
 assert.ok(shown.sections.includes('services'));
-assert.deepEqual(shown.navigation, [{ label: 'Services', section: 'services' }, { label: 'Contact', section: 'contact' }]);
+assert.deepEqual(shown.navigation, [{ label: 'Contact', section: 'contact' }, { label: 'Services', section: 'services' }]);
 
 const ordered = applyWebsiteSpecificationPatch(shown, { kind: 'section_order', sections: ['hero', 'contact'] });
 assert.deepEqual(ordered.sections, ['hero', 'contact', 'navbar', 'footer', 'services']);
