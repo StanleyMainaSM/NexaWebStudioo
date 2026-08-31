@@ -9,7 +9,7 @@ const migrationPath = path.join(
   '..',
   'supabase',
   'migrations',
-  '20260830220000_harden_payment_commission_handoff.sql'
+  '20260830220001_harden_payment_commission_handoff.sql'
 );
 const sql = fs.readFileSync(migrationPath, 'utf8');
 
