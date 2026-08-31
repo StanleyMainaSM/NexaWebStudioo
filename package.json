@@ -19,7 +19,8 @@
     "test:client-portal": "node --experimental-strip-types tests/clientPortal.test.mjs",
     "test:invoice-notifications": "node --experimental-strip-types tests/invoiceNotifications.test.mjs",
     "test:payment-finance-handoff": "node --experimental-strip-types tests/paymentFinanceHandoff.test.mjs",
-    "test:client-payment-amount": "node --experimental-strip-types tests/clientPaymentAmount.test.mjs"
+    "test:client-payment-amount": "node --experimental-strip-types tests/clientPaymentAmount.test.mjs",
+    "test:website-creation-editor": "node --experimental-strip-types tests/websiteCreationEditor.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
