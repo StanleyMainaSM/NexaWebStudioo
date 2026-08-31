@@ -24,7 +24,7 @@ const onboardingMigration = fs.readFileSync(
   'utf8',
 );
 const hardeningMigration = fs.readFileSync(
-  path.join(migrationRoot, '20260830210000_harden_client_referral_onboarding_connector_state.sql'),
+  path.join(migrationRoot, '20260830210001_harden_client_referral_onboarding_connector_state.sql'),
   'utf8',
 );
 const operationalMigration = fs.readFileSync(
