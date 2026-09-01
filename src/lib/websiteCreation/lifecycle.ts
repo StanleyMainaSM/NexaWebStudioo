@@ -28,19 +28,17 @@ export function getWebsiteGenerationLifecycleState(
   selectedTemplate: WebsiteTemplate | null | undefined,
   metadata: WebsiteGenerationLifecycleMetadata | null | undefined,
 ): WebsiteGenerationLifecycleState {
-  if (metadata?.generation_state === 'generation_failed') return 'generation_failed';
-  if (!specification || !creationProjectId || !selectedTemplate) return metadata?.latest_generated_output_identity ? 'needs_regeneration' : 'never_generated';
+  if (!metadata?.latest_generated_output_identity) return metadata?.generation_state === 'generation_failed' ? 'generation_failed' : 'never_generated';
+  if (!specification || !creationProjectId || !selectedTemplate) return 'needs_regeneration';
   if (specification.template.id !== selectedTemplate.id || specification.template.slug !== selectedTemplate.slug) return 'needs_regeneration';
-  if (!metadata?.latest_generated_output_identity) return 'never_generated';
 
   const generated = generateWebsiteFromSpecification(specification, selectedTemplate);
   if (!generated.ok) return 'needs_regeneration';
 
   const identity = createWebsiteOutputIdentity(creationProjectId, generated.artifact);
   const version = createWebsiteOutputVersion(generated.artifact);
-  return identity === metadata.latest_generated_output_identity && version === metadata.latest_generated_output_version
-    ? 'current'
-    : 'needs_regeneration';
+  if (identity !== metadata.latest_generated_output_identity || version !== metadata.latest_generated_output_version) return 'needs_regeneration';
+  return metadata.generation_state === 'generation_failed' ? 'generation_failed' : 'current';
 }
 
 export function lifecycleStateLabel(state: WebsiteGenerationLifecycleState): string {
