@@ -1,4 +1,4 @@
-import type { WebsiteSpecification, WebsiteTemplate } from './types.ts';
+import type { WebsiteGenerationPersistedState, WebsiteSpecification, WebsiteTemplate } from './types.ts';
 import {
   createWebsiteOutputIdentity,
   createWebsiteOutputVersion,
@@ -18,7 +18,7 @@ export interface WebsiteGenerationLifecycleMetadata {
   latest_generated_output_identity?: string | null;
   latest_generated_output_version?: string | null;
   latest_generated_at?: string | null;
-  generation_state?: 'never_generated' | 'current' | 'generation_failed' | null;
+  generation_state?: WebsiteGenerationPersistedState | null;
   last_generation_error?: string | null;
 }
 
