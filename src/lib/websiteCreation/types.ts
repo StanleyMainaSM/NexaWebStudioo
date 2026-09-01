@@ -77,7 +77,22 @@ export interface WebsiteGenerationOutput {
   previewPath: string | null;
 }
 
-export type WebsiteGenerationPersistedState = 'never_generated' | 'current' | 'generation_failed';
+export interface PersistedGeneratedWebsiteArtifact {
+  id: string;
+  creationProjectId: string;
+  outputIdentity: string;
+  outputVersion: string;
+  specificationIdentity: string;
+  specification: WebsiteSpecification;
+  templateId: string;
+  generatedAt: string;
+  status: WebsiteOutputStatus;
+  previewPath: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type WebsiteGenerationPersistedState = 'never_generated' | 'current' | 'needs_regeneration' | 'generation_failed';
 
 export interface CreationProject {
   id: string;
