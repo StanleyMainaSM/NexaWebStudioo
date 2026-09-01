@@ -36,6 +36,7 @@ jobs:
           npm run test:website-creation-preview
           npm run test:website-creation-output
           npm run test:website-creation-lifecycle
+          npm run test:website-creation-artifact
 
       - name: Typecheck
         run: npm run typecheck
