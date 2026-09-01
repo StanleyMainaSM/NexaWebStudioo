@@ -27,7 +27,8 @@
     "test:website-creation-templates": "node --experimental-strip-types tests/websiteCreationTemplates.test.mjs",
     "test:website-creation-product": "node --experimental-strip-types tests/websiteCreationProductIntegration.test.mjs",
     "test:website-creation-generation": "node --experimental-strip-types tests/websiteCreationGeneration.test.mjs",
-    "test:website-creation-preview": "node --experimental-strip-types tests/websiteCreationGeneratedPreview.test.mjs"
+    "test:website-creation-preview": "node --experimental-strip-types tests/websiteCreationGeneratedPreview.test.mjs",
+    "test:website-creation-output": "node --experimental-strip-types tests/websiteCreationOutput.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -42,8 +43,6 @@
     "@eslint/js": "^9.9.0",
     "@types/express": "^5.0.6",
     "@types/node": "^26.2.0",
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
     "postcss": "^8.4.35",
@@ -57,6 +56,8 @@
     "eslint": "^9.9.0",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
+    "eslint-plugin-react-refresh": "^0.4.11",
+    "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "globals": "^15.9.0",
     "tsx": "^4.23.11"
   }
