@@ -40,6 +40,9 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishedOutputIdentity, setPublishedOutputIdentity] = useState<string | null>(null);
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [templateWarning, setTemplateWarning] = useState<WebsiteTemplate | null>(null);
@@ -48,14 +51,18 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
   const templateChanged = Boolean(specification && selectedTemplate && specification.template.id !== selectedTemplate.id);
   const dirty = Boolean(specification && (JSON.stringify(specification) !== JSON.stringify(persisted) || templateChanged));
   const lifecycleState = useMemo(() => getWebsiteGenerationLifecycleState(specification, project?.id, selectedTemplate, project), [specification, project, selectedTemplate]);
-  const lifecycleDisplay = generating ? 'Generating…' : dirty ? 'Unsaved changes' : lifecycleStateLabel(lifecycleState);
-  const lifecycleClass = generating || dirty
+  const lifecycleDisplay = generating ? 'Generating…' : publishing ? 'Publishing…' : dirty ? 'Unsaved changes' : lifecycleStateLabel(lifecycleState);
+  const publishedCurrent = Boolean(project?.latest_generated_output_identity && publishedOutputIdentity === project.latest_generated_output_identity && !dirty && lifecycleState === 'current');
+  const canPublish = Boolean(authenticated && !publishing && !generating && !dirty && lifecycleState === 'current' && project?.id && project.latest_generated_output_identity && !publishedCurrent);
+  const lifecycleClass = generating || publishing || dirty
     ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-    : lifecycleState === 'current'
-      ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300'
-      : lifecycleState === 'generation_failed'
-        ? 'border-red-500/20 bg-red-500/5 text-red-300'
-        : 'border-white/10 bg-white/[.03] text-gray-400';
+    : publishedCurrent
+      ? 'border-sky-500/20 bg-sky-500/5 text-sky-300'
+      : lifecycleState === 'current'
+        ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300'
+        : lifecycleState === 'generation_failed'
+          ? 'border-red-500/20 bg-red-500/5 text-red-300'
+          : 'border-white/10 bg-white/[.03] text-gray-400';
   const canOpenPublicPreview = Boolean(project?.public_preview_token && !dirty && lifecycleState === 'current');
 
   useEffect(() => {
@@ -80,6 +87,15 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
             setProject(loaded); setBusiness(loaded.business_info || emptyBusiness); setSpecification(loaded.specification); setPersisted(loaded.specification ? clone(loaded.specification) : null);
             if (loaded.selected_template_id) setTemplateId(loaded.selected_template_id);
             if (loaded.specification?.sections?.length) setSelectedSection(loaded.specification.sections.includes('hero') ? 'hero' : loaded.specification.sections[0]);
+            if (loaded.latest_generated_output_identity) {
+              const artifactResult = await supabase.from('creation_generated_website_outputs').select('id,status,published_at').eq('creation_project_id', loaded.id).eq('id', loaded.latest_generated_output_identity).maybeSingle();
+              if (!artifactResult.error && artifactResult.data?.status === 'published') {
+                setPublishedOutputIdentity(artifactResult.data.id as string);
+                setPublishedAt((artifactResult.data.published_at as string | null) || null);
+              } else {
+                setPublishedOutputIdentity(null); setPublishedAt(null);
+              }
+            }
           } else if (loadedTemplates[0]) setTemplateId(loadedTemplates[0].id);
         } else if (loadedTemplates[0]) setTemplateId(loadedTemplates[0].id);
         if (resolvedLeadId && authenticated) {
@@ -119,7 +135,7 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
   }
 
   async function generate() {
-    if (generating) return;
+    if (generating || publishing) return;
     setError(''); setNotice('');
     const validation = validateBusinessInformation(business);
     if (validation.length) { if (project) await markGenerationFailed(project.id, validation.join(' ')); setError(validation.join(' ')); return; }
@@ -164,6 +180,8 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
       setUsage({ used: next.generation_count, limit: next.generation_limit, remaining: Math.max(next.generation_limit - next.generation_count, 0) });
       setSpecification(output.output.specification);
       setPersisted(clone(output.output.specification));
+      setPublishedOutputIdentity(null);
+      setPublishedAt(null);
       setProject({
         ...currentProject,
         selected_template_id: selectedTemplate.id,
@@ -187,6 +205,29 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
     } finally { setGenerating(false); }
   }
 
+  async function publishWebsite() {
+    if (publishing || generating) return;
+    if (!project?.id || !project.latest_generated_output_identity || dirty || lifecycleState !== 'current') {
+      setError('Generate the current website before publishing it.');
+      return;
+    }
+    setPublishing(true); setError(''); setNotice('');
+    try {
+      const result = await supabase.rpc('publish_creation_generated_output', {
+        p_creation_project_id: project.id,
+        p_output_identity: project.latest_generated_output_identity,
+      });
+      if (result.error) throw result.error;
+      const next = result.data as { output_identity: string; output_version: string; status: 'published'; published_at: string; idempotent?: boolean };
+      setPublishedOutputIdentity(next.output_identity);
+      setPublishedAt(next.published_at || null);
+      setProject((current) => current ? { ...current, generation_state: 'current' } : current);
+      setNotice(next.idempotent ? 'Website is already published.' : 'Website published successfully.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to publish the generated website.');
+    } finally { setPublishing(false); }
+  }
+
   async function saveSpecification() {
     if (!project || !specification) { setNotice('Generate a preview before saving editor changes.'); return; }
     if (templateChanged) { setNotice('Generate Website to apply the selected template.'); return; }
@@ -207,10 +248,10 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
 
   if (loading) return <div className="flex min-h-96 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-accent-400" /></div>;
   return <div className="space-y-5">
-    <div className="flex flex-wrap items-center justify-between gap-4"><div className="flex items-center gap-3"><button type="button" onClick={() => navigate('/portal/creation-studio')} aria-label="Back to website projects" className="rounded-xl border border-white/10 p-2.5 text-gray-300 hover:bg-white/5"><ArrowLeft className="h-4 w-4" /></button><div><div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-accent-400"><Sparkles className="h-3.5 w-3.5" />Template Studio</div><h1 className="mt-1 text-2xl font-bold text-white">{project?.title || 'New website'}</h1></div></div><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full border px-3 py-2 text-xs font-semibold ${lifecycleClass}`}>{lifecycleDisplay}</span>{authenticated && <span className="rounded-full border border-white/10 px-3 py-2 text-xs text-gray-400">{usage.remaining}/{usage.limit} generations</span>}<button type="button" onClick={() => void saveSpecification()} disabled={!dirty || saving || templateChanged} className="inline-flex items-center gap-2 rounded-xl bg-accent-500 px-4 py-2.5 text-sm font-bold text-ink-950 disabled:opacity-40"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save'}</button></div></div>
+    <div className="flex flex-wrap items-center justify-between gap-4"><div className="flex items-center gap-3"><button type="button" onClick={() => navigate('/portal/creation-studio')} aria-label="Back to website projects" className="rounded-xl border border-white/10 p-2.5 text-gray-300 hover:bg-white/5"><ArrowLeft className="h-4 w-4" /></button><div><div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-accent-400"><Sparkles className="h-3.5 w-3.5" />Template Studio</div><h1 className="mt-1 text-2xl font-bold text-white">{project?.title || 'New website'}</h1></div></div><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full border px-3 py-2 text-xs font-semibold ${lifecycleClass}`}>{publishedCurrent ? 'Published' : lifecycleDisplay}</span>{authenticated && <span className="rounded-full border border-white/10 px-3 py-2 text-xs text-gray-400">{usage.remaining}/{usage.limit} generations</span>}<button type="button" onClick={() => void saveSpecification()} disabled={!dirty || saving || templateChanged || publishing} className="inline-flex items-center gap-2 rounded-xl bg-accent-500 px-4 py-2.5 text-sm font-bold text-ink-950 disabled:opacity-40"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save'}</button></div></div>
     {(error || notice) && <div className={`rounded-2xl border px-4 py-3 text-sm ${error ? 'border-red-500/20 bg-red-500/5 text-red-300' : 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300'}`}>{error ? <AlertCircle className="mr-2 inline h-4 w-4" /> : <Check className="mr-2 inline h-4 w-4" />}{error || notice}</div>}
     <div className="grid min-h-[calc(100vh-12rem)] overflow-hidden rounded-3xl border border-white/10 bg-[#0b0d12] xl:grid-cols-[250px_minmax(0,1fr)_320px]">
-      <aside className="border-b border-white/10 p-4 xl:border-b-0 xl:border-r"><h2 className="text-sm font-semibold text-white">Website structure</h2>{!specification ? <div className="mt-5 space-y-3"><p className="text-xs leading-5 text-gray-500">Select a database-backed template and generate a website to open the editor.</p>{templates.map((template) => <button key={template.id} type="button" onClick={() => chooseTemplate(template)} className={`w-full rounded-xl border p-3 text-left ${templateId === template.id ? 'border-accent-500/40 bg-accent-500/10' : 'border-white/10 bg-white/[.02]'}`}><div className="text-sm font-semibold text-white">{template.name}</div><div className="mt-1 text-[11px] text-gray-500">{template.visual_style}</div></button>)}<button type="button" onClick={() => void generate()} disabled={generating || !selectedTemplate} className="w-full rounded-xl bg-accent-500 px-4 py-3 text-sm font-bold text-ink-950 disabled:opacity-40">{generating ? 'Generating…' : 'Generate website'}</button></div> : <><div className="mt-4 space-y-1">{specification.sections.map((section) => <button key={section} type="button" onClick={() => setSelectedSection(section)} className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm ${selectedSection === section ? 'bg-accent-500/10 text-accent-300' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><span>{sectionLabels[section]}</span>{structuralSections.has(section) && <span className="text-[9px] uppercase tracking-widest text-gray-600">Core</span>}</button>)}</div><div className="my-4 border-t border-white/10" /><p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Add section</p><div className="mt-2 grid grid-cols-2 gap-1">{Object.keys(sectionLabels).filter((s) => !specification.sections.includes(s as WebsiteSectionId)).map((s) => <button key={s} type="button" onClick={() => toggleSection(s as WebsiteSectionId)} className="rounded-lg border border-white/5 px-2 py-2 text-[11px] text-gray-500 hover:border-accent-500/30 hover:text-accent-300"><Plus className="mx-auto mb-1 h-3 w-3" />{sectionLabels[s as WebsiteSectionId]}</button>)}</div></>}</aside>
+      <aside className="border-b border-white/10 p-4 xl:border-b-0 xl:border-r"><h2 className="text-sm font-semibold text-white">Website structure</h2>{!specification ? <div className="mt-5 space-y-3"><p className="text-xs leading-5 text-gray-500">Select a database-backed template and generate a website to open the editor.</p>{templates.map((template) => <button key={template.id} type="button" onClick={() => chooseTemplate(template)} className={`w-full rounded-xl border p-3 text-left ${templateId === template.id ? 'border-accent-500/40 bg-accent-500/10' : 'border-white/10 bg-white/[.02]'}`}><div className="text-sm font-semibold text-white">{template.name}</div><div className="mt-1 text-[11px] text-gray-500">{template.visual_style}</div></button>)}<button type="button" onClick={() => void generate()} disabled={generating || publishing || !selectedTemplate} className="w-full rounded-xl bg-accent-500 px-4 py-3 text-sm font-bold text-ink-950 disabled:opacity-40">{generating ? 'Generating…' : 'Generate website'}</button></div> : <><div className="mt-4 space-y-1">{specification.sections.map((section) => <button key={section} type="button" onClick={() => setSelectedSection(section)} className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm ${selectedSection === section ? 'bg-accent-500/10 text-accent-300' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><span>{sectionLabels[section]}</span>{structuralSections.has(section) && <span className="text-[9px] uppercase tracking-widest text-gray-600">Core</span>}</button>)}</div><div className="my-4 border-t border-white/10" /><p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Add section</p><div className="mt-2 grid grid-cols-2 gap-1">{Object.keys(sectionLabels).filter((s) => !specification.sections.includes(s as WebsiteSectionId)).map((s) => <button key={s} type="button" onClick={() => toggleSection(s as WebsiteSectionId)} className="rounded-lg border border-white/5 px-2 py-2 text-[11px] text-gray-500 hover:border-accent-500/30 hover:text-accent-300"><Plus className="mx-auto mb-1 h-3 w-3" />{sectionLabels[s as WebsiteSectionId]}</button>)}</div></>}</aside>
       <main className="min-w-0 border-b border-white/10 bg-[#151820] xl:border-b-0 xl:border-r"><div className="flex items-center justify-between border-b border-white/10 bg-[#0f1117] px-4 py-3"><div className="flex items-center gap-1 rounded-xl border border-white/10 p-1"><button type="button" onClick={() => setPreviewMode('desktop')} aria-label="Desktop preview" className={`rounded-lg p-2 ${previewMode === 'desktop' ? 'bg-white/10 text-white' : 'text-gray-500'}`}><Monitor className="h-4 w-4" /></button><button type="button" onClick={() => setPreviewMode('tablet')} aria-label="Tablet preview" className={`rounded-lg p-2 ${previewMode === 'tablet' ? 'bg-white/10 text-white' : 'text-gray-500'}`}><Tablet className="h-4 w-4" /></button><button type="button" onClick={() => setPreviewMode('mobile')} aria-label="Mobile preview" className={`rounded-lg p-2 ${previewMode === 'mobile' ? 'bg-white/10 text-white' : 'text-gray-500'}`}><Smartphone className="h-4 w-4" /></button></div><div className="flex items-center gap-2 text-xs text-gray-500"><Eye className="h-4 w-4" />Live preview</div></div><div className="h-full overflow-auto p-4 md:p-6"><div className={`mx-auto w-full ${width}`}>{specification ? <WebsitePreviewRenderer spec={specification} /> : <div className="grid min-h-[620px] place-items-center rounded-3xl border border-dashed border-white/10 text-center"><div><Sparkles className="mx-auto h-8 w-8 text-accent-400" /><h2 className="mt-4 text-xl font-semibold text-white">Start your website</h2><p className="mt-2 max-w-sm text-sm text-gray-500">The preview uses the same typed specification and renderer that will be saved to your project.</p></div></div>}</div></div></main>
       <aside className="min-w-0 overflow-y-auto p-4 md:p-5"><div className="flex items-center gap-2"><Palette className="h-4 w-4 text-accent-400" /><h2 className="text-sm font-semibold text-white">Properties</h2></div>{!specification ? <div className="mt-5 space-y-4"><Field label="Business name" value={business.businessName} onChange={(v) => editBusiness('businessName', v)} /><Field label="Description" value={business.businessDescription || ''} onChange={(v) => editBusiness('businessDescription', v)} multiline /><Field label="Logo URL" value={business.logoUrl || ''} onChange={(v) => editBusiness('logoUrl', v)} /><Field label="Email" value={business.email || ''} onChange={(v) => editBusiness('email', v)} /><Field label="Phone" value={business.phone || ''} onChange={(v) => editBusiness('phone', v)} /></div> : <div className="mt-5 space-y-5">
         {selectedSection === 'navbar' && <><h3 className="text-sm font-semibold text-white">Navigation</h3>{specification.navigation.map((item) => <div key={item.section} className="space-y-2 rounded-xl border border-white/10 p-3"><Field label={sectionLabels[item.section]} value={item.label} onChange={(v) => updateSpec(updateWebsiteNavigationItem(specification, item.section, { label: v, section: item.section }))} /><label className="block text-xs text-gray-500">Destination<select value={item.section} onChange={(e) => updateSpec(updateWebsiteNavigationItem(specification, item.section, { label: item.label, section: e.target.value as WebsiteSectionId }))} className="mt-1 w-full rounded-lg border border-white/10 bg-ink-950 px-2 py-2 text-white">{navTargets.map((target) => <option key={target} value={target}>{`#${target}`}</option>)}</select></label></div>)}</>}
@@ -229,7 +270,7 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
         <div className="border-t border-white/10 pt-4"><h3 className="text-xs font-bold uppercase tracking-widest text-gray-600">Template</h3><select value={templateId} onChange={(e) => { const next = templates.find((t) => t.id === e.target.value); if (next) chooseTemplate(next); }} className="mt-3 w-full rounded-xl border border-white/10 bg-ink-950 px-3 py-2.5 text-sm text-white">{templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
       </div>}</aside>
     </div>
-    {specification && <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.03] p-4"><div><div className="text-sm font-semibold text-white">{selectedTemplate?.name || specification.template.name}</div><div className="mt-1 text-xs text-gray-500">{lifecycleState === 'generation_failed' && project?.last_generation_error ? project.last_generation_error : dirty ? 'Changes are waiting to be saved.' : lifecycleState === 'needs_regeneration' ? 'The saved website changed. Generate Website to update the preview.' : lifecycleState === 'current' ? 'The generated website matches the saved specification.' : 'This project has not been generated yet.'}</div></div><div className="flex flex-wrap gap-2">{canOpenPublicPreview ? <a href={`/preview/${project?.public_preview_token}`} target="_blank" rel="noreferrer" className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-gray-300">Open public preview</a> : project?.public_preview_token ? <span className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-gray-500">Generate to update preview</span> : null}<button type="button" onClick={() => void generate()} disabled={generating || !selectedTemplate || (authenticated && usage.remaining <= 0)} className="rounded-xl border border-accent-500/30 bg-accent-500/10 px-4 py-2.5 text-sm font-semibold text-accent-300 disabled:opacity-40">{generating ? 'Generating…' : 'Generate Website'}</button></div></div>}
+    {specification && <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.03] p-4"><div><div className="text-sm font-semibold text-white">{selectedTemplate?.name || specification.template.name}</div><div className="mt-1 text-xs text-gray-500">{publishedCurrent ? `Published${publishedAt ? ` ${new Date(publishedAt).toLocaleString()}` : ''}.` : lifecycleState === 'generation_failed' && project?.last_generation_error ? project.last_generation_error : dirty ? 'Changes are waiting to be saved.' : lifecycleState === 'needs_regeneration' ? 'The saved website changed. Generate Website to update the preview.' : lifecycleState === 'current' ? 'The generated website matches the saved specification.' : 'This project has not been generated yet.'}</div></div><div className="flex flex-wrap gap-2">{canOpenPublicPreview ? <a href={`/preview/${project?.public_preview_token}`} target="_blank" rel="noreferrer" className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-gray-300">Open public preview</a> : project?.public_preview_token ? <span className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-gray-500">Generate to update preview</span> : null}{canPublish && <button type="button" onClick={() => void publishWebsite()} className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-300">{publishing ? 'Publishing…' : 'Publish Website'}</button>}{publishedCurrent && <span className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-2.5 text-sm font-semibold text-sky-300">Published</span>}<button type="button" onClick={() => void generate()} disabled={generating || publishing || !selectedTemplate || (authenticated && usage.remaining <= 0)} className="rounded-xl border border-accent-500/30 bg-accent-500/10 px-4 py-2.5 text-sm font-semibold text-accent-300 disabled:opacity-40">{generating ? 'Generating…' : publishedCurrent ? 'Regenerate Website' : lifecycleState === 'needs_regeneration' ? 'Regenerate Website' : 'Generate Website'}</button></div></div>}
     {templateWarning && <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-5"><div className="w-full max-w-md rounded-3xl border border-white/10 bg-ink-900 p-6"><h2 className="text-xl font-semibold text-white">Change template?</h2><p className="mt-3 text-sm leading-6 text-gray-400">Your current specification has unsaved edits. Switching templates does not overwrite it until you generate again.</p><div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => setTemplateWarning(null)} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-gray-300">Keep editing</button><button type="button" onClick={() => { setTemplateId(templateWarning.id); setTemplateWarning(null); }} className="rounded-xl bg-accent-500 px-4 py-2.5 text-sm font-bold text-ink-950">Change template</button></div></div></div>}
   </div>;
 }
