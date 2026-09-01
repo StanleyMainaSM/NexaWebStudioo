@@ -87,6 +87,7 @@ export interface PersistedGeneratedWebsiteArtifact {
   templateId: string;
   generatedAt: string;
   status: WebsiteOutputStatus;
+  publishedAt?: string | null;
   previewPath: string | null;
   createdAt: string;
   updatedAt: string;
