@@ -52,5 +52,8 @@ assert.match(sections, /href=\{ctaTarget\}/);
 assert.match(sections, /No gallery images have been added yet/);
 assert.doesNotMatch(sections, /c\.images\.length \? .* : <div[^>]*bg-black\/5/);
 assert.doesNotMatch(sections, /h-48 rounded-3xl bg-slate-100/);
+assert.doesNotMatch(sections, /<nav className="hidden/);
+assert.doesNotMatch(sections, /Your business location/);
+assert.match(sections, /if \(!c\.address\?\.trim\(\)\) return null/);
 
 console.log('websiteCreationGeneratedPreview.test.mjs: PASS');
