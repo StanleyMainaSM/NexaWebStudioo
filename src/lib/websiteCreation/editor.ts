@@ -54,8 +54,7 @@ function defaultSectionContent(section: WebsiteSectionId, spec: WebsiteSpecifica
 
 export function addWebsiteSection(spec: WebsiteSpecification, section: WebsiteSectionId): WebsiteSpecification {
   if (spec.sections.includes(section)) return spec;
-  const sections = [...spec.sections.filter((item) => item !== 'footer'), section, ...spec.sections.filter((item) => item === 'footer')];
-  return syncNavigation({ ...spec, content: { ...spec.content, [section]: defaultSectionContent(section, spec) } }, sections);
+  return syncNavigation({ ...spec, content: { ...spec.content, [section]: defaultSectionContent(section, spec) } }, [...spec.sections, section]);
 }
 
 export function removeWebsiteSection(spec: WebsiteSpecification, section: WebsiteSectionId): WebsiteSpecification {
