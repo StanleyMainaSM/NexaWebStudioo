@@ -8,13 +8,14 @@ const foundation = fs.readFileSync('supabase/migrations/20260831100000_website_c
 const preview = fs.readFileSync('supabase/migrations/20260831104000_website_creation_preview_and_attribution_hardening.sql', 'utf8');
 
 assert.match(app, /path="creation"[\s\S]*WebsiteCreationProjects/);
-assert.match(app, /path="creation-studio"[\s\S]*WebsiteCreationStudio/);
+assert.match(app, /path="creation-studio"[\s\S]*WebsiteCreationProjects/);
+assert.match(app, /path="creation-studio\/:creationProjectId"[\s\S]*WebsiteCreationStudio/);
 assert.match(app, /path="preview\/:token"[\s\S]*PublicCreationPreview/);
 assert.match(app, /requiredRoles=\{\['client','connector','operator','admin','owner'\]\}/);
 
 assert.match(projects, /from\('creation_projects'\)/);
 assert.match(projects, /rpc\('create_creation_project'/);
-assert.match(projects, /navigate\(`\/portal\/creation-studio\?creationProjectId=\$\{result\.data\}`\)/);
+assert.match(projects, /navigate\(`\/portal\/creation-studio\/\$\{result\.data\}`\)/);
 assert.match(projects, /selected_template_id/);
 assert.match(projects, /preview_enabled/);
 assert.match(projects, /Open in Template Studio/);
