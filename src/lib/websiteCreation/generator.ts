@@ -54,8 +54,7 @@ export function validateWebsiteSpecification(
   if (!specification || !isRecord(specification)) return ['Website specification is required.'];
   if (specification.version !== 1) errors.push('Unsupported WebsiteSpecification version.');
 
-  const businessErrors = validateBusinessInformation(specification.business);
-  errors.push(...businessErrors);
+  errors.push(...validateBusinessInformation(specification.business));
 
   if (!isRecord(specification.template) || !clean(specification.template.id) || !clean(specification.template.slug)) {
     errors.push('Website template reference is invalid.');
@@ -70,8 +69,6 @@ export function validateWebsiteSpecification(
       else if (seen.has(section)) errors.push(`Duplicate website section: ${section}.`);
       else seen.add(section);
     }
-    if (!specification.sections.includes('hero')) errors.push('Website specification must include a hero section.');
-    if (!specification.sections.includes('footer')) errors.push('Website specification must include a footer section.');
   }
 
   if (!Array.isArray(specification.navigation)) {
@@ -196,8 +193,7 @@ export function generateWebsiteFromSpecification(
   if (validationErrors.length) return { ok: false, code: 'validation', errors: validationErrors };
 
   try {
-    const artifact = normalizeWebsiteSpecification(specification, template);
-    return { ok: true, artifact, template };
+    return { ok: true, artifact: normalizeWebsiteSpecification(specification, template), template };
   } catch {
     return { ok: false, code: 'generation', errors: ['The website could not be generated from the supplied specification.'] };
   }
