@@ -29,7 +29,8 @@
     "test:website-creation-generation": "node --experimental-strip-types tests/websiteCreationGeneration.test.mjs",
     "test:website-creation-preview": "node --experimental-strip-types tests/websiteCreationGeneratedPreview.test.mjs",
     "test:website-creation-output": "node --experimental-strip-types tests/websiteCreationOutput.test.mjs",
-    "test:website-creation-lifecycle": "node --experimental-strip-types tests/websiteCreationLifecycle.test.mjs"
+    "test:website-creation-lifecycle": "node --experimental-strip-types tests/websiteCreationLifecycle.test.mjs",
+    "test:website-creation-artifact": "node --experimental-strip-types tests/websiteCreationArtifact.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
