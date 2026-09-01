@@ -65,6 +65,32 @@ if (result.ok) {
 const twice = generateWebsiteFromSpecification(generated, template);
 assert.deepEqual(twice, result);
 
+const edited = {
+  ...generated,
+  navigation: [{ label: 'What We Do', section: 'services' }, { label: 'Reach Us', section: 'contact' }],
+  sections: ['hero', 'contact', 'services', 'footer'],
+  theme: { ...generated.theme, primary: '#0f172a', accent: '#16a34a' },
+  content: {
+    ...generated.content,
+    hero: { ...generated.content.hero, title: 'Edited Studio Headline', subtitle: 'Edited supporting copy.' },
+    services: { items: ['Edited service one', 'Edited service two'] },
+  },
+};
+const editedResult = generateWebsiteFromSpecification(edited, template);
+assert.equal(editedResult.ok, true);
+if (editedResult.ok) {
+  assert.equal(editedResult.artifact.content.hero.title, 'Edited Studio Headline');
+  assert.equal(editedResult.artifact.content.hero.subtitle, 'Edited supporting copy.');
+  assert.deepEqual(editedResult.artifact.content.services.items, ['Edited service one', 'Edited service two']);
+  assert.deepEqual(editedResult.artifact.sections, ['hero', 'contact', 'services', 'footer']);
+  assert.deepEqual(editedResult.artifact.navigation, [
+    { label: 'Reach Us', section: 'contact' },
+    { label: 'What We Do', section: 'services' },
+  ]);
+  assert.equal(editedResult.artifact.theme.primary, '#0f172a');
+  assert.equal(editedResult.artifact.theme.accent, '#16a34a');
+}
+
 const invalid = { ...generated, sections: ['hero', 'hero', 'footer'] };
 const invalidResult = generateWebsiteFromSpecification(invalid, template);
 assert.equal(invalidResult.ok, false);
