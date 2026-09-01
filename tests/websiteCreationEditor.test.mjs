@@ -55,7 +55,7 @@ assert.deepEqual(ordered.sections, ['hero', 'contact', 'navbar', 'footer', 'serv
 assert.deepEqual(ordered.navigation, [{ label: 'Contact', section: 'contact' }, { label: 'Services', section: 'services' }]);
 
 const added = addWebsiteSection(ordered, 'faq');
-assert.ok(added.sections.includes('faq'));
+assert.deepEqual(added.sections, ['hero', 'contact', 'navbar', 'services', 'faq', 'footer']);
 assert.ok(Array.isArray(added.content.faq.items));
 assert.ok(added.navigation.some((item) => item.section === 'faq'));
 
