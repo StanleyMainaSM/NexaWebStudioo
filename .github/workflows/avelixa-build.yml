@@ -34,6 +34,7 @@ jobs:
           node --experimental-strip-types tests/websiteCreationProductIntegration.test.mjs
           npm run test:website-creation-generation
           npm run test:website-creation-preview
+          npm run test:website-creation-output
 
       - name: Typecheck
         run: npm run typecheck
