@@ -150,7 +150,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.consume_creation_generation(UUID,UUID,TEXT[],JSONB,TEXT,TEXT,TIMESTAMPTZ) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.consume_creation_generation(UUID,UUID,TEXT[],JSONB,TEXT,TEXT,TIMESTAMPTZ) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.consume_creation_generation(UUID,UUID,TEXT[],JSONB,TEXT,TEXT,TIMESTAMPTZ) TO authenticated;
 
 -- A failed attempt only records the failure state. It never overwrites the
@@ -193,5 +193,5 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.mark_creation_generation_failed(UUID,TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.mark_creation_generation_failed(UUID,TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.mark_creation_generation_failed(UUID,TEXT) TO authenticated;
