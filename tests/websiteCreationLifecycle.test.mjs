@@ -93,7 +93,7 @@ assert.equal(getWebsiteGenerationLifecycleState(specification, projectId, templa
 const repeat = generateWebsiteOutputFromSpecification(specification, template, projectId, '2026-09-02T12:00:00.000Z');
 assert.equal(repeat.ok, true);
 if (repeat.ok) {
-  assert.equal(repeat.output.id, createWebsiteOutputIdentity(projectId, specification));
+  assert.equal(repeat.output.id, createWebsiteOutputIdentity(projectId, repeat.output.specification));
   assert.equal(repeat.output.outputVersion, createWebsiteOutputVersion(repeat.output.specification));
   assert.equal(repeat.output.id, generated.output.id);
 }
