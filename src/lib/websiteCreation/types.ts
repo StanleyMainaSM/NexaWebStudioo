@@ -77,6 +77,8 @@ export interface WebsiteGenerationOutput {
   previewPath: string | null;
 }
 
+export type WebsiteGenerationPersistedState = 'never_generated' | 'current' | 'generation_failed';
+
 export interface CreationProject {
   id: string;
   type: CreationProjectType;
@@ -94,6 +96,11 @@ export interface CreationProject {
   attribution_enabled: boolean;
   public_preview_token?: string | null;
   preview_enabled?: boolean;
+  latest_generated_output_identity?: string | null;
+  latest_generated_output_version?: string | null;
+  latest_generated_at?: string | null;
+  generation_state?: WebsiteGenerationPersistedState | null;
+  last_generation_error?: string | null;
   status: string;
   created_at: string;
   updated_at: string;
