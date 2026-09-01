@@ -40,24 +40,21 @@ jobs:
           npm run test:website-creation-publishing
 
       - name: Typecheck
-        run: |
-          set +e
-          npm run typecheck > typecheck.log 2>&1
-          status=$?
-          cat typecheck.log
-          exit $status
-
-      - name: Upload typecheck diagnostic
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: typecheck-diagnostic-${{ github.run_id }}
-          path: typecheck.log
-          retention-days: 1
-          if-no-files-found: error
+        run: npm run typecheck
 
       - name: Build
         run: npm run build
+
+      - name: Existing application regression tests
+        run: |
+          npm run test:connector-notifications
+          npm run test:connector-portal-routing
+          npm run test:connector-activation
+          npm run test:client-referrals
+          npm run test:client-portal
+          npm run test:invoice-notifications
+          npm run test:payment-finance-handoff
+          npm run test:client-payment-amount
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -75,42 +72,6 @@ jobs:
 
       - name: Run complete local database regression suite
         run: supabase test db
-
-      - name: Existing application regression tests
-        run: |
-          set +e
-          : > regression.log
-          commands=(
-            "npm run test:connector-notifications"
-            "npm run test:connector-portal-routing"
-            "npm run test:connector-activation"
-            "npm run test:client-referrals"
-            "npm run test:client-portal"
-            "npm run test:invoice-notifications"
-            "npm run test:payment-finance-handoff"
-            "npm run test:client-payment-amount"
-          )
-          status=0
-          for command in "${commands[@]}"; do
-            echo "===== $command =====" | tee -a regression.log
-            bash -lc "$command" 2>&1 | tee -a regression.log
-            command_status=${PIPESTATUS[0]}
-            if [ "$command_status" -ne 0 ]; then
-              status="$command_status"
-              break
-            fi
-          done
-          cat regression.log
-          exit $status
-
-      - name: Upload regression diagnostic
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: regression-diagnostic-${{ github.run_id }}
-          path: regression.log
-          retention-days: 1
-          if-no-files-found: error
 
       - name: Stop local Supabase
         if: always()
