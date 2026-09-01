@@ -92,7 +92,7 @@ export default function WebsiteCreationProjects() {
     }
     setCreating(false);
     setShowCreate(false);
-    navigate(`/portal/creation-studio?creationProjectId=${result.data}`);
+    navigate(`/portal/creation-studio/${result.data}`);
   }
 
   if (loading) return <div className="flex min-h-64 items-center justify-center text-gray-400"><Loader2 className="mr-3 h-6 w-6 animate-spin" />Loading Website Creation...</div>;
@@ -137,7 +137,7 @@ export default function WebsiteCreationProjects() {
                 <div className="rounded-2xl border border-white/5 bg-black/10 p-3"><div className="text-[10px] uppercase tracking-widest text-gray-600">Preview</div><div className="mt-1 text-sm text-gray-300">{project.preview_enabled ? 'Available' : 'Not generated'}</div></div>
                 <div className="rounded-2xl border border-white/5 bg-black/10 p-3"><div className="text-[10px] uppercase tracking-widest text-gray-600">Updated</div><div className="mt-1 text-sm text-gray-300">{new Date(project.updated_at).toLocaleDateString()}</div></div>
               </div>
-              <button type="button" onClick={() => navigate(`/portal/creation-studio?creationProjectId=${project.id}`)} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-gray-200 hover:border-accent-500/30 hover:bg-accent-500/5 hover:text-accent-300">Open in Template Studio <ArrowRight className="h-4 w-4" /></button>
+              <button type="button" onClick={() => navigate(`/portal/creation-studio/${project.id}`)} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-gray-200 hover:border-accent-500/30 hover:bg-accent-500/5 hover:text-accent-300">Open in Template Studio <ArrowRight className="h-4 w-4" /></button>
             </article>
           ))}
         </div>
