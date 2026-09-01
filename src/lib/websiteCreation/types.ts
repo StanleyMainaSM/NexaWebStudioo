@@ -64,6 +64,19 @@ export interface WebsiteSpecification {
   attribution: { enabled: boolean; label: string };
 }
 
+export type WebsiteOutputStatus = 'draft' | 'generated' | 'published';
+
+export interface WebsiteGenerationOutput {
+  id: string;
+  creationProjectId: string;
+  specification: WebsiteSpecification;
+  template: WebsiteTemplate;
+  status: WebsiteOutputStatus;
+  generatedAt: string;
+  outputVersion: string;
+  previewPath: string | null;
+}
+
 export interface CreationProject {
   id: string;
   type: CreationProjectType;
