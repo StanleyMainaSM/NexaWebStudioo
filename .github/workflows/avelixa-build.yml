@@ -59,6 +59,23 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Initialize local Supabase configuration
+        run: supabase init --force
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Reset local database and apply all repository migrations
+        run: supabase db reset --yes
+
+      - name: Run complete local database regression suite
+        run: supabase test db
+
       - name: Existing application regression tests
         run: |
           set +e
@@ -94,23 +111,6 @@ jobs:
           path: regression.log
           retention-days: 1
           if-no-files-found: error
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Initialize local Supabase configuration
-        run: supabase init --force
-
-      - name: Start local Supabase
-        run: supabase start
-
-      - name: Reset local database and apply all repository migrations
-        run: supabase db reset --yes
-
-      - name: Run complete local database regression suite
-        run: supabase test db
 
       - name: Stop local Supabase
         if: always()
