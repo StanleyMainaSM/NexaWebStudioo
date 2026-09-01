@@ -3,7 +3,7 @@ import { AlertCircle, ArrowDown, ArrowLeft, ArrowUp, Check, Eye, Loader2, Monito
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { generateWebsiteSpecification, validateBusinessInformation } from '../lib/websiteCreation/generator';
+import { generateWebsiteFromSpecification, generateWebsiteSpecification, validateBusinessInformation } from '../lib/websiteCreation/generator';
 import { addWebsiteSection, applyWebsiteSpecificationPatch, removeWebsiteSection, updateWebsiteBusinessField, updateWebsiteNavigationItem, updateWebsiteSectionContent } from '../lib/websiteCreation/editor';
 import type { BusinessInformation, CreationProject, WebsiteSectionId, WebsiteSpecification, WebsiteTemplate } from '../lib/websiteCreation/types';
 import WebsitePreviewRenderer from '../components/websiteCreation/WebsitePreviewRenderer';
@@ -108,14 +108,23 @@ export default function WebsiteCreationStudio({ creationProjectId, leadId }: { c
     if (authenticated && usage.remaining <= 0) { setError('Your five free template generations have been used.'); return; }
     setGenerating(true);
     try {
-      if (!authenticated) { setSpecification(generateWebsiteSpecification(business, selectedTemplate, [], true)); setNotice('Preview generated. Sign in when you want to save it.'); return; }
-      const current = await ensureProject();
-      const spec = generateWebsiteSpecification(business, selectedTemplate, [], current.attribution_enabled);
-      const result = await supabase.rpc('consume_creation_generation', { p_creation_project_id: current.id, p_template_id: selectedTemplate.id, p_requested_sections: spec.sections, p_specification: spec });
+      if (!authenticated) {
+        const current = specification && specification.template.id === selectedTemplate.id ? generateWebsiteFromSpecification(specification, selectedTemplate) : { ok: true as const, artifact: generateWebsiteSpecification(business, selectedTemplate, [], true), template: selectedTemplate };
+        if (!current.ok) throw new Error(current.errors.join(' '));
+        setSpecification(current.artifact); setNotice('Preview generated. Sign in when you want to save it.');
+        return;
+      }
+      const currentProject = await ensureProject();
+      const current = specification && specification.template.id === selectedTemplate.id
+        ? generateWebsiteFromSpecification(specification, selectedTemplate)
+        : { ok: true as const, artifact: generateWebsiteSpecification(business, selectedTemplate, [], currentProject.attribution_enabled), template: selectedTemplate };
+      if (!current.ok) throw new Error(current.errors.join(' '));
+      const spec = current.artifact;
+      const result = await supabase.rpc('consume_creation_generation', { p_creation_project_id: currentProject.id, p_template_id: selectedTemplate.id, p_requested_sections: spec.sections, p_specification: spec });
       if (result.error) throw result.error;
       const next = result.data as { generation_count: number; generation_limit: number; public_preview_token?: string };
       setUsage({ used: next.generation_count, limit: next.generation_limit, remaining: Math.max(next.generation_limit - next.generation_count, 0) });
-      setSpecification(spec); setPersisted(clone(spec)); setProject({ ...current, selected_template_id: selectedTemplate.id, requested_sections: spec.sections, specification: spec, public_preview_token: next.public_preview_token || null, preview_enabled: true, status: 'preview' }); setSelectedSection(spec.sections.includes('hero') ? 'hero' : spec.sections[0]); setNotice('Preview generated and saved.');
+      setSpecification(spec); setPersisted(clone(spec)); setProject({ ...currentProject, selected_template_id: selectedTemplate.id, requested_sections: spec.sections, specification: spec, public_preview_token: next.public_preview_token || null, preview_enabled: true, status: 'preview' }); setSelectedSection(spec.sections.includes('hero') ? 'hero' : spec.sections[0]); setNotice('Preview generated and saved.');
     } catch (err) { setError(err instanceof Error ? err.message : 'Generation failed.'); }
     finally { setGenerating(false); }
   }
