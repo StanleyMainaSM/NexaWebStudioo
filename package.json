@@ -25,7 +25,8 @@
     "test:website-creation-foundation": "node --experimental-strip-types tests/websiteCreationFoundation.test.mjs",
     "test:website-creation-security": "node --experimental-strip-types tests/websiteCreationSecurity.test.mjs",
     "test:website-creation-templates": "node --experimental-strip-types tests/websiteCreationTemplates.test.mjs",
-    "test:website-creation-product": "node --experimental-strip-types tests/websiteCreationProductIntegration.test.mjs"
+    "test:website-creation-product": "node --experimental-strip-types tests/websiteCreationProductIntegration.test.mjs",
+    "test:website-creation-generation": "node --experimental-strip-types tests/websiteCreationGeneration.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -54,6 +55,7 @@
     "esbuild": "^0.28.2",
     "eslint": "^9.9.0",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
+    "eslint-plugin-react-refresh": "^0.4.11",
     "eslint-plugin-react-refresh": "^0.4.11",
     "globals": "^15.9.0",
     "tsx": "^4.23.11"
