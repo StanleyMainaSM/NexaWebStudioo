@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { addWebsiteSection, applyWebsiteSpecificationPatch, updateWebsiteBusinessField, updateWebsiteSectionContent } from '../src/lib/websiteCreation/editor.ts';
 
 const spec = {
@@ -31,5 +32,9 @@ const added = addWebsiteSection(reordered, 'faq');
 assert.ok(added.sections.includes('faq'));
 assert.ok(added.content.faq);
 assert.ok(added.navigation.some((item) => item.section === 'faq'));
+
+const studioSource = fs.readFileSync(new URL('../src/pages/WebsiteCreationStudio.tsx', import.meta.url), 'utf8');
+assert.match(studioSource, /generateWebsiteFromSpecification\(specification, selectedTemplate\)/);
+assert.match(studioSource, /specification && specification\.template\.id === selectedTemplate\.id/);
 
 console.log('websiteCreationStudio.test.mjs: PASS');
