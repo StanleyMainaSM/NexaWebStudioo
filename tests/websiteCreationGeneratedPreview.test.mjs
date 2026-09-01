@@ -5,6 +5,7 @@ import { generateWebsiteFromSpecification } from '../src/lib/websiteCreation/gen
 const preview = fs.readFileSync('src/components/websiteCreation/GeneratedWebsitePreview.tsx', 'utf8');
 const publicPreview = fs.readFileSync('src/pages/PublicCreationPreview.tsx', 'utf8');
 const renderer = fs.readFileSync('src/components/websiteCreation/WebsitePreviewRenderer.tsx', 'utf8');
+const sections = fs.readFileSync('src/components/websiteCreation/WebsiteSections.tsx', 'utf8');
 
 const template = {
   id: 'template-preview', slug: 'preview-template', name: 'Preview Template', description: 'Preview', categories: ['business'],
@@ -46,5 +47,10 @@ assert.match(preview, /aria-pressed/);
 assert.match(publicPreview, /generateWebsiteFromSpecification/);
 assert.match(publicPreview, /GeneratedWebsitePreview/);
 assert.match(renderer, /sectionMap/);
+assert.match(sections, /const ctaTarget =/);
+assert.match(sections, /href=\{ctaTarget\}/);
+assert.match(sections, /No gallery images have been added yet/);
+assert.doesNotMatch(sections, /c\.images\.length \? .* : <div[^>]*bg-black\/5/);
+assert.doesNotMatch(sections, /h-48 rounded-3xl bg-slate-100/);
 
 console.log('websiteCreationGeneratedPreview.test.mjs: PASS');
