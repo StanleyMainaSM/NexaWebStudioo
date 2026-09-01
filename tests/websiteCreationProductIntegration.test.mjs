@@ -10,7 +10,7 @@ const preview = fs.readFileSync('supabase/migrations/20260831104000_website_crea
 assert.match(app, /path="creation"[\s\S]*WebsiteCreationProjects/);
 assert.match(app, /path="creation-studio"[\s\S]*WebsiteCreationProjects/);
 assert.match(app, /path="creation-studio\/:creationProjectId"[\s\S]*WebsiteCreationStudio/);
-assert.match(app, /path="preview\/:token"[\s\S]*PublicCreationPreview/);
+assert.match(app, /path="\/preview\/:token"[\s\S]*PublicCreationPreview/);
 assert.match(app, /requiredRoles=\{\['client','connector','operator','admin','owner'\]\}/);
 
 assert.match(projects, /from\('creation_projects'\)/);
