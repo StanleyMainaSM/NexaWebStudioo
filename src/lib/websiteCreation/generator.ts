@@ -1,6 +1,7 @@
 import type {
   BusinessInformation,
   CreationProject,
+  WebsiteGenerationOutput,
   WebsiteSectionId,
   WebsiteSpecification,
   WebsiteTemplate,
@@ -19,6 +20,10 @@ export type WebsiteGenerationFailureCode = 'validation' | 'template' | 'generati
 export interface WebsiteGenerationSuccess { ok: true; artifact: WebsiteSpecification; template: WebsiteTemplate; }
 export interface WebsiteGenerationFailure { ok: false; code: WebsiteGenerationFailureCode; errors: string[]; }
 export type WebsiteGenerationResult = WebsiteGenerationSuccess | WebsiteGenerationFailure;
+
+export interface WebsiteOutputGenerationSuccess { ok: true; output: WebsiteGenerationOutput; }
+export interface WebsiteOutputGenerationFailure { ok: false; code: WebsiteGenerationFailureCode; errors: string[]; }
+export type WebsiteOutputGenerationResult = WebsiteOutputGenerationSuccess | WebsiteOutputGenerationFailure;
 
 export function validateBusinessInformation(business: BusinessInformation): string[] {
   const errors: string[] = [];
@@ -138,6 +143,73 @@ export function generateWebsiteFromCreationProject(project: CreationProject, tem
   const template = resolveWebsiteTemplate(project.selected_template_id, templates);
   if (!template) return { ok: false, code: 'template', errors: ['The selected website template is unavailable.'] };
   return generateWebsiteFromSpecification(project.specification, template);
+}
+
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (isRecord(value)) return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
+  return value;
+}
+
+function stableSerialize(value: unknown): string {
+  return JSON.stringify(canonicalize(value));
+}
+
+function hashString(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+export function createWebsiteOutputVersion(specification: WebsiteSpecification): string {
+  return hashString(stableSerialize(specification));
+}
+
+export function createWebsiteOutputIdentity(creationProjectId: string, specification: WebsiteSpecification): string {
+  return `website-${hashString(`${creationProjectId}:${stableSerialize(specification)}`)}`;
+}
+
+export function generateWebsiteOutputFromSpecification(
+  specification: WebsiteSpecification,
+  template: WebsiteTemplate,
+  creationProjectId: string,
+  generatedAt = new Date().toISOString(),
+  previewPath: string | null = null,
+): WebsiteOutputGenerationResult {
+  if (!clean(creationProjectId)) return { ok: false, code: 'validation', errors: ['Creation project is invalid.'] };
+  const generated = generateWebsiteFromSpecification(specification, template);
+  if (!generated.ok) return generated;
+  const outputVersion = createWebsiteOutputVersion(generated.artifact);
+  return {
+    ok: true,
+    output: {
+      id: createWebsiteOutputIdentity(creationProjectId, generated.artifact),
+      creationProjectId,
+      specification: generated.artifact,
+      template: generated.template,
+      status: 'generated',
+      generatedAt,
+      outputVersion,
+      previewPath,
+    },
+  };
+}
+
+export function generateWebsiteOutputFromCreationProject(
+  project: CreationProject,
+  templates: readonly WebsiteTemplate[],
+  generatedAt = new Date().toISOString(),
+): WebsiteOutputGenerationResult {
+  if (!project || !clean(project.id)) return { ok: false, code: 'validation', errors: ['Creation project is invalid.'] };
+  const generated = generateWebsiteFromCreationProject(project, templates);
+  if (!generated.ok) return generated;
+  const previewPath = project.public_preview_token && project.preview_enabled
+    ? `/preview/${encodeURIComponent(project.public_preview_token)}`
+    : null;
+  return generateWebsiteOutputFromSpecification(generated.artifact, generated.template, project.id, generatedAt, previewPath);
 }
 
 function themeFor(template: WebsiteTemplate, business: BusinessInformation): WebsiteTheme {
