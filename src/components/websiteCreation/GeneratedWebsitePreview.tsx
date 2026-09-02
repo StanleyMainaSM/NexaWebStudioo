@@ -25,7 +25,7 @@ export default function GeneratedWebsitePreview({ specification, published = fal
           <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1" aria-label="Preview viewport">
             <button type="button" onClick={() => setMode('desktop')} aria-label="Desktop preview" aria-pressed={mode === 'desktop'} className={`rounded-lg p-2 ${mode === 'desktop' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}><Monitor className="h-4 w-4" /></button>
             <button type="button" onClick={() => setMode('tablet')} aria-label="Tablet preview" aria-pressed={mode === 'tablet'} className={`rounded-lg p-2 ${mode === 'tablet' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}><Tablet className="h-4 w-4" /></button>
-            <button type="button" onClick={() => setMode('mobile')} aria-label="Mobile preview" aria-pressed={mode === 'mobile'} className={`rounded-lg p-2 ${mode === 'mobile' ? 'bg-white text-white' : 'text-slate-500'}`}><Smartphone className="h-4 w-4" /></button>
+            <button type="button" onClick={() => setMode('mobile')} aria-label="Mobile preview" aria-pressed={mode === 'mobile'} className={`rounded-lg p-2 ${mode === 'mobile' ? 'bg-white text-slate-900' : 'text-slate-500'}`}><Smartphone className="h-4 w-4" /></button>
           </div>
         </div>
       </div>
