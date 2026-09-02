@@ -62,9 +62,6 @@ jobs:
         with:
           version: latest
 
-      - name: Initialize local Supabase configuration
-        run: supabase init --force
-
       - name: Start local Supabase
         run: supabase start
 
