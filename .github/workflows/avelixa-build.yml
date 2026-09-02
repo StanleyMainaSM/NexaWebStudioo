@@ -38,6 +38,7 @@ jobs:
           npm run test:website-creation-lifecycle
           npm run test:website-creation-artifact
           npm run test:website-creation-publishing
+          npm run test:website-creation-public-delivery
 
       - name: Typecheck
         run: npm run typecheck
