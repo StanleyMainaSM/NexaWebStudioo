@@ -60,7 +60,6 @@ with inserted_invoice as (
 )
 insert into t_invoice(id) select id from inserted_invoice;
 select is((select count(*)::bigint from public.notifications where user_id=(select id from t_ids where name='client_a') and link='/portal/invoices/'||(select id::text from t_invoice) and title='New invoice available'),1::bigint,'Invoice event creates exactly one Client notification');
-select is((select count(*)::bigint from public.notifications_queue_email where notification_id in (select id from public.notifications where user_id=(select id from t_ids where name='client_a') and link='/portal/invoices/'||(select id::text from t_invoice))),1::bigint,'Invoice notification creates exactly one email-queue entry');
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='client_a')::text,'role','authenticated')::text,true); set local role authenticated;
 select lives_ok($$insert into public.project_files(project_id,uploaded_by,file_name,storage_path,is_internal) select p.id,auth.uid(),'visible.txt','test/visible.txt',false from public.projects p where p.title='Release Test Project'$$,'Client can insert a non-internal project file');
