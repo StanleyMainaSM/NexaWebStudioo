@@ -30,12 +30,13 @@ begin
   return v_id;
 end $$;
 
+select pg_temp.make_user('owner','creation-owner@example.test');
 select pg_temp.make_user('client_a','creation-client-a@example.test');
 select pg_temp.make_user('client_b','creation-client-b@example.test');
 
-delete from public.user_roles where user_id in (select id from t_ids);
 insert into public.user_roles(user_id,role)
-select id,'client' from t_ids;
+select id,'client' from t_ids where name in ('client_a','client_b')
+on conflict (user_id,role) do nothing;
 
 insert into public.businesses(name)
 values ('Creation Business A'),('Creation Business B');
