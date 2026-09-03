@@ -37,9 +37,8 @@ begin
     update public.notification_email_queue q
     set html_body = null
     from public.notifications n
-    where q.id = new.id
-      and q.notification_id = n.id
-      and n.notification_type = 'connector_activation';
+    where q.notification_id = n.id
+      and n.id = new.notification_id;
   end if;
   return new;
 end;
