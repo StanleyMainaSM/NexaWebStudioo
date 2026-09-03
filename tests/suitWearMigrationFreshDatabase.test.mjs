@@ -9,7 +9,13 @@ const migrationPath = path.join(
   'migrations',
   '20260829150000_connect_suit_wear_transaction.sql',
 );
-const columnMigrationPath = path.join(
+const paymentColumnMigrationPath = path.join(
+  root,
+  'supabase',
+  'migrations',
+  '20260829169998_restore_payment_reconciliation_columns.sql',
+);
+const projectColumnMigrationPath = path.join(
   root,
   'supabase',
   'migrations',
@@ -17,10 +23,12 @@ const columnMigrationPath = path.join(
 );
 
 assert.ok(fs.existsSync(migrationPath), 'Suit & Wear transaction migration must exist');
-assert.ok(fs.existsSync(columnMigrationPath), 'project operator payment column migration must exist');
+assert.ok(fs.existsSync(paymentColumnMigrationPath), 'payment reconciliation column migration must exist');
+assert.ok(fs.existsSync(projectColumnMigrationPath), 'project operator payment column migration must exist');
 
 const migration = fs.readFileSync(migrationPath, 'utf8');
-const columnMigration = fs.readFileSync(columnMigrationPath, 'utf8');
+const paymentColumnMigration = fs.readFileSync(paymentColumnMigrationPath, 'utf8');
+const projectColumnMigration = fs.readFileSync(projectColumnMigrationPath, 'utf8');
 
 assert.match(
   migration,
@@ -45,15 +53,28 @@ for (const column of [
   'operator_payment_verification',
 ]) {
   assert.match(
-    columnMigration,
+    projectColumnMigration,
     new RegExp(`ADD COLUMN IF NOT EXISTS ${column}\\b`, 'i'),
     `project operator payment column ${column} must be restored before finance reconciliation`,
   );
 }
+for (const column of [
+  'payment_method',
+  'reference_number',
+  'verification_message',
+  'finance_account_id',
+]) {
+  assert.match(
+    paymentColumnMigration,
+    new RegExp(`ADD COLUMN IF NOT EXISTS ${column}\\b`, 'i'),
+    `payment reconciliation column ${column} must be restored before finance reconciliation`,
+  );
+}
 assert.ok(
-  '20260829150000_connect_suit_wear_transaction.sql' < '20260829169999_restore_project_operator_payment_columns.sql'
+  '20260829150000_connect_suit_wear_transaction.sql' < '20260829169998_restore_payment_reconciliation_columns.sql'
+    && '20260829169998_restore_payment_reconciliation_columns.sql' < '20260829169999_restore_project_operator_payment_columns.sql'
     && '20260829169999_restore_project_operator_payment_columns.sql' < '20260829170000_suit_wear_finance_and_commission_confirmation.sql',
-  'operator payment column migration must sort between the Suit & Wear transaction and finance reconciliation migrations',
+  'reconciliation dependency migrations must sort before the Suit & Wear finance reconciliation migration',
 );
 
 console.log('Suit & Wear fresh-database migration guard: PASS');
