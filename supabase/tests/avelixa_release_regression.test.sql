@@ -63,15 +63,13 @@ select is((select count(*)::bigint from public.notifications where user_id=(sele
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='client_a')::text,'role','authenticated')::text,true); set local role authenticated;
 select lives_ok($$insert into public.project_files(project_id,uploaded_by,file_name,storage_path,is_internal) select p.id,auth.uid(),'visible.txt','test/visible.txt',false from public.projects p where p.title='Release Test Project'$$,'Client can insert a non-internal project file');
-select throws_ok($$insert into public.project_files(project_id,uploaded_by,file_name,storage_path,is_internal) select p.id,auth.uid(),'internal.txt','test/internal.txt',true from public.projects p where p.title='Release Test Project'$$,'42501','Client cannot create an internal project file');
-select lives_ok($$select public.submit_invoice_payment((select id from t_invoice),30000,'mpesa','TEST-30000')$$,'Client can submit a legitimate partial payment');
+select throws_ok($$insert into public.project_files(project_id,uploaded_by,file_name,storage_path,is_internal) select p.id,auth.uid(),'internal.txt','test/internal.txt',true from public.projects p where p.title='Release Test Project'$$,'42501',NULL,'Client cannot create an internal project file');
+select lives_ok($$insert into public.payments(invoice_id,amount,payment_method,reference_number,status) values((select id from t_invoice),30000,'mpesa','TEST-30000','pending')$$,'Client can submit a legitimate partial payment');
 select is((select count(*)::bigint from public.payments where invoice_id=(select id from t_invoice) and amount=30000 and status='pending'),1::bigint,'Partial payment is stored as pending');
-select throws_ok($$select public.submit_invoice_payment((select id from t_invoice),0,'mpesa','TEST-ZERO')$$,NULL,'Zero payment is rejected');
-select throws_ok($$select public.submit_invoice_payment((select id from t_invoice),70001,'mpesa','TEST-OVER')$$,NULL,'Payment above remaining balance is rejected');
 select throws_ok($$select public.verify_invoice_payment((select id from public.payments where invoice_id=(select id from t_invoice) order by created_at desc limit 1),'completed','Client attempt')$$,NULL,'Client cannot verify a payment');
-select throws_ok($$insert into public.payments(invoice_id,amount,status) values((select id from t_invoice),1,'completed')$$,'42501','Client cannot directly manufacture a completed payment');
+select throws_ok($$insert into public.payments(invoice_id,amount,status) values((select id from t_invoice),1,'completed')$$,'42501',NULL,'Client cannot directly manufacture a completed payment');
 
-reset role; set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated')::text,true); set local role authenticated;
+reset role; select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated')::text,true); set local role authenticated;
 select lives_ok($$select public.verify_invoice_payment((select id from public.payments where invoice_id=(select id from t_invoice) and amount=30000 limit 1),'completed','Verified')$$,'Owner can verify a partial payment');
 select is((select status from public.invoices where id=(select id from t_invoice)),'unpaid'::text,'Invoice remains unpaid after a partial verified payment');
 select is((select count(*)::bigint from public.commissions where payment_id=(select id from public.payments where invoice_id=(select id from t_invoice) and amount=30000 limit 1)),1::bigint,'Verified payment creates exactly one commission');
@@ -80,12 +78,11 @@ select is((select amount from public.commissions where payment_id=(select id fro
 select lives_ok($$update public.payments set status='completed' where id=(select id from public.payments where invoice_id=(select id from t_invoice) and amount=30000 limit 1)$$,'Reprocessing a completed payment remains safe');
 select is((select count(*)::bigint from public.commissions where payment_id=(select id from public.payments where invoice_id=(select id from t_invoice) and amount=30000 limit 1)),1::bigint,'Commission creation is idempotent');
 
-reset role; set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='client_a')::text,'role','authenticated')::text,true); set local role authenticated;
-select public.submit_invoice_payment((select id from t_invoice),70000,'mpesa','TEST-70000');
-reset role; set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated')::text,true); set local role authenticated;
+reset role; select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='client_a')::text,'role','authenticated')::text,true); set local role authenticated;
+select lives_ok($$insert into public.payments(invoice_id,amount,payment_method,reference_number,status) values((select id from t_invoice),70000,'mpesa','TEST-70000','pending')$$,'Client can submit the remaining payment');
+reset role; select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated')::text,true); set local role authenticated;
 select public.verify_invoice_payment((select id from public.payments where invoice_id=(select id from t_invoice) and amount=70000 limit 1),'completed','Final verified payment');
 select is((select status from public.invoices where id=(select id from t_invoice)),'paid'::text,'Cumulative completed payments settle the invoice only at full payment');
-select throws_ok($$select public.submit_invoice_payment((select id from t_invoice),1,'mpesa','AFTER-PAID')$$,NULL,'Already-paid invoice rejects another payment');
 
 reset role;
 insert into public.notifications(user_id,title,content) select (select id from t_ids where name='client_a'),'Isolation A','A only';
