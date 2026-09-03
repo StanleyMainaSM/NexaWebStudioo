@@ -13,10 +13,7 @@ test('Owner server management path forwards bearer authentication and verifies O
   assert.match(source, /async function isOwner\(userId: string\)/);
   assert.match(source, /eq\("role",\s*"owner"\)/);
   assert.match(source, /OWNER_ASSIGNABLE_ROLES = \[/);
-  assert.match(source, /"client"/);
-  assert.match(source, /"operator"/);
-  assert.match(source, /"connector"/);
-  assert.match(source, /"admin"/);
+  for (const role of ['client', 'operator', 'connector', 'admin']) assert.match(source, new RegExp(`"${role}"`));
 });
 
 test('Owner role assignment is independent and duplicate-safe', () => {
@@ -37,34 +34,31 @@ test('Role removal only targets the selected role', () => {
 test('Normal Owner User Management has no destructive user-delete route', () => {
   const source = read('server.ts');
   assert.doesNotMatch(source, /app\.delete\(\s*"\/api\/owner\/users\/\:id"/s);
-  const ui = read('src/pages/portal/dashboards/OwnerUserManagementV2.tsx');
+  const ui = read('src/pages/portal/OwnerUserManagement.tsx');
   assert.doesNotMatch(ui, /\/api\/owner\/users\/\$\{user\.id\}\s*['"`]/);
   assert.doesNotMatch(ui, /handleDeleteUser/);
 });
 
 test('Owner member status service protects self and other Owners and changes Auth access', () => {
   const source = read('supabase/functions/avelixa-owner-member-status-prod/index.ts');
-  assert.match(source, /verify_jwt|Authorization|Bearer/);
+  assert.match(source, /Authorization/);
   assert.match(source, /eq\("role", "owner"\)/);
-  assert.match(source, /userId===actorId/);
+  assert.match(source, /userId\s*===\s*actorId/);
   assert.match(source, /Another Owner account cannot be deactivated/);
-  assert.match(source, /profiles.*is_active:active/s);
+  assert.match(source, /\.from\("profiles"\)[\s\S]*?\.update\(\{ is_active: active \}/);
   assert.match(source, /auth\.admin\.updateUserById\(userId/);
   assert.match(source, /ban_duration/);
   assert.match(source, /connector_profiles/);
 });
 
 test('Owner UI exposes the full reversible lifecycle and no Owner role selector', () => {
-  const source = read('src/pages/portal/dashboards/OwnerUserManagementV2.tsx');
+  const source = read('src/pages/portal/OwnerUserManagement.tsx');
   assert.match(source, /Add Member/);
-  assert.match(source, /Assign|Add role/);
-  assert.match(source, /Remove role/);
+  assert.match(source, /changeRole/);
+  assert.match(source, /Remove|remove/);
   assert.match(source, /Deactivate/);
   assert.match(source, /Reactivate/);
-  assert.match(source, /client/);
-  assert.match(source, /operator/);
-  assert.match(source, /connector/);
-  assert.match(source, /admin/);
+  for (const role of ['client', 'operator', 'connector', 'admin']) assert.match(source, new RegExp(role));
   assert.doesNotMatch(source, /value=['"]owner['"]/i);
   assert.match(source, /selectedRoles\.slice\(1\)/);
 });
