@@ -16,6 +16,7 @@ select ok(pg_get_functiondef('public.create_connector_commission_for_payment()':
 select ok(not has_function_privilege('anon','public.complete_client_referral_onboarding(text,text,text,text,text,numeric,text)','EXECUTE'),'Anonymous referral onboarding execution is revoked');
 
 create temporary table t_ids(name text primary key, id uuid not null);
+grant select on t_ids to authenticated;
 create or replace function pg_temp.make_user(p_name text,p_email text,p_meta jsonb default '{}'::jsonb) returns uuid language plpgsql as $$
 declare v_id uuid := gen_random_uuid(); begin
   insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values('00000000-0000-0000-0000-000000000000',v_id,'authenticated','authenticated',p_email,crypt('avelixa-test-password',gen_salt('bf')),now(),'{"provider":"email","providers":["email"]}'::jsonb,coalesce(p_meta,'{}'::jsonb),now(),now());
@@ -50,7 +51,14 @@ reset role;
 
 insert into public.projects(client_id,connector_id,title,description,status,price) select (select id from t_ids where name='client_a'),(select id from t_ids where name='connector_a'),'Release Test Project','Release regression project','in_progress',100000;
 create temporary table t_invoice(id uuid);
-insert into public.invoices(project_id,client_id,amount,status,due_date) select p.id,(select id from t_ids where name='client_a'),100000,'unpaid',current_date+30 from public.projects p where p.title='Release Test Project' returning id into t_invoice;
+grant select on t_invoice to authenticated;
+with inserted_invoice as (
+  insert into public.invoices(project_id,client_id,amount,status,due_date)
+  select p.id,(select id from t_ids where name='client_a'),100000,'unpaid',current_date+30
+  from public.projects p where p.title='Release Test Project'
+  returning id
+)
+insert into t_invoice(id) select id from inserted_invoice;
 select is((select count(*)::bigint from public.notifications where user_id=(select id from t_ids where name='client_a') and link='/portal/invoices/'||(select id::text from t_invoice) and title='New invoice available'),1::bigint,'Invoice event creates exactly one Client notification');
 select is((select count(*)::bigint from public.notifications_queue_email where notification_id in (select id from public.notifications where user_id=(select id from t_ids where name='client_a') and link='/portal/invoices/'||(select id::text from t_invoice))),1::bigint,'Invoice notification creates exactly one email-queue entry');
 
