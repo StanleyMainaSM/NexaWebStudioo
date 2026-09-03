@@ -1,26 +1,293 @@
 import { useEffect, useState } from 'react';
+import { Loader2, LockKeyhole, RefreshCw, UserPlus, UserX, UserCheck, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Loader2, LockKeyhole, RefreshCw, UserPlus, X } from 'lucide-react';
 
-interface ManagedUser { id:string; email:string; full_name:string; created_at:string|null; roles:string[] }
-type AllowedRole='client'|'operator'|'connector'|'admin';
-const roles:AllowedRole[]=['client','operator','connector','admin'];
-const label=(r:string)=>r.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+interface ManagedUser {
+  id: string;
+  email: string;
+  full_name: string;
+  created_at: string | null;
+  roles: string[];
+  is_active: boolean;
+}
 
-export default function OwnerUserManagement(){
- const [verified,setVerified]=useState(()=>sessionStorage.getItem('avelixa_owner_user_management_verified')==='true');
- const [password,setPassword]=useState(''); const [checking,setChecking]=useState(false); const [authError,setAuthError]=useState('');
- const [users,setUsers]=useState<ManagedUser[]>([]); const [loading,setLoading]=useState(false); const [error,setError]=useState(''); const [success,setSuccess]=useState('');
- const [fullName,setFullName]=useState(''); const [email,setEmail]=useState(''); const [role,setRole]=useState<AllowedRole>('client'); const [adding,setAdding]=useState(false); const [action,setAction]=useState<string|null>(null);
- const loadUsers=async()=>{setLoading(true);setError('');try{const [{data:profiles,error:pe},{data:roleRows,error:re}]=await Promise.all([supabase.from('profiles').select('id,email,full_name,created_at').order('created_at',{ascending:false}),supabase.from('user_roles').select('user_id,role')]);if(pe)throw pe;if(re)throw re;const map=new Map<string,string[]>();(roleRows||[]).forEach((r:any)=>map.set(r.user_id,[...(map.get(r.user_id)||[]),r.role]));setUsers((profiles||[]).map((p:any)=>({id:p.id,email:p.email||'',full_name:p.full_name||'',created_at:p.created_at||null,roles:map.get(p.id)||[]})));}catch(e:any){console.error(e);setError(`Users could not be loaded: ${e?.message||'Database query failed.'}`)}finally{setLoading(false)}};
- useEffect(()=>{if(verified)void loadUsers()},[verified]);
- const verify=async(e:React.FormEvent)=>{e.preventDefault();setChecking(true);setAuthError('');try{const {data:{user}}=await supabase.auth.getUser();if(!user?.email)throw new Error('Authenticated Owner account could not be identified.');const {error}=await supabase.auth.signInWithPassword({email:user.email,password});if(error)throw error;sessionStorage.setItem('avelixa_owner_user_management_verified','true');setPassword('');setVerified(true);}catch(e){setAuthError('Password verification failed. Please enter the password for your current Owner account.')}finally{setChecking(false)}};
- const token=async()=>{const {data:{session}}=await supabase.auth.getSession();if(!session?.access_token)throw new Error('Your session has expired. Please sign in again.');return session.access_token};
- const addUser=async(e:React.FormEvent)=>{e.preventDefault();setAdding(true);setError('');setSuccess('');try{const t=await token();const r=await fetch('/api/owner/users',{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({fullName:fullName.trim(),email:email.trim(),role})});const j=await r.json();if(!r.ok)throw new Error(j.error||'Failed to create user.');setFullName('');setEmail('');setRole('client');setSuccess(j.message||'User created successfully.');await loadUsers()}catch(e:any){setError(`User could not be created: ${e.message}`)}finally{setAdding(false)}};
- const changeRole=async(u:ManagedUser,r:AllowedRole,remove=false)=>{setAction(u.id);setError('');setSuccess('');try{const t=await token();const url=remove?`/api/owner/users/${u.id}/roles/${r}`:`/api/owner/users/${u.id}/roles`;const res=await fetch(url,{method:remove?'DELETE':'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},...(remove?{}:{body:JSON.stringify({role:r})})});const j=await res.json();if(!res.ok)throw new Error(j.error||'Role update failed.');setSuccess(j.message||'Role updated.');await loadUsers()}catch(e:any){setError(`Role could not be updated: ${e.message}`)}finally{setAction(null)}};
- if(!verified)return <div className="min-h-[70vh] flex items-center justify-center"><form onSubmit={verify} className="w-full max-w-md rounded-3xl border border-purple-500/20 bg-ink-950/80 p-8"><div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center"><LockKeyhole className="w-7 h-7 text-purple-300"/></div><h1 className="mt-6 text-2xl font-bold text-white">Owner Verification Required</h1><p className="mt-2 text-sm text-gray-400">Re-enter your current Owner account password to manage users.</p>{authError&&<div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{authError}</div>}<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Owner password" className="mt-5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"/><button disabled={checking} className="mt-4 w-full rounded-xl bg-accent-600 px-4 py-3 font-semibold text-white disabled:opacity-50">{checking?'Verifying...':'Verify Owner Access'}</button></form></div>;
- return <div className="space-y-8"><div className="flex items-center justify-between gap-4"><div><div className="text-xs font-bold uppercase tracking-widest text-accent-400">Owner Controls</div><h1 className="mt-2 text-3xl font-semibold text-white">User Management</h1><p className="mt-2 text-sm text-gray-400">Manage Avelixa accounts and keep every role separate.</p></div><button onClick={()=>void loadUsers()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-gray-200"><RefreshCw className={loading?'w-4 h-4 animate-spin':'w-4 h-4'}/>Refresh</button></div>
- {error&&<div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">{error}</div>}{success&&<div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-300">{success}</div>}
- <form onSubmit={addUser} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6"><div className="flex items-center gap-2 text-white font-semibold"><UserPlus className="w-5 h-5 text-accent-400"/>Add User</div><div className="mt-4 grid md:grid-cols-4 gap-3"><input required value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Full name" className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-white"/><input required type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-white"/><select value={role} onChange={e=>setRole(e.target.value as AllowedRole)} className="rounded-xl border border-white/10 bg-ink-900 px-3 py-2.5 text-white">{roles.map(r=><option key={r} value={r}>{label(r)}</option>)}</select><button disabled={adding} className="rounded-xl bg-accent-600 px-4 py-2.5 font-semibold text-white disabled:opacity-50">{adding?'Creating...':'Create User'}</button></div></form>
- <div className="space-y-3">{loading&&!users.length?<div className="flex justify-center p-12"><Loader2 className="w-7 h-7 animate-spin text-accent-400"/></div>:users.length?users.map(u=><div key={u.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"><div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"><div><div className="font-semibold text-white">{u.full_name||'Unnamed user'}</div><div className="text-sm text-gray-400">{u.email}</div><div className="mt-3 flex flex-wrap gap-2">{u.roles.map(r=><span key={r} className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-gray-300">{label(r)}{r!=='owner'&&<button type="button" onClick={()=>void changeRole(u,r as AllowedRole,true)} disabled={action===u.id} className="text-red-300"><X className="w-3 h-3"/></button>}</span>)}</div></div><div className="flex flex-wrap items-center gap-2">{roles.filter(r=>!u.roles.includes(r)).map(r=><button key={r} type="button" onClick={()=>void changeRole(u,r)} disabled={action===u.id} className="rounded-lg border border-accent-500/20 bg-accent-500/5 px-3 py-2 text-xs text-accent-300">+ {label(r)}</button>)}</div></div></div>):<div className="rounded-2xl border border-white/10 p-10 text-center text-gray-500">No users found.</div>}</div></div>;
+type AllowedRole = 'client' | 'operator' | 'connector' | 'admin';
+const roles: AllowedRole[] = ['client', 'operator', 'connector', 'admin'];
+const label = (role: string) => role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+export default function OwnerUserManagement() {
+  const [verified, setVerified] = useState(false);
+  const [password, setPassword] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [selectedRoles, setSelectedRoles] = useState<AllowedRole[]>(['client']);
+  const [adding, setAdding] = useState(false);
+  const [action, setAction] = useState<string | null>(null);
+
+  const loadUsers = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [{ data: profiles, error: profileError }, { data: roleRows, error: roleError }] = await Promise.all([
+        supabase.from('profiles').select('id,email,full_name,created_at,is_active').order('created_at', { ascending: false }),
+        supabase.from('user_roles').select('user_id,role'),
+      ]);
+      if (profileError) throw profileError;
+      if (roleError) throw roleError;
+
+      const roleMap = new Map<string, string[]>();
+      (roleRows || []).forEach((row: { user_id: string; role: string }) => {
+        roleMap.set(row.user_id, [...(roleMap.get(row.user_id) || []), row.role]);
+      });
+
+      setUsers((profiles || []).map((profile: any) => ({
+        id: profile.id,
+        email: profile.email || '',
+        full_name: profile.full_name || '',
+        created_at: profile.created_at || null,
+        roles: roleMap.get(profile.id) || [],
+        is_active: profile.is_active !== false,
+      })));
+    } catch (loadError: any) {
+      console.error('Owner user list error:', loadError);
+      setError(`Users could not be loaded: ${loadError?.message || 'Database query failed.'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const restoreVerification = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!mounted || !user) return;
+      setVerified(sessionStorage.getItem(`avelixa_owner_user_management_verified:${user.id}`) === 'true');
+    };
+    void restoreVerification();
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    if (verified) void loadUsers();
+  }, [verified]);
+
+  const verify = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setChecking(true);
+    setAuthError('');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) throw new Error('Authenticated Owner account could not be identified.');
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: user.email, password });
+      if (signInError) throw signInError;
+      sessionStorage.setItem(`avelixa_owner_user_management_verified:${user.id}`, 'true');
+      setPassword('');
+      setVerified(true);
+    } catch {
+      setAuthError('Password verification failed. Please enter the password for your current Owner account.');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const getToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('Your session has expired. Please sign in again.');
+    return session.access_token;
+  };
+
+  const toggleRole = (role: AllowedRole) => {
+    setSelectedRoles((current) => current.includes(role) ? current.filter((item) => item !== role) : [...current, role]);
+  };
+
+  const addUser = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setAdding(true);
+    setError('');
+    setSuccess('');
+    try {
+      if (selectedRoles.length === 0) throw new Error('Select at least one role.');
+      const token = await getToken();
+      const primaryRole = selectedRoles[0];
+      const response = await fetch('/api/owner/users', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName: fullName.trim(), email: email.trim(), role: primaryRole }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to create user.');
+
+      const createdUserId = result.userId as string | undefined;
+      if (createdUserId && selectedRoles.length > 1) {
+        for (const role of selectedRoles.slice(1)) {
+          const roleResponse = await fetch(`/api/owner/users/${createdUserId}/roles`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role }),
+          });
+          const roleResult = await roleResponse.json();
+          if (!roleResponse.ok) throw new Error(roleResult.error || `Failed to add ${label(role)} role.`);
+        }
+      }
+
+      setFullName('');
+      setEmail('');
+      setSelectedRoles(['client']);
+      setSuccess(result.message || 'User created successfully.');
+      await loadUsers();
+    } catch (addError: any) {
+      console.error('Owner user creation error:', addError);
+      setError(`User could not be created: ${addError?.message || 'Unexpected error.'}`);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const changeRole = async (user: ManagedUser, role: AllowedRole, remove = false) => {
+    setAction(user.id);
+    setError('');
+    setSuccess('');
+    try {
+      const token = await getToken();
+      const url = remove ? `/api/owner/users/${user.id}/roles/${role}` : `/api/owner/users/${user.id}/roles`;
+      const response = await fetch(url, {
+        method: remove ? 'DELETE' : 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        ...(remove ? {} : { body: JSON.stringify({ role }) }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Role update failed.');
+      setSuccess(result.message || 'Role updated successfully.');
+      await loadUsers();
+    } catch (roleError: any) {
+      console.error('Owner role update error:', roleError);
+      setError(`Role could not be updated: ${roleError?.message || 'Unexpected error.'}`);
+    } finally {
+      setAction(null);
+    }
+  };
+
+  const setMemberActive = async (user: ManagedUser, active: boolean) => {
+    setAction(user.id);
+    setError('');
+    setSuccess('');
+    try {
+      const { error: functionError } = await supabase.functions.invoke('avelixa-owner-member-status-prod', {
+        body: { userId: user.id, active },
+      });
+      if (functionError) throw functionError;
+      setSuccess(active ? `${user.full_name || user.email} has been reactivated.` : `${user.full_name || user.email} has been deactivated.`);
+      await loadUsers();
+    } catch (statusError: any) {
+      console.error('Owner member status error:', statusError);
+      setError(`Member status could not be changed: ${statusError?.message || 'Unexpected error.'}`);
+    } finally {
+      setAction(null);
+    }
+  };
+
+  if (!verified) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center">
+        <form onSubmit={verify} className="w-full max-w-md rounded-3xl border border-purple-500/20 bg-ink-950/80 p-8">
+          <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+            <LockKeyhole className="w-7 h-7 text-purple-300" />
+          </div>
+          <h1 className="mt-6 text-2xl font-bold text-white">Owner Verification Required</h1>
+          <p className="mt-2 text-sm text-gray-400">Re-enter your current Owner account password to manage users.</p>
+          {authError && <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{authError}</div>}
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Owner password" autoComplete="current-password" className="mt-5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none" required />
+          <button disabled={checking} className="mt-4 w-full rounded-xl bg-accent-600 px-4 py-3 font-semibold text-white disabled:opacity-50">{checking ? 'Verifying...' : 'Verify Owner Access'}</button>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-widest text-accent-400">Owner Controls</div>
+          <h1 className="mt-2 text-3xl font-semibold text-white">User Management</h1>
+          <p className="mt-2 text-sm text-gray-400">Add members, assign supported roles, remove roles, and reversibly deactivate accounts.</p>
+        </div>
+        <button onClick={() => void loadUsers()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-gray-200">
+          <RefreshCw className={loading ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />Refresh
+        </button>
+      </div>
+
+      {error && <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">{error}</div>}
+      {success && <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-300">{success}</div>}
+
+      <form onSubmit={addUser} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="flex items-center gap-2 text-white font-semibold"><UserPlus className="w-5 h-5 text-accent-400" />Add Member</div>
+        <div className="mt-4 grid md:grid-cols-3 gap-3">
+          <input required value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Full name" className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-white" />
+          <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-white" />
+          <button disabled={adding} className="rounded-xl bg-accent-600 px-4 py-2.5 font-semibold text-white disabled:opacity-50">{adding ? 'Creating...' : 'Create & Invite Member'}</button>
+        </div>
+        <div className="mt-4">
+          <div className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">Roles</div>
+          <div className="flex flex-wrap gap-2">
+            {roles.map((role) => (
+              <label key={role} className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm cursor-pointer ${selectedRoles.includes(role) ? 'border-accent-400/40 bg-accent-500/10 text-accent-200' : 'border-white/10 bg-white/5 text-gray-400'}`}>
+                <input type="checkbox" checked={selectedRoles.includes(role)} onChange={() => toggleRole(role)} className="accent-accent-500" />
+                {label(role)}
+              </label>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-gray-500">Owner is intentionally unavailable here. New members receive a secure invitation and set their own password.</p>
+        </div>
+      </form>
+
+      <div className="space-y-3">
+        {loading && !users.length ? (
+          <div className="flex justify-center p-12"><Loader2 className="w-7 h-7 animate-spin text-accent-400" /></div>
+        ) : users.length ? users.map((user) => (
+          <div key={user.id} className={`rounded-2xl border p-5 ${user.is_active ? 'border-white/10 bg-white/[0.03]' : 'border-red-500/20 bg-red-500/[0.04]'}`}>
+            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div>
+                    <div className="font-semibold text-white">{user.full_name || 'Unnamed user'}</div>
+                    <div className="text-sm text-gray-400">{user.email}</div>
+                  </div>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${user.is_active ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'}`}>
+                    {user.is_active ? 'Active' : 'Deactivated'}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {user.roles.length ? user.roles.map((role) => (
+                    <span key={role} className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-gray-300">
+                      {label(role)}
+                      {role !== 'owner' && <button type="button" onClick={() => void changeRole(user, role as AllowedRole, true)} disabled={action === user.id} className="text-red-300" aria-label={`Remove ${label(role)} role`}><X className="w-3 h-3" /></button>}
+                    </span>
+                  )) : <span className="text-xs text-gray-500">No roles assigned</span>}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {roles.filter((role) => !user.roles.includes(role)).map((role) => (
+                  <button key={role} type="button" onClick={() => void changeRole(user, role)} disabled={action === user.id || !user.is_active} className="rounded-lg border border-accent-500/20 bg-accent-500/5 px-3 py-2 text-xs text-accent-300 disabled:opacity-40">+ {label(role)}</button>
+                ))}
+                {user.roles.includes('owner') ? null : user.is_active ? (
+                  <button type="button" onClick={() => void setMemberActive(user, false)} disabled={action === user.id} className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 px-3 py-2 text-xs text-red-300 disabled:opacity-50"><UserX className="w-4 h-4" />Deactivate</button>
+                ) : (
+                  <button type="button" onClick={() => void setMemberActive(user, true)} disabled={action === user.id} className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 px-3 py-2 text-xs text-emerald-300 disabled:opacity-50"><UserCheck className="w-4 h-4" />Reactivate</button>
+                )}
+              </div>
+            </div>
+          </div>
+        )) : (
+          <div className="rounded-2xl border border-white/10 p-10 text-center text-gray-500">No users found.</div>
+        )}
+      </div>
+    </div>
+  );
 }
