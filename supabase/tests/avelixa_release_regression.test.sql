@@ -66,7 +66,7 @@ select ok(
 -- Disposable users. Direct auth.users inserts are local-only test data.
 -- -----------------------------------------------------------------------------
 create temporary table t_ids(name text primary key, id uuid not null);
-grant select on t_ids to authenticated;
+grant select on t_ids to public;
 
 create or replace function pg_temp.make_user(p_name text,p_email text,p_meta jsonb default '{}'::jsonb)
 returns uuid language plpgsql as $$
