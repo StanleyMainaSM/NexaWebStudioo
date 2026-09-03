@@ -68,8 +68,6 @@ Deno.serve(async (req) => {
   if (authUserError || !authUser.user) return json(404, { error: "Auth user not found" });
   if (authUser.user.last_sign_in_at) return json(409, { error: "Connector account is already activated" });
 
-  // Do not issue multiple activation links in a short interval. This check is
-  // deliberately based on delivery records, not on persisted bearer URLs.
   const cooldownSince = new Date(Date.now() - 2 * 60 * 1000).toISOString();
   const { data: recentEmails, error: recentError } = await admin
     .from("notification_email_queue")
@@ -81,7 +79,8 @@ Deno.serve(async (req) => {
   if (recentError) return json(500, { error: "Unable to verify resend rate limit" });
   if (recentEmails?.length) return json(429, { error: "Activation email was sent recently. Please wait before requesting another resend." });
 
-  const redirectTo = `${supabaseUrl.replace(/\/$/, "")}/auth/v1/callback`;
+  const appUrl = Deno.env.get("AVELIXA_APP_URL") ?? "https://avelixa.co.ke";
+  const redirectTo = `${appUrl.replace(/\/$/, "")}/set-password`;
   const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
     type: "recovery",
     email: profile.email,
@@ -96,15 +95,13 @@ Deno.serve(async (req) => {
 
   const { error: notificationError } = await admin.from("notifications").insert({
     user_id: targetUserId,
-    type: "connector_activation",
+    notification_type: "connector_activation",
     title: "Connector activation link",
-    message: notificationBody,
+    content: notificationBody,
     link: activationUrl,
     metadata: { activation: true, resend: true },
   });
   if (notificationError) return json(502, { error: "Unable to queue activation email" });
 
-  // The existing notification/email triggers hand this to the established
-  // email queue and redact the bearer link from durable notification storage.
   return json(202, { ok: true, status: "queued" });
 });
