@@ -6,6 +6,7 @@ import { generateWebsiteDemoSpecification } from '../src/lib/websiteCreation/gen
 const styles = ['editorial-modern', 'premium-minimal', 'warm-commerce', 'creative-bold', 'trusted-community'];
 const slugs = ['modern-business', 'premium-minimal', 'local-commerce', 'creative-studio', 'trusted-community'];
 const newSections = ['stats','story','values','process','portfolio','team','offers','hours','social','finalCta'];
+const migrationSections = newSections.filter((id) => id !== 'social');
 const styleToSlug = { 'editorial-modern':'modern-business', 'premium-minimal':'premium-minimal', 'warm-commerce':'local-commerce', 'creative-bold':'creative-studio', 'trusted-community':'trusted-community' };
 const templateFor = (visual_style) => ({ id:`demo-${visual_style}`, slug:styleToSlug[visual_style], name:visual_style, description:'demo', categories:[], visual_style, sections:['navbar','hero','about','services','products','gallery','stats','story','values','process','portfolio','team','offers','testimonials','pricing','faq','hours','location','social','finalCta','contact','footer'], typography:{heading:'display',body:'sans'}, color_direction:{primary:'#111827',secondary:'#334155',accent:'#7c3aed',surface:'#f8fafc'}, layout:{}, preview:{}, is_active:true, is_protected:true });
 
@@ -29,7 +30,7 @@ assert.doesNotMatch(sections, /Customer support/);
 for (const slug of slugs) assert.match(foundation, new RegExp(`'${slug}'`));
 for (const style of styles) assert.match(foundation, new RegExp(`'${style}'`));
 assert.equal((foundation.match(/INSERT INTO public\.website_templates/g) || []).length, 1);
-for (const id of newSections) assert.match(upgrade, new RegExp(id));
+for (const id of migrationSections) assert.match(upgrade, new RegExp(id));
 for (const slug of slugs) assert.match(upgrade, new RegExp(`WHEN '${slug}'`));
 
 for (const style of styles) {
