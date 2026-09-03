@@ -102,6 +102,30 @@ export default function ConnectorApplications() {
     }
   };
 
+  const resendActivation = async (application: Application) => {
+    if (!application.provisioned_user_id) {
+      setError('Activation resend is available only after the Connector has been provisioned.');
+      return;
+    }
+    setProcessing(`resend:${application.id}`);
+    setError('');
+    setMessage('');
+    try {
+      const { data, error: functionError } = await supabase.functions.invoke('avelixa-connector-activation-resend-prod', {
+        body: { user_id: application.provisioned_user_id },
+      });
+      if (functionError) throw functionError;
+      if (!data?.ok || data?.status !== 'queued') throw new Error(data?.error || 'Activation email could not be queued.');
+      setMessage(`A fresh activation email has been queued for ${application.email}. The activation link is not displayed here.`);
+      await load();
+    } catch (resendError: any) {
+      console.error('Connector activation resend error:', resendError);
+      setError(resendError?.message || 'Activation email could not be resent.');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
   const counts = applications.reduce((summary, application) => {
     summary[application.status] = (summary[application.status] || 0) + 1;
     return summary;
@@ -139,6 +163,7 @@ export default function ConnectorApplications() {
             const isPendingReview = application.status === 'pending';
             const provisioned = application.provisioning_status === 'completed';
             const failed = application.provisioning_status === 'failed' || queue?.status === 'failed';
+            const resendProcessing = processing === `resend:${application.id}`;
             return (
               <section key={application.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
                 <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6">
@@ -159,7 +184,10 @@ export default function ConnectorApplications() {
                     {(application.provisioning_error || queue?.last_error) && <div className="mt-3 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300"><AlertTriangle className="w-4 h-4 shrink-0" />{application.provisioning_error || queue?.last_error}</div>}
                   </div>
 
-                  {isPendingReview && <div className="flex flex-col sm:flex-row gap-3 shrink-0"><button type="button" disabled={processing === application.id} onClick={() => void updateApplication(application, 'rejected')} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 px-5 py-3 text-sm font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-50">{processing === application.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}Reject</button><button type="button" disabled={processing === application.id} onClick={() => void updateApplication(application, 'approved')} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-5 py-3 text-sm font-medium text-white hover:bg-accent-500 disabled:opacity-50">{processing === application.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}Approve Connector</button></div>}
+                  <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+                    {isPendingReview && <><button type="button" disabled={processing === application.id} onClick={() => void updateApplication(application, 'rejected')} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 px-5 py-3 text-sm font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-50">{processing === application.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}Reject</button><button type="button" disabled={processing === application.id} onClick={() => void updateApplication(application, 'approved')} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-5 py-3 text-sm font-medium text-white hover:bg-accent-500 disabled:opacity-50">{processing === application.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}Approve Connector</button></>}
+                    {provisioned && <button type="button" disabled={Boolean(processing)} onClick={() => void resendActivation(application)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-accent-500/20 bg-accent-500/5 px-5 py-3 text-sm font-medium text-accent-300 hover:bg-accent-500/10 disabled:opacity-50"><RefreshCw className={resendProcessing ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />Resend activation</button>}
+                  </div>
                 </div>
               </section>
             );
@@ -167,7 +195,7 @@ export default function ConnectorApplications() {
         </div>
       )}
 
-      <div className="flex items-center gap-2 text-xs text-gray-500"><Clock3 className="w-4 h-4" />Only authenticated Owner/Admin users can access this workspace. Passwords are never displayed or sent by this UI.</div>
+      <div className="flex items-center gap-2 text-xs text-gray-500"><Clock3 className="w-4 h-4" />Only authenticated Owner/Admin users can access this workspace. Passwords and activation links are never displayed by this UI.</div>
     </div>
   );
 }
