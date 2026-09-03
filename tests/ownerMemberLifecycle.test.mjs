@@ -22,6 +22,9 @@ test('owner member status endpoint requires Owner authorization and protects Own
   assert.match(source, /Another Owner account cannot be deactivated/);
   assert.match(source, /updateUserById\(userId, \{\s*ban_duration/);
   assert.match(source, /profiles.*update\(\{ is_active: active \}/s);
+  assert.match(source, /connectorRole/);
+  assert.match(source, /connector_profiles/);
+  assert.match(source, /\.update\(\{ is_active: active \}/);
 });
 
 test('connector activation links are redacted from notification records after email handoff', () => {
