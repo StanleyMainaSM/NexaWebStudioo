@@ -357,7 +357,10 @@ app.post(
  * 2. Create a new user
  * 3. Add a role
  * 4. Remove a role
- * 5. Permanently delete an account
+ *
+ * Member removal is intentionally reversible through the dedicated
+ * member-status Edge Function. Permanent Auth deletion is not part of
+ * normal Owner User Management.
  *
  * The service-role key is used ONLY on the server.
  *
@@ -1206,156 +1209,6 @@ app.delete(
 );
 
 /*
- * DELETE USER
- */
-app.delete(
-  "/api/owner/users/:id",
-  async (req, res) => {
-    try {
-      const {
-        user: ownerUser,
-        error: authenticationError,
-      } = await getAuthenticatedUser(req);
-
-      if (!ownerUser) {
-        return res.status(401).json({
-          error:
-            authenticationError ||
-            "Unauthorized.",
-        });
-      }
-
-      const authorized =
-        await isOwner(ownerUser.id);
-
-      if (!authorized) {
-        return res.status(403).json({
-          error:
-            "Owner permission is required to delete users.",
-        });
-      }
-
-      const targetUserId =
-        req.params.id;
-
-      if (
-        targetUserId ===
-        ownerUser.id
-      ) {
-        return res.status(400).json({
-          error:
-            "The current Owner account cannot be deleted from this interface.",
-        });
-      }
-
-      const {
-        data: targetUser,
-        error:
-          targetUserError,
-      } =
-        await supabaseAdmin.auth.admin.getUserById(
-          targetUserId
-        );
-
-      if (
-        targetUserError ||
-        !targetUser.user
-      ) {
-        return res.status(404).json({
-          error:
-            "User account not found.",
-        });
-      }
-
-      const {
-        data: targetOwnerRole,
-        error:
-          targetOwnerRoleError,
-      } = await supabaseAdmin
-        .from("user_roles")
-        .select("role")
-        .eq(
-          "user_id",
-          targetUserId
-        )
-        .eq("role", "owner")
-        .maybeSingle();
-
-      if (
-        targetOwnerRoleError
-      ) {
-        throw targetOwnerRoleError;
-      }
-
-      if (targetOwnerRole) {
-        return res.status(400).json({
-          error:
-            "Another Owner account cannot be deleted through this interface.",
-        });
-      }
-
-      const {
-        error: auditError,
-      } = await supabaseAdmin
-        .from("audit_logs")
-        .insert({
-          user_id:
-            ownerUser.id,
-          action:
-            "owner_user_deleted",
-          entity_type: "user",
-          entity_id:
-            targetUserId,
-          details: {
-            deleted_email:
-              targetUser.user
-                .email ||
-              null,
-            deleted_user_id:
-              targetUserId,
-          },
-        });
-
-      if (auditError) {
-        console.error(
-          "Owner user deletion audit error:",
-          auditError
-        );
-      }
-
-      const {
-        error: deleteError,
-      } =
-        await supabaseAdmin.auth.admin.deleteUser(
-          targetUserId
-        );
-
-      if (deleteError) {
-        throw deleteError;
-      }
-
-      return res.json({
-        success: true,
-        message:
-          "User account deleted successfully.",
-      });
-    } catch (error) {
-      console.error(
-        "Owner user deletion error:",
-        error
-      );
-
-      return res.status(500).json({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to delete user.",
-      });
-    }
-  }
-);
-
-/*
  * ============================================================
  * APPROVE CONNECTOR APPLICATION
  * ============================================================
@@ -1675,16 +1528,6 @@ async function startServer() {
 
     app.use(vite.middlewares);
   } else {
-    /*
-     * In the bundled production build, server.js is located
-     * directly inside the dist directory.
-     *
-     * Therefore __dirname already points to:
-     *
-     *   <project>/dist
-     *
-     * Do NOT append another "dist" directory here.
-     */
     const distPath = __dirname;
 
     app.use(
@@ -1693,12 +1536,6 @@ async function startServer() {
       )
     );
 
-    /*
-     * Express 5 requires a named wildcard parameter.
-     * This preserves SPA fallback routing for every
-     * non-API path while remaining compatible with
-     * path-to-regexp used by Express 5.
-     */
     app.get("/{*splat}", (_req, res) => {
       res.sendFile(
         path.join(
