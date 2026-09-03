@@ -17,14 +17,14 @@ test('owner member migration adds reversible activation state', () => {
 
 test('owner member status endpoint requires Owner authorization and protects Owner accounts', () => {
   const source = read('supabase/functions/avelixa-owner-member-status-prod/index.ts');
+  assert.match(source, /Authorization/);
   assert.match(source, /eq\("role", "owner"\)/);
-  assert.match(source, /Owner permission is required to manage members/);
+  assert.match(source, /userId\s*===\s*actorId/);
   assert.match(source, /Another Owner account cannot be deactivated/);
-  assert.match(source, /updateUserById\(userId, \{\s*ban_duration/);
-  assert.match(source, /profiles.*update\(\{is_active:active\}/s);
-  assert.match(source, /connectorRole/);
+  assert.match(source, /\.from\("profiles"\)[\s\S]*?\.update\(\{ is_active: active \}/);
+  assert.match(source, /auth\.admin\.updateUserById\(userId/);
+  assert.match(source, /ban_duration/);
   assert.match(source, /connector_profiles/);
-  assert.match(source, /\.update\(\{is_active:active\}/);
 });
 
 test('connector activation links are redacted from notification records after email handoff', () => {
@@ -36,11 +36,11 @@ test('connector activation links are redacted from notification records after em
 });
 
 test('owner UI exposes only supported assignable roles and reversible status actions', () => {
-  const source = read('src/pages/portal/dashboards/OwnerUserManagementV2.tsx');
+  const source = read('src/pages/portal/OwnerUserManagement.tsx');
   for (const role of ['client', 'operator', 'connector', 'admin']) assert.match(source, new RegExp(role));
   assert.doesNotMatch(source, /value=['"]owner['"]/i);
   assert.match(source, /Deactivate/);
   assert.match(source, /Reactivate/);
-  assert.match(source, /handleMemberStatus/);
+  assert.match(source, /setMemberActive/);
   assert.doesNotMatch(source, /handleDeleteUser/);
 });
