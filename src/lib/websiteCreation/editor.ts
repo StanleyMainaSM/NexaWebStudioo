@@ -60,6 +60,7 @@ function defaultSectionContent(section: WebsiteSectionId, spec: WebsiteSpecifica
     case 'finalCta': return { title: 'Ready to take the next step?', body: 'Start a conversation and turn the next idea into a clear plan.', cta: 'Get started' };
     case 'contact': return { phone: spec.business.phone || '', email: spec.business.email || '', whatsapp: spec.business.whatsapp || '' };
     case 'footer': return { businessName: name };
+    default: return { title: section, body: description };
   }
 }
 
