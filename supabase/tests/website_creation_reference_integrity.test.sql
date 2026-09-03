@@ -14,7 +14,6 @@ select ok(
 );
 
 create temporary table t_ids(name text primary key, id uuid not null);
-grant select on t_ids to public;
 create or replace function pg_temp.make_user(p_name text,p_email text)
 returns uuid language plpgsql as $$
 declare v_id uuid := gen_random_uuid();
@@ -82,16 +81,16 @@ select lives_ok(
   'Client can attach their own project reference'
 );
 
-select results_eq(
-  $$select count(*)::bigint from public.creation_projects where client_id=(select id from t_ids where name='client_a')$$,
-  $$values(1::bigint)$$,
+select is(
+  (select count(*)::bigint from public.creation_projects where client_id=auth.uid()),
+  1::bigint,
   'Own project creation is stored under the authenticated Client'
 );
 
 select throws_ok(
   $$update public.creation_projects
-    set client_id=(select id from t_ids where name='client_b')
-    where client_id=(select id from t_ids where name='client_a')$$,
+    set client_id=(select id from public.profiles where email='creation-client-b@example.test')
+    where client_id=auth.uid()$$,
   NULL,'Creation project ownership references are protected',
   'Client cannot transfer creation ownership'
 );
