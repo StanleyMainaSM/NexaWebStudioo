@@ -123,6 +123,19 @@ DECLARE
   v_invoice uuid;
   v_payment uuid;
 BEGIN
+  -- Suit & Wear is an existing production-data reconciliation. A clean
+  -- local/CI database does not contain that production Auth user or role,
+  -- so the fixture portion must be a no-op there. The migration's schema
+  -- and commission function above remain valid on every database.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.user_roles
+    WHERE user_id = v_connector
+      AND role = 'connector'
+  ) THEN
+    RETURN;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1
     FROM public.user_roles
