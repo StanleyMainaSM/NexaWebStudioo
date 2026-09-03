@@ -53,7 +53,9 @@ assert.match(sections, /export function Hero/);
 assert.match(sections, /export function FinalCta/);
 assert.match(sections, /<details className="relative md:hidden"/);
 assert.match(sections, /href=\{target\}/);
-assert.match(sections, /overflow-wrap:anywhere/);
+// Long business names and URLs must remain wrap-safe in the shared renderer.
+assert.match(sections, /<span className="min-w-0 break-words text-sm sm:text-base">/);
+assert.match(sections, /<h1 className="[^\"]*break-words[^\"]*">/);
 assert.doesNotMatch(sections, /A polished digital presence\./);
 assert.doesNotMatch(sections, /A trusted local business experience\./);
 

@@ -12,7 +12,10 @@ const styleOf = (spec: WebsiteSpecification): StyleKey => getWebsiteTemplatePres
 const data = (spec: WebsiteSpecification, section: WebsiteSectionId) => (spec.content[section] || {}) as Item;
 const array = (spec: WebsiteSpecification, section: WebsiteSectionId) => Array.isArray(data(spec, section).items) ? data(spec, section).items as Item[] : [];
 const textItems = (spec: WebsiteSpecification, section: WebsiteSectionId) => array(spec, section).map((item) => typeof item === 'string' ? { name: item, title: item } : item).filter((item) => item.name || item.title || item.description || item.body);
-const imageList = (spec: WebsiteSpecification, section: WebsiteSectionId): string[] => Array.isArray(data(spec, section).images) ? data(spec, section).images.filter((image): image is string => typeof image === 'string' && Boolean(image.trim())) : [];
+const imageList = (spec: WebsiteSpecification, section: WebsiteSectionId): string[] => {
+  const images: unknown[] = Array.isArray(data(spec, section).images) ? data(spec, section).images : [];
+  return images.filter((image): image is string => typeof image === 'string' && Boolean(image.trim()));
+};
 const heroImage = (spec: WebsiteSpecification) => spec.business.imagery?.find(Boolean) || '';
 const initials = (name: string) => name.trim().split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || 'A';
 
