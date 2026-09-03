@@ -56,11 +56,15 @@ test('activation UI retains the authenticated session and sends the Connector to
   assert.doesNotMatch(source, /signOut\(/);
 });
 
-test('Connector portal routes remain protected by the Connector Terms gate', () => {
+test('Connector portal routes require the Connector role and completed Terms', () => {
   const source = read('src/App.tsx');
-  assert.match(source, /path="connector" element=<ProtectedRoute requiredRoles=\{\['connector'\]\} requiresConnectorTerms/);
-  assert.match(source, /path="connector\/leads" element=<ProtectedRoute requiredRoles=\{\['connector'\]\} requiresConnectorTerms/);
-  assert.match(source, /path="connector\/earnings" element=<ProtectedRoute requiredRoles=\{\['connector'\]\} requiresConnectorTerms/);
+  const protectedConnectorRoute = /path=["']connector["'][\s\S]*?requiredRoles=\{\s*\[["']connector["']\]\s*\}[\s\S]*?requiresConnectorTerms\s*\}>[\s\S]*?ConnectorDashboard/;
+  const protectedConnectorLeadsRoute = /path=["']connector\/leads["'][\s\S]*?requiredRoles=\{\s*\[["']connector["']\]\s*\}[\s\S]*?requiresConnectorTerms/;
+  const protectedConnectorEarningsRoute = /path=["']connector\/earnings["'][\s\S]*?requiredRoles=\{\s*\[["']connector["']\]\s*\}[\s\S]*?requiresConnectorTerms/;
+
+  assert.match(source, protectedConnectorRoute, 'Connector portal must require the Connector role and Terms completion');
+  assert.match(source, protectedConnectorLeadsRoute, 'Connector leads must require the Connector role and Terms completion');
+  assert.match(source, protectedConnectorEarningsRoute, 'Connector earnings must require the Connector role and Terms completion');
 });
 
 test('Connector application confirmation describes the complete review and activation sequence', () => {
