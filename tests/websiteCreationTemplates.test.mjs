@@ -10,6 +10,7 @@ const migrationSections = newSections.filter((id) => id !== 'social');
 const styleToSlug = { 'editorial-modern':'modern-business', 'premium-minimal':'premium-minimal', 'warm-commerce':'local-commerce', 'creative-bold':'creative-studio', 'trusted-community':'trusted-community' };
 const templateFor = (visual_style) => ({ id:`demo-${visual_style}`, slug:styleToSlug[visual_style], name:visual_style, description:'demo', categories:[], visual_style, sections:['navbar','hero','about','services','products','gallery','stats','story','values','process','portfolio','team','offers','testimonials','pricing','faq','hours','location','social','finalCta','contact','footer'], typography:{heading:'display',body:'sans'}, color_direction:{primary:'#111827',secondary:'#334155',accent:'#7c3aed',surface:'#f8fafc'}, layout:{}, preview:{}, is_active:true, is_protected:true });
 
+// The five identities are the stable public template vocabulary.
 for (const visual_style of styles) assert.equal(getWebsiteTemplatePresentation({ template: { visual_style } }).styleKey, visual_style);
 assert.equal(getWebsiteTemplatePresentation({ template: { visual_style: 'unknown' } }).styleKey, 'editorial-modern');
 
