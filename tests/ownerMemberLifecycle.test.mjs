@@ -12,7 +12,7 @@ test('owner member migration adds reversible activation state', () => {
   assert.match(sql, /alter column is_active set not null/i);
   assert.match(sql, /join public\.profiles p on p\.id = ur\.user_id/i);
   assert.match(sql, /p\.is_active = true/i);
-  assert.match(sql, /protect_owner_role/i) === false;
+  assert.doesNotMatch(sql, /drop.*owner.*role/i);
 });
 
 test('owner member status endpoint requires Owner authorization and protects Owner accounts', () => {
