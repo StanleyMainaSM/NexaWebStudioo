@@ -1,3 +1,5 @@
+create extension if not exists "pg_cron";
+
 create or replace function public.communication_set_presence(p_online boolean)
 returns void
 language plpgsql
