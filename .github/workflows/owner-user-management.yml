@@ -1,0 +1,32 @@
+name: Owner User Management
+
+on:
+  push:
+    branches:
+      - avelixa-current-work
+  workflow_dispatch:
+
+jobs:
+  owner-user-management:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Owner User Management regression tests
+        run: node --test tests/ownerMemberLifecycle.test.mjs tests/ownerUserManagementCompletion.test.mjs
+
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Build
+        run: npm run build
