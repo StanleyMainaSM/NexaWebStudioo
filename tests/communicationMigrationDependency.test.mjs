@@ -5,7 +5,7 @@ import path from 'node:path';
 const root = process.cwd();
 const baselinePath = path.join(root, 'supabase', 'migrations', '20260829119999_create_admin_messages_baseline.sql');
 const dependentPath = path.join(root, 'supabase', 'migrations', '20260829120000_communication_secure_admin_message_and_presence.sql');
-const notificationHelperPath = path.join(root, 'supabase', 'migrations', '20260830192999_restore_notification_helper.sql');
+const notificationHelperPath = path.join(root, 'supabase', 'migrations', '20260829169994_create_notification_helper_baseline.sql');
 const notificationDependentPath = path.join(root, 'supabase', 'migrations', '20260830193000_harden_client_project_handoff_notifications.sql');
 
 assert.ok(fs.existsSync(baselinePath), 'admin_messages baseline migration must exist');
@@ -60,12 +60,17 @@ assert.match(
 );
 assert.match(
   notificationHelper,
+  /returns void/i,
+  'notification helper baseline must preserve the existing notification helper return contract'
+);
+assert.match(
+  notificationHelper,
   /insert into public\.notifications/i,
   'notification helper must write through the existing notifications table'
 );
 assert.match(
   notificationHelper,
-  /on conflict \(dedupe_key\) where dedupe_key is not null/i,
+  /on conflict \(dedupe_key\) do nothing/i,
   'notification helper must preserve notification deduplication behavior'
 );
 assert.match(
@@ -74,7 +79,7 @@ assert.match(
   'notification workflow must continue using the shared notification helper'
 );
 assert.ok(
-  '20260830192999_restore_notification_helper.sql' < '20260830193000_harden_client_project_handoff_notifications.sql',
+  '20260829169994_create_notification_helper_baseline.sql' < '20260830193000_harden_client_project_handoff_notifications.sql',
   'notification helper baseline must sort before the dependent notification workflow migration'
 );
 
