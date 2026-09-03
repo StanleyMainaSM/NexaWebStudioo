@@ -101,9 +101,6 @@ async function provisionOne(row: any) {
       const { data, error } = await supabase.auth.admin.createUser({
         email: app.email,
         password: temporaryPassword,
-        // The applicant has access to this mailbox because the activation
-        // link is delivered there. Confirming here also makes the account
-        // usable through the normal password login after activation.
         email_confirm: true,
         user_metadata: {
           full_name: app.full_name,
@@ -115,10 +112,6 @@ async function provisionOne(row: any) {
       userId = data.user.id;
       createdNew = true;
     } else {
-      // Existing unconfirmed users can otherwise set a password through the
-      // recovery link but fail normal password login after the activation
-      // session ends. The approved application is the trusted onboarding
-      // action, so keep the existing account confirmed as part of activation.
       const { error } = await supabase.auth.admin.updateUserById(userId, {
         email_confirm: true,
       });
@@ -213,7 +206,7 @@ async function provisionOne(row: any) {
       .update({
         status: "completed",
         user_id: userId,
-        activation_url: activationUrl,
+        activation_url: null,
         last_error: null,
         completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -254,6 +247,7 @@ async function provisionOne(row: any) {
         status: nextAttempts >= 5 ? "failed" : "pending",
         next_attempt_at: new Date(Date.now() + Math.min(nextAttempts * 15, 120) * 60000).toISOString(),
         last_error: message.slice(0, 2000),
+        activation_url: null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", row.id);
