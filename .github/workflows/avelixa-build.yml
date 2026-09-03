@@ -57,6 +57,12 @@ jobs:
           npm run test:payment-finance-handoff
           npm run test:client-payment-amount
 
+      - name: Migration dependency regression tests
+        run: |
+          node --experimental-strip-types tests/adminAuthorizationMigrationDependency.test.mjs
+          node --experimental-strip-types tests/communicationMigrationDependency.test.mjs
+          node --experimental-strip-types tests/suitWearMigrationFreshDatabase.test.mjs
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
