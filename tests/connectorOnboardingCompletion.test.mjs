@@ -58,13 +58,25 @@ test('activation UI retains the authenticated session and sends the Connector to
 
 test('Connector portal routes require the Connector role and completed Terms', () => {
   const source = read('src/App.tsx');
-  const protectedConnectorRoute = /path=["']connector["'][\s\S]*?requiredRoles=\{\s*\[["']connector["']\]\s*\}[\s\S]*?requiresConnectorTerms\s*\}>[\s\S]*?ConnectorDashboard/;
-  const protectedConnectorLeadsRoute = /path=["']connector\/leads["'][\s\S]*?requiredRoles=\{\s*\[["']connector["']\]\s*\}[\s\S]*?requiresConnectorTerms/;
-  const protectedConnectorEarningsRoute = /path=["']connector\/earnings["'][\s\S]*?requiredRoles=\{\s*\[["']connector["']\]\s*\}[\s\S]*?requiresConnectorTerms/;
 
-  assert.match(source, protectedConnectorRoute, 'Connector portal must require the Connector role and Terms completion');
-  assert.match(source, protectedConnectorLeadsRoute, 'Connector leads must require the Connector role and Terms completion');
-  assert.match(source, protectedConnectorEarningsRoute, 'Connector earnings must require the Connector role and Terms completion');
+  const routeProps = (routePath) => {
+    const match = source.match(
+      new RegExp(`<Route\\s+path=["']${routePath}["']\\s+element=\\{<ProtectedRoute\\b([^>]*)>`, 's'),
+    );
+    assert.ok(match, `Protected Connector route must exist for ${routePath}`);
+    return match[1];
+  };
+
+  for (const routePath of ['connector', 'connector/leads', 'connector/earnings']) {
+    const props = routeProps(routePath);
+    assert.match(props, /requiredRoles=\{\s*\[["']connector["']\]\s*\}/);
+    assert.match(props, /requiresConnectorTerms/);
+  }
+
+  const dashboardRoute = source.match(
+    /<Route\s+path=["']connector["']\s+element=\{<ProtectedRoute\b[^>]*>\s*<ConnectorDashboard\s*\/>/s,
+  );
+  assert.ok(dashboardRoute, 'The /portal/connector route must render ConnectorDashboard inside ProtectedRoute');
 });
 
 test('Connector application confirmation describes the complete review and activation sequence', () => {
