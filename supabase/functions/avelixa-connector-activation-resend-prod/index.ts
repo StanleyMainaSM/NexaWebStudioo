@@ -30,13 +30,22 @@ Deno.serve(async (req) => {
   const { data: caller, error: callerError } = await admin.auth.getUser(token);
   if (callerError || !caller.user) return json(401, { error: "Authentication required" });
 
-  const { data: callerRoles, error: roleError } = await admin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", caller.user.id)
-    .in("role", ["admin", "owner"]);
-  if (roleError) return json(500, { error: "Authorization check failed" });
-  if (!callerRoles?.length) return json(403, { error: "Admin or Owner authorization required" });
+  const [{ data: callerRoles, error: roleError }, { data: callerProfile, error: callerProfileError }] = await Promise.all([
+    admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", caller.user.id)
+      .in("role", ["admin", "owner"]),
+    admin
+      .from("profiles")
+      .select("is_active")
+      .eq("id", caller.user.id)
+      .maybeSingle(),
+  ]);
+  if (roleError || callerProfileError) return json(500, { error: "Authorization check failed" });
+  if (!callerRoles?.length || callerProfile?.is_active === false) {
+    return json(403, { error: "Admin or Owner authorization required" });
+  }
 
   let payload: { user_id?: string };
   try {
