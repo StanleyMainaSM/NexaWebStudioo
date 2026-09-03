@@ -68,8 +68,8 @@ assert.match(
 );
 assert.match(
   setPassword,
-  /navigate\(\s*['"]\/portal\/connector['"]\s*,\s*\{\s*replace\s*:\s*true\s*\}\s*\)/,
-  'Successful activation must enter the existing connector portal',
+  /navigate\(\s*['"]\/portal\/connector\/terms['"]\s*,\s*\{\s*replace\s*:\s*true\s*\}\s*\)/,
+  'Successful activation must enter the existing Connector Terms gate before portal access',
 );
 
 console.log('Connector activation lifecycle regression checks passed.');
