@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const token = authorization.slice("Bearer ".length);
+  const token = authorization.slice("Bearer ".length).trim();
   const { data: caller, error: callerError } = await admin.auth.getUser(token);
   if (callerError || !caller.user) return json(401, { error: "Authentication required" });
 
@@ -49,11 +49,11 @@ Deno.serve(async (req) => {
 
   const [{ data: profile, error: profileError }, { data: connector, error: connectorError }] = await Promise.all([
     admin.from("profiles").select("id,email,full_name,is_active").eq("id", targetUserId).maybeSingle(),
-    admin.from("connector_profiles").select("user_id,active").eq("user_id", targetUserId).maybeSingle(),
+    admin.from("connector_profiles").select("user_id,is_active").eq("user_id", targetUserId).maybeSingle(),
   ]);
   if (profileError || connectorError) return json(500, { error: "Unable to load Connector onboarding state" });
   if (!profile?.email || !connector) return json(404, { error: "Connector onboarding record not found" });
-  if (profile.is_active === false || connector.active === false) return json(409, { error: "Connector account is inactive" });
+  if (profile.is_active === false || connector.is_active === false) return json(409, { error: "Connector account is inactive" });
 
   const { data: connectorRole, error: connectorRoleError } = await admin
     .from("user_roles")
@@ -86,18 +86,14 @@ Deno.serve(async (req) => {
     email: profile.email,
     options: { redirectTo },
   });
-  if (linkError || !linkData?.properties?.action_link) {
-    return json(502, { error: "Unable to generate activation link" });
-  }
+  if (linkError || !linkData?.properties?.action_link) return json(502, { error: "Unable to generate activation link" });
 
   const activationUrl = linkData.properties.action_link;
-  const notificationBody = `Your Avelixa Connector account is ready for secure activation. Use the activation email link to create your password. If you did not request this, contact Avelixa support.`;
-
   const { error: notificationError } = await admin.from("notifications").insert({
     user_id: targetUserId,
     notification_type: "connector_activation",
     title: "Connector activation link",
-    content: notificationBody,
+    content: "Your Avelixa Connector account is ready for secure activation. Use the activation email link to create your password. If you did not request this, contact Avelixa support.",
     link: activationUrl,
     metadata: { activation: true, resend: true },
   });
