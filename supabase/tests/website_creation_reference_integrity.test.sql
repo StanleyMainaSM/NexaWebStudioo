@@ -14,6 +14,7 @@ select ok(
 );
 
 create temporary table t_ids(name text primary key, id uuid not null);
+grant select on t_ids to public;
 create or replace function pg_temp.make_user(p_name text,p_email text)
 returns uuid language plpgsql as $$
 declare v_id uuid := gen_random_uuid();
