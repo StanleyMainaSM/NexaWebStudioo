@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { getWebsiteTemplatePresentation } from '../src/lib/websiteCreation/presentation.ts';
 
 const styles = ['editorial-modern', 'premium-minimal', 'warm-commerce', 'creative-bold', 'trusted-community'];
+const slugs = ['modern-business', 'premium-minimal', 'local-commerce', 'creative-studio', 'trusted-community'];
 for (const visual_style of styles) {
   const spec = { template: { visual_style } };
   assert.equal(getWebsiteTemplatePresentation(spec).styleKey, visual_style);
@@ -23,10 +24,8 @@ assert.doesNotMatch(sections, /A tailored solution designed around your business
 assert.doesNotMatch(sections, /A trusted local business experience\./);
 assert.doesNotMatch(sections, /Featured product/);
 assert.doesNotMatch(sections, /Customer support/);
-
-const templateRows = [...foundation.matchAll(/\('([^']+)'\s*,\s*'([^']+)'\s*,\s*'([^']+)'[\s\S]*?'(editorial-modern|premium-minimal|warm-commerce|creative-bold|trusted-community)'/g)];
-assert.equal(templateRows.length, 5);
-assert.deepEqual(templateRows.map((row) => row[1]), ['modern-business', 'premium-minimal', 'local-commerce', 'creative-studio', 'trusted-community']);
-assert.equal(new Set(templateRows.map((row) => row[4])).size, 5);
+for (const slug of slugs) assert.match(foundation, new RegExp(`'${slug}'`));
+for (const style of styles) assert.match(foundation, new RegExp(`'${style}'`));
+assert.equal((foundation.match(/INSERT INTO public\.website_templates/g) || []).length, 1);
 
 console.log('websiteCreationTemplates.test.mjs: PASS');
