@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, FilePlus2, Globe2, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import { ArrowRight, Eye, FilePlus2, Globe2, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
@@ -39,7 +39,7 @@ export default function WebsiteCreationProjects() {
     const [projectResult, templateResult] = await Promise.all([
       supabase
         .from('creation_projects')
-        .select('id,type,client_id,connector_id,operator_id,lead_id,project_id,business_id,title,business_info,requested_sections,selected_template_id,specification,attribution_enabled,public_preview_token,preview_enabled,status,created_at,updated_at')
+        .select('id,type,client_id,connector_id,operator_id,lead_id,project_id,business_id,title,business_info,requested_sections,selected_template_id,specification,attribution_enabled,public_preview_token,preview_enabled,status,created_at,updated_at,latest_generated_output_identity,latest_generated_output_version,latest_generated_at,generation_state,last_generation_error')
         .eq('type', 'website')
         .order('updated_at', { ascending: false }),
       supabase
@@ -122,24 +122,31 @@ export default function WebsiteCreationProjects() {
         </div>
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
-          {projects.map((project) => (
-            <article key={project.id} className="rounded-3xl border border-white/10 bg-white/[.03] p-6 transition hover:border-accent-500/20 hover:bg-white/[.04]">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-accent-400"><Globe2 className="h-4 w-4" />Website</div>
-                  <h2 className="mt-3 truncate text-xl font-semibold text-white">{businessName(project)}</h2>
-                  <p className="mt-1 truncate text-sm text-gray-500">{project.title}</p>
+          {projects.map((project) => {
+            const generatedCurrent = project.generation_state === 'current' && Boolean(project.latest_generated_output_identity) && Boolean(project.preview_enabled);
+            return (
+              <article key={project.id} className="rounded-3xl border border-white/10 bg-white/[.03] p-6 transition hover:border-accent-500/20 hover:bg-white/[.04]">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-accent-400"><Globe2 className="h-4 w-4" />Website</div>
+                    <h2 className="mt-3 truncate text-xl font-semibold text-white">{businessName(project)}</h2>
+                    <p className="mt-1 truncate text-sm text-gray-500">{project.title}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold capitalize text-gray-300">{statusLabel(project.status)}</span>
                 </div>
-                <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold capitalize text-gray-300">{statusLabel(project.status)}</span>
-              </div>
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-white/5 bg-black/10 p-3"><div className="text-[10px] uppercase tracking-widest text-gray-600">Template</div><div className="mt-1 truncate text-sm text-gray-300">{project.template?.name || 'Not selected'}</div></div>
-                <div className="rounded-2xl border border-white/5 bg-black/10 p-3"><div className="text-[10px] uppercase tracking-widest text-gray-600">Preview</div><div className="mt-1 text-sm text-gray-300">{project.preview_enabled ? 'Available' : 'Not generated'}</div></div>
-                <div className="rounded-2xl border border-white/5 bg-black/10 p-3"><div className="text-[10px] uppercase tracking-widest text-gray-600">Updated</div><div className="mt-1 text-sm text-gray-300">{new Date(project.updated_at).toLocaleDateString()}</div></div>
-              </div>
-              <button type="button" onClick={() => navigate(`/portal/creation-studio/${project.id}`)} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-gray-200 hover:border-accent-500/30 hover:bg-accent-500/5 hover:text-accent-300">Open in Template Studio <ArrowRight className="h-4 w-4" /></button>
-            </article>
-          ))}
+                <div className="mt-6 grid gap-3 sm:grid-cols-4">
+                  <div className="rounded-2xl border border-white/5 bg-black/10 p-3"><div className="text-[10px] uppercase tracking-widest text-gray-600">Template</div><div className="mt-1 truncate text-sm text-gray-300">{project.template?.name || 'Not selected'}</div></div>
+                  <div className="rounded-2xl border border-white/5 bg-black/10 p-3"><div className="text-[10px] uppercase tracking-widest text-gray-600">Preview</div><div className="mt-1 text-sm text-gray-300">{generatedCurrent ? 'Available' : 'Not generated'}</div></div>
+                  <div className="rounded-2xl border border-white/5 bg-black/10 p-3"><div className="text-[10px] uppercase tracking-widest text-gray-600">State</div><div className="mt-1 text-sm capitalize text-gray-300">{statusLabel(project.generation_state || 'never_generated')}</div></div>
+                  <div className="rounded-2xl border border-white/5 bg-black/10 p-3"><div className="text-[10px] uppercase tracking-widest text-gray-600">Updated</div><div className="mt-1 text-sm text-gray-300">{new Date(project.updated_at).toLocaleDateString()}</div></div>
+                </div>
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {generatedCurrent && <button type="button" onClick={() => navigate(`/portal/creation-preview/${project.id}`)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400"><Eye className="h-4 w-4" />Preview Website</button>}
+                  <button type="button" onClick={() => navigate(`/portal/creation-studio/${project.id}`)} className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-gray-200 hover:border-accent-500/30 hover:bg-accent-500/5 hover:text-accent-300 ${generatedCurrent ? '' : 'sm:col-span-2'}`}>Edit in Template Studio <ArrowRight className="h-4 w-4" /></button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
 
