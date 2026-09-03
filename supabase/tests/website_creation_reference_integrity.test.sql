@@ -14,13 +14,12 @@ begin
   insert into t_ids values(p_name,v_id); return v_id;
 end $$;
 
-select pg_temp.make_user('owner','creation-owner@example.test');
 select pg_temp.make_user('client_a','creation-client-a@example.test');
 select pg_temp.make_user('client_b','creation-client-b@example.test');
 
-delete from public.user_roles where user_id in (select id from t_ids where name in ('client_a','client_b')) and role <> 'client';
+delete from public.user_roles where user_id in (select id from t_ids) and role <> 'client';
 insert into public.user_roles(user_id,role)
-select id,'client' from t_ids where name in ('client_a','client_b')
+select id,'client' from t_ids
 on conflict (user_id,role) do nothing;
 
 insert into public.businesses(name) values ('Creation Business A'),('Creation Business B');
@@ -30,10 +29,14 @@ insert into public.projects(client_id,title,status) select (select id from t_ids
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='client_a')::text,'role','authenticated')::text,true);
 set local role authenticated;
 
+select is(auth.uid(),(select id from t_ids where name='client_a'),'Website creation fixture authenticates as Client A');
+select is(private.user_has_any_role(auth.uid(),ARRAY['client']::text[]),true,'Website creation fixture gives Client A the client role');
+select is(private.user_has_any_role(auth.uid(),ARRAY['owner','admin']::text[]),false,'Website creation fixture does not grant Client A management role');
+
 select throws_ok($$select public.create_creation_project('website','Cross-business',null,null,null,(select id from public.businesses where name='Creation Business B'),null,'{}'::jsonb,'{}'::text[])$$,NULL,'Business reference is owner-managed','Client cannot attach an arbitrary business reference');
 select throws_ok($$select public.create_creation_project('website','Cross-project',null,null,null,null,(select id from public.projects where title='Creation Project B'),'{}'::jsonb,'{}'::text[])$$,NULL,'Project reference access denied','Client cannot attach another client project');
 select lives_ok($$select public.create_creation_project('website','Own project',null,null,null,null,(select id from public.projects where title='Creation Project A'),'{}'::jsonb,'{}'::text[])$$,'Client can attach their own project reference');
 select is((select count(*)::bigint from public.creation_projects where client_id=auth.uid()),1::bigint,'Own project creation is stored under the authenticated Client');
-select throws_ok($$update public.creation_projects set client_id=(select id from public.profiles where email='creation-client-b@example.test') where client_id=auth.uid()$$,NULL,'Creation project ownership references are protected','Client cannot transfer creation ownership');
+select throws_ok($$update public.creation_projects set client_id=(select id from public.profiles where email='creation-client-b@example.test') where client_id=auth.uid()$$,NULL,'Creation project access fields are protected','Client cannot transfer creation ownership');
 
 rollback;
