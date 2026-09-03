@@ -21,10 +21,10 @@ test('owner member status endpoint requires Owner authorization and protects Own
   assert.match(source, /Owner permission is required to manage members/);
   assert.match(source, /Another Owner account cannot be deactivated/);
   assert.match(source, /updateUserById\(userId, \{\s*ban_duration/);
-  assert.match(source, /profiles.*update\(\{ is_active: active \}/s);
+  assert.match(source, /profiles.*update\(\{is_active:active\}/s);
   assert.match(source, /connectorRole/);
   assert.match(source, /connector_profiles/);
-  assert.match(source, /\.update\(\{ is_active: active \}/);
+  assert.match(source, /\.update\(\{is_active:active\}/);
 });
 
 test('connector activation links are redacted from notification records after email handoff', () => {
@@ -35,10 +35,12 @@ test('connector activation links are redacted from notification records after em
   assert.match(sql, /after update of status/i);
 });
 
-test('owner UI does not expose Owner as a normal assignable role and supports reversible status', () => {
-  const source = read('src/pages/portal/OwnerUserManagement.tsx');
-  assert.match(source, /'client', 'operator', 'connector', 'admin'/);
-  assert.doesNotMatch(source, /const roles[^\n]*owner/);
+test('owner UI exposes only supported assignable roles and reversible status actions', () => {
+  const source = read('src/pages/portal/dashboards/OwnerUserManagementV2.tsx');
+  for (const role of ['client', 'operator', 'connector', 'admin']) assert.match(source, new RegExp(role));
+  assert.doesNotMatch(source, /value=['"]owner['"]/i);
   assert.match(source, /Deactivate/);
   assert.match(source, /Reactivate/);
+  assert.match(source, /handleMemberStatus/);
+  assert.doesNotMatch(source, /handleDeleteUser/);
 });
