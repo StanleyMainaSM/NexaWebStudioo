@@ -35,12 +35,13 @@ for (const column of ['operator_payment_status', 'operator_paid_at', 'operator_p
   assert.match(projectColumnMigration, new RegExp(`ADD COLUMN IF NOT EXISTS ${column}\\b`, 'i'), `project operator payment column ${column} must be restored before finance reconciliation`);
 }
 assert.ok(
-  '20260829150000_connect_suit_wear_transaction.sql' < '20260829149999_restore_commission_reconciliation_columns.sql'
-    && '20260829149999_restore_commission_reconciliation_columns.sql' < '20260829169997_create_finance_accounts_baseline.sql'
+  '20260829149999_restore_commission_reconciliation_columns.sql' < '20260829150000_connect_suit_wear_transaction.sql'
+    && '20260829150000_connect_suit_wear_transaction.sql' < '20260829150001_owner_connector_commission_management.sql'
+    && '20260829150001_owner_connector_commission_management.sql' < '20260829169997_create_finance_accounts_baseline.sql'
     && '20260829169997_create_finance_accounts_baseline.sql' < '20260829169998_restore_payment_reconciliation_columns.sql'
     && '20260829169998_restore_payment_reconciliation_columns.sql' < '20260829169999_restore_project_operator_payment_columns.sql'
     && '20260829169999_restore_project_operator_payment_columns.sql' < '20260829170000_suit_wear_finance_and_commission_confirmation.sql',
-  'all reconciliation dependency migrations must sort before the Suit & Wear finance reconciliation migration',
+  'all reconciliation dependency migrations must sort before their dependent Suit & Wear migrations',
 );
 
 console.log('Suit & Wear fresh-database migration guard: PASS');
