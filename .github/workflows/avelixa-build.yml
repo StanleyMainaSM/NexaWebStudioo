@@ -64,6 +64,7 @@ jobs:
           node --experimental-strip-types tests/suitWearMigrationFreshDatabase.test.mjs
           node --experimental-strip-types tests/connectorProvisioningMigrationDependency.test.mjs
           node --experimental-strip-types tests/clientReferralMigrationDependency.test.mjs
+          node --experimental-strip-types tests/automationMigrationDependency.test.mjs
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
