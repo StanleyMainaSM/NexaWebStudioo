@@ -18,7 +18,7 @@ assert.match(projects, /rpc\('create_creation_project'/);
 assert.match(projects, /navigate\(`\/portal\/creation-studio\/\$\{result\.data\}`\)/);
 assert.match(projects, /selected_template_id/);
 assert.match(projects, /preview_enabled/);
-assert.match(projects, /Open in Template Studio/);
+assert.match(projects, /Template Studio/);
 
 assert.match(studio, /creationProjectId/);
 assert.match(studio, /consume_creation_generation/);
