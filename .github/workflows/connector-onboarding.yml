@@ -1,0 +1,22 @@
+name: Avelixa Connector Onboarding Verification
+
+on:
+  push:
+    branches: [avelixa-current-work]
+  workflow_dispatch:
+
+jobs:
+  connector-onboarding:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Connector onboarding regression tests
+        run: node --test tests/connectorOnboardingCompletion.test.mjs tests/connectorActivationLifecycle.test.mjs tests/connectorActivationResend.test.mjs tests/connectorPortalRouting.test.mjs tests/connectorProvisioningMigrationDependency.test.mjs tests/connectorNotifications.test.mjs
