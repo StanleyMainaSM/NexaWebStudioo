@@ -68,7 +68,7 @@ select is((select count(*)::bigint from public.payments where invoice_id=(select
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='client_a')::text,'role','authenticated')::text,true); set local role authenticated;
 select lives_ok($$insert into public.project_files(project_id,uploaded_by,file_name,storage_path,is_internal) select p.id,auth.uid(),'visible.txt','test/visible.txt',false from public.projects p where p.title='Release Test Project'$$,'Client can insert a non-internal project file');
 select throws_ok($$insert into public.project_files(project_id,uploaded_by,file_name,storage_path,is_internal) select p.id,auth.uid(),'internal.txt','test/internal.txt',true from public.projects p where p.title='Release Test Project'$$,'42501',NULL,'Client cannot create an internal project file');
-select throws_ok($$select public.verify_invoice_payment((select id from public.payments where invoice_id=(select id from t_invoice) and amount=30000 limit 1),'completed','Client attempt')$$,NULL,'Client cannot verify a payment');
+select throws_ok($$select public.verify_invoice_payment((select id from public.payments where invoice_id=(select id from t_invoice) order by created_at desc limit 1),'completed','Client attempt')$$,NULL,'Client cannot verify a payment');
 select throws_ok($$insert into public.payments(invoice_id,amount,status) values((select id from t_invoice),1,'completed')$$,'42501',NULL,'Client cannot directly manufacture a completed payment');
 
 reset role; select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated')::text,true); set local role authenticated;
@@ -89,11 +89,12 @@ insert into public.notifications(user_id,title,content) select (select id from t
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='client_a')::text,'role','authenticated')::text,true); set local role authenticated;
 select is((select count(*)::bigint from public.notifications where title like 'Isolation %'),1::bigint,'Client A cannot read Client B notifications');
 reset role;
+insert into public.commissions(connector_id,project_id,eligible_amount,commission_percentage,amount,status) select (select id from t_ids where name='connector_a'),p.id,1000,20,200,'pending' from public.projects p where p.title='Release Test Project';
 insert into public.commissions(connector_id,project_id,eligible_amount,commission_percentage,amount,status) select (select id from t_ids where name='connector_b'),p.id,1000,20,200,'pending' from public.projects p where p.title='Release Test Project';
 insert into public.payouts(recipient_id,recipient_role,project_id,amount,status) select (select id from t_ids where name='connector_a'),'connector',p.id,4000,'pending' from public.projects p where p.title='Release Test Project';
 insert into public.payouts(recipient_id,recipient_role,project_id,amount,status) select (select id from t_ids where name='connector_b'),'connector',p.id,2000,'pending' from public.projects p where p.title='Release Test Project';
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='connector_a')::text,'role','authenticated')::text,true); set local role authenticated;
-select is((select count(*)::bigint from public.commissions),1::bigint,'Connector A cannot read Connector B commission');
+select is((select count(*)::bigint from public.commissions),1::bigint,'Connector A sees only Connector A commission');
 select is((select count(*)::bigint from public.payouts),1::bigint,'Connector A sees only Connector A payout');
 select ok(to_regclass('public.maintenance_subscriptions') is not null,'Maintenance subscription table exists');
 select ok(to_regclass('public.recurring_services') is not null,'Recurring service table exists');
