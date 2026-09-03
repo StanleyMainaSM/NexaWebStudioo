@@ -5,6 +5,7 @@ select has_trigger('public','creation_projects','protect_creation_project_relati
 select ok(pg_get_functiondef('public.create_creation_project(text,text,uuid,uuid,uuid,uuid,uuid,jsonb,text[])'::regprocedure) ilike '%Project reference access denied%','Creation project creation validates non-owner project references');
 
 create temporary table t_ids(name text primary key, id uuid not null);
+grant select on t_ids to authenticated;
 create or replace function pg_temp.make_user(p_name text,p_email text) returns uuid language plpgsql as $$
 declare v_id uuid := gen_random_uuid();
 begin
