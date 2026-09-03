@@ -3,9 +3,13 @@ export type CreationProjectType = (typeof CREATION_PROJECT_TYPES)[number];
 
 export const WEBSITE_SECTIONS = [
   'navbar', 'hero', 'about', 'services', 'products', 'gallery',
-  'testimonials', 'pricing', 'faq', 'contact', 'location', 'footer',
+  'stats', 'story', 'values', 'process', 'portfolio', 'team', 'offers',
+  'testimonials', 'pricing', 'faq', 'hours', 'location', 'social',
+  'finalCta', 'contact', 'footer',
 ] as const;
-export type WebsiteSectionId = (typeof WEBSITE_SECTIONS)[number];
+// Keep the runtime vocabulary authoritative while allowing older callers that carry
+// string section identifiers to remain source-compatible until validation occurs.
+export type WebsiteSectionId = (typeof WEBSITE_SECTIONS)[number] | string;
 
 export interface BusinessInformation {
   businessName: string;

@@ -10,7 +10,7 @@ import type { BusinessInformation, CreationProject, WebsiteSectionId, WebsiteSpe
 import WebsitePreviewRenderer from '../components/websiteCreation/WebsitePreviewRenderer';
 
 const emptyBusiness: BusinessInformation = { businessName: '', industry: '', businessDescription: '', services: [], products: [], targetAudience: '', location: '', phone: '', email: '', whatsapp: '', socialLinks: {}, logoUrl: '', brandColors: {}, imagery: [], websiteType: 'Business website', specialRequirements: '' };
-const sectionLabels: Record<WebsiteSectionId, string> = { navbar: 'Navigation', hero: 'Hero', about: 'About', services: 'Services', products: 'Products', gallery: 'Gallery', testimonials: 'Testimonials', pricing: 'Pricing', faq: 'FAQ', contact: 'Contact', location: 'Location', footer: 'Footer' };
+const sectionLabels: Record<WebsiteSectionId, string> = { navbar: 'Navigation', hero: 'Hero', about: 'About', services: 'Services', products: 'Products', gallery: 'Gallery', stats: 'Impact', story: 'Story', values: 'Values', process: 'Process', portfolio: 'Work', team: 'Team', offers: 'Offers', testimonials: 'Testimonials', pricing: 'Pricing', faq: 'FAQ', hours: 'Hours', location: 'Location', social: 'Social', finalCta: 'Get started', contact: 'Contact', footer: 'Footer' };
 const structuralSections = new Set<WebsiteSectionId>(['navbar', 'hero', 'footer']);
 type PreviewMode = 'desktop' | 'tablet' | 'mobile';
 type HeroContent = { eyebrow?: string; title?: string; subtitle?: string; cta?: string };
@@ -19,233 +19,26 @@ const record = (spec: WebsiteSpecification, section: WebsiteSectionId) => (spec.
 const items = (spec: WebsiteSpecification, section: WebsiteSectionId) => Array.isArray(record(spec, section).items) ? record(spec, section).items as unknown[] : [];
 const list = (value: string) => value.split(',').map((v) => v.trim()).filter(Boolean);
 
-function Field({ label, value, onChange, multiline = false }: { label: string; value: string; onChange: (value: string) => void; multiline?: boolean }) {
-  return <label className="block text-sm"><span className="mb-1.5 block text-gray-400">{label}</span>{multiline ? <textarea rows={4} value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-xl border border-white/10 bg-ink-950 px-3 py-2.5 text-white outline-none focus:border-accent-500/50" /> : <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-xl border border-white/10 bg-ink-950 px-3 py-2.5 text-white outline-none focus:border-accent-500/50" />}</label>;
-}
+function Field({ label, value, onChange, multiline = false }: { label: string; value: string; onChange: (value: string) => void; multiline?: boolean }) { return <label className="block text-sm"><span className="mb-1.5 block text-gray-400">{label}</span>{multiline ? <textarea rows={4} value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-xl border border-white/10 bg-ink-950 px-3 py-2.5 text-white outline-none focus:border-accent-500/50" /> : <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-xl border border-white/10 bg-ink-950 px-3 py-2.5 text-white outline-none focus:border-accent-500/50" />}</label>; }
 
 export default function WebsiteCreationStudio({ creationProjectId, leadId }: { creationProjectId?: string; leadId?: string }) {
-  const { user, roles } = useAuth();
-  const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const resolvedLeadId = leadId || params.get('leadId') || undefined;
-  const [templates, setTemplates] = useState<WebsiteTemplate[]>([]);
-  const [project, setProject] = useState<CreationProject | null>(null);
-  const [business, setBusiness] = useState<BusinessInformation>(emptyBusiness);
-  const [specification, setSpecification] = useState<WebsiteSpecification | null>(null);
-  const [persisted, setPersisted] = useState<WebsiteSpecification | null>(null);
-  const [templateId, setTemplateId] = useState('');
-  const [selectedSection, setSelectedSection] = useState<WebsiteSectionId>('hero');
-  const [previewMode, setPreviewMode] = useState<PreviewMode>('desktop');
-  const [usage, setUsage] = useState({ used: 0, limit: 5, remaining: 5 });
-  const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [publishedOutputIdentity, setPublishedOutputIdentity] = useState<string | null>(null);
-  const [publishedAt, setPublishedAt] = useState<string | null>(null);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [templateWarning, setTemplateWarning] = useState<WebsiteTemplate | null>(null);
-  const authenticated = Boolean(user?.id);
-  const selectedTemplate = useMemo(() => templates.find((t) => t.id === templateId) || null, [templates, templateId]);
-  const templateChanged = Boolean(specification && selectedTemplate && specification.template.id !== selectedTemplate.id);
-  const dirty = Boolean(specification && (JSON.stringify(specification) !== JSON.stringify(persisted) || templateChanged));
-  const lifecycleState = useMemo(() => getWebsiteGenerationLifecycleState(specification, project?.id, selectedTemplate, project), [specification, project, selectedTemplate]);
-  const lifecycleDisplay = generating ? 'Generating…' : publishing ? 'Publishing…' : dirty ? 'Unsaved changes' : lifecycleStateLabel(lifecycleState);
-  const publishedCurrent = Boolean(project?.latest_generated_output_identity && publishedOutputIdentity === project.latest_generated_output_identity && !dirty && lifecycleState === 'current');
-  const canPublish = Boolean(authenticated && !publishing && !generating && !dirty && lifecycleState === 'current' && project?.id && project.latest_generated_output_identity && !publishedCurrent);
-  const lifecycleClass = generating || publishing || dirty
-    ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-    : publishedCurrent
-      ? 'border-sky-500/20 bg-sky-500/5 text-sky-300'
-      : lifecycleState === 'current'
-        ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300'
-        : lifecycleState === 'generation_failed'
-          ? 'border-red-500/20 bg-red-500/5 text-red-300'
-          : 'border-white/10 bg-white/[.03] text-gray-400';
-  const canOpenPublicPreview = Boolean(project?.public_preview_token && !dirty && lifecycleState === 'current');
+  const { user, roles } = useAuth(); const navigate = useNavigate(); const [params] = useSearchParams(); const resolvedLeadId = leadId || params.get('leadId') || undefined;
+  const [templates, setTemplates] = useState<WebsiteTemplate[]>([]); const [project, setProject] = useState<CreationProject | null>(null); const [business, setBusiness] = useState<BusinessInformation>(emptyBusiness); const [specification, setSpecification] = useState<WebsiteSpecification | null>(null); const [persisted, setPersisted] = useState<WebsiteSpecification | null>(null); const [templateId, setTemplateId] = useState(''); const [selectedSection, setSelectedSection] = useState<WebsiteSectionId>('hero'); const [previewMode, setPreviewMode] = useState<PreviewMode>('desktop'); const [usage, setUsage] = useState({ used: 0, limit: 5, remaining: 5 }); const [loading, setLoading] = useState(true); const [generating, setGenerating] = useState(false); const [saving, setSaving] = useState(false); const [publishing, setPublishing] = useState(false); const [publishedOutputIdentity, setPublishedOutputIdentity] = useState<string | null>(null); const [publishedAt, setPublishedAt] = useState<string | null>(null); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [templateWarning, setTemplateWarning] = useState<WebsiteTemplate | null>(null);
+  const authenticated = Boolean(user?.id); const selectedTemplate = useMemo(() => templates.find((t) => t.id === templateId) || null, [templates, templateId]); const templateChanged = Boolean(specification && selectedTemplate && specification.template.id !== selectedTemplate.id); const dirty = Boolean(specification && (JSON.stringify(specification) !== JSON.stringify(persisted) || templateChanged)); const lifecycleState = useMemo(() => getWebsiteGenerationLifecycleState(specification, project?.id, selectedTemplate, project), [specification, project, selectedTemplate]); const lifecycleDisplay = generating ? 'Generating…' : publishing ? 'Publishing…' : dirty ? 'Unsaved changes' : lifecycleStateLabel(lifecycleState); const publishedCurrent = Boolean(project?.latest_generated_output_identity && publishedOutputIdentity === project.latest_generated_output_identity && !dirty && lifecycleState === 'current'); const canPublish = Boolean(authenticated && !publishing && !generating && !dirty && lifecycleState === 'current' && project?.id && project.latest_generated_output_identity && !publishedCurrent); const lifecycleClass = generating || publishing || dirty ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : publishedCurrent ? 'border-sky-500/20 bg-sky-500/5 text-sky-300' : lifecycleState === 'current' ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300' : lifecycleState === 'generation_failed' ? 'border-red-500/20 bg-red-500/5 text-red-300' : 'border-white/10 bg-white/[.03] text-gray-400'; const canOpenPublicPreview = Boolean(project?.public_preview_token && !dirty && lifecycleState === 'current');
 
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      setLoading(true); setError('');
-      try {
-        const templateResult = await supabase.from('website_templates').select('id,slug,name,description,categories,visual_style,sections,typography,color_direction,layout,preview,is_active,is_protected').eq('is_active', true).order('name');
-        if (templateResult.error) throw templateResult.error;
-        const loadedTemplates = (templateResult.data || []) as unknown as WebsiteTemplate[];
-        if (!mounted) return;
-        setTemplates(loadedTemplates);
-        const existingId = creationProjectId || params.get('creationProjectId');
-        if (authenticated) {
-          const usageResult = await supabase.rpc('get_creation_generation_status');
-          if (!usageResult.error && usageResult.data) setUsage(usageResult.data as typeof usage);
-          if (existingId) {
-            const result = await supabase.from('creation_projects').select('*').eq('id', existingId).maybeSingle();
-            if (result.error) throw result.error;
-            const loaded = result.data as unknown as CreationProject | null;
-            if (!loaded) throw new Error('This website project is unavailable or you do not have access to it.');
-            setProject(loaded); setBusiness(loaded.business_info || emptyBusiness); setSpecification(loaded.specification); setPersisted(loaded.specification ? clone(loaded.specification) : null);
-            if (loaded.selected_template_id) setTemplateId(loaded.selected_template_id);
-            if (loaded.specification?.sections?.length) setSelectedSection(loaded.specification.sections.includes('hero') ? 'hero' : loaded.specification.sections[0]);
-            if (loaded.latest_generated_output_identity) {
-              const artifactResult = await supabase.from('creation_generated_website_outputs').select('id,status,published_at').eq('creation_project_id', loaded.id).eq('id', loaded.latest_generated_output_identity).maybeSingle();
-              if (!artifactResult.error && artifactResult.data?.status === 'published') {
-                setPublishedOutputIdentity(artifactResult.data.id as string);
-                setPublishedAt((artifactResult.data.published_at as string | null) || null);
-              } else {
-                setPublishedOutputIdentity(null); setPublishedAt(null);
-              }
-            }
-          } else if (loadedTemplates[0]) setTemplateId(loadedTemplates[0].id);
-        } else if (loadedTemplates[0]) setTemplateId(loadedTemplates[0].id);
-        if (resolvedLeadId && authenticated) {
-          const leadResult = await supabase.from('leads').select('id,business_id,connector_id,requirements').eq('id', resolvedLeadId).maybeSingle();
-          const lead = leadResult.data;
-          if (!leadResult.error && lead) {
-            const businessResult = await supabase.from('businesses').select('id,name,industry,contact_name,email,phone').eq('id', lead.business_id).maybeSingle();
-            const businessRecord = businessResult.data;
-            if (!businessResult.error && businessRecord) setBusiness((current) => ({ ...current, businessName: businessRecord.name || '', industry: businessRecord.industry || '', email: businessRecord.email || '', phone: businessRecord.phone || '', specialRequirements: lead.requirements || '' }));
-          }
-        }
-      } catch (err) { if (mounted) setError(err instanceof Error ? err.message : 'Unable to load Template Studio.'); }
-      finally { if (mounted) setLoading(false); }
-    };
-    void load();
-    return () => { mounted = false; };
-  }, [creationProjectId, authenticated, params, resolvedLeadId]);
+  useEffect(() => { let mounted = true; const load = async () => { setLoading(true); setError(''); try { const templateResult = await supabase.from('website_templates').select('id,slug,name,description,categories,visual_style,sections,typography,color_direction,layout,preview,is_active,is_protected').eq('is_active', true).order('name'); if (templateResult.error) throw templateResult.error; const loadedTemplates = (templateResult.data || []) as unknown as WebsiteTemplate[]; if (!mounted) return; setTemplates(loadedTemplates); const existingId = creationProjectId || params.get('creationProjectId'); if (authenticated) { const usageResult = await supabase.rpc('get_creation_generation_status'); if (!usageResult.error && usageResult.data) setUsage(usageResult.data as typeof usage); if (existingId) { const result = await supabase.from('creation_projects').select('*').eq('id', existingId).maybeSingle(); if (result.error) throw result.error; const loaded = result.data as unknown as CreationProject | null; if (!loaded) throw new Error('This website project is unavailable or you do not have access to it.'); setProject(loaded); setBusiness(loaded.business_info || emptyBusiness); setSpecification(loaded.specification); setPersisted(loaded.specification ? clone(loaded.specification) : null); if (loaded.selected_template_id) setTemplateId(loaded.selected_template_id); if (loaded.specification?.sections?.length) setSelectedSection(loaded.specification.sections.includes('hero') ? 'hero' : loaded.specification.sections[0]); if (loaded.latest_generated_output_identity) { const artifactResult = await supabase.from('creation_generated_website_outputs').select('id,status,published_at').eq('creation_project_id', loaded.id).eq('id', loaded.latest_generated_output_identity).maybeSingle(); if (!artifactResult.error && artifactResult.data?.status === 'published') { setPublishedOutputIdentity(artifactResult.data.id as string); setPublishedAt((artifactResult.data.published_at as string | null) || null); } else { setPublishedOutputIdentity(null); setPublishedAt(null); } } } else if (loadedTemplates[0]) setTemplateId(loadedTemplates[0].id); } else if (loadedTemplates[0]) setTemplateId(loadedTemplates[0].id); if (resolvedLeadId && authenticated) { const leadResult = await supabase.from('leads').select('id,business_id,connector_id,requirements').eq('id', resolvedLeadId).maybeSingle(); const lead = leadResult.data; if (!leadResult.error && lead) { const businessResult = await supabase.from('businesses').select('id,name,industry,contact_name,email,phone').eq('id', lead.business_id).maybeSingle(); const businessRecord = businessResult.data; if (!businessResult.error && businessRecord) setBusiness((current) => ({ ...current, businessName: businessRecord.name || '', industry: businessRecord.industry || '', email: businessRecord.email || '', phone: businessRecord.phone || '', specialRequirements: lead.requirements || '' })); } } } catch (err) { if (mounted) setError(err instanceof Error ? err.message : 'Unable to load Template Studio.'); } finally { if (mounted) setLoading(false); } }; void load(); return () => { mounted = false; }; }, [creationProjectId, authenticated, params, resolvedLeadId]);
 
-  const updateSpec = (next: WebsiteSpecification) => { setSpecification(next); setBusiness(next.business); };
-  const editBusiness = <K extends keyof BusinessInformation>(field: K, value: BusinessInformation[K]) => { setBusiness((current) => ({ ...current, [field]: value })); if (specification) updateSpec(updateWebsiteBusinessField(specification, field, value)); };
-  const editSection = (field: string, value: unknown) => { if (specification) updateSpec(updateWebsiteSectionContent(specification, selectedSection, field, value)); };
-
-  async function ensureProject() {
-    if (!user) throw new Error('Sign in to save a creation project and use your generation allowance.');
-    if (project) return project;
-    const normalized = roles.map((role) => role.toLowerCase());
-    const result = await supabase.rpc('create_creation_project', { p_type: 'website', p_title: `${business.businessName || 'Website'} Website`, p_client_id: normalized.includes('client') ? user.id : null, p_connector_id: normalized.includes('connector') ? user.id : null, p_lead_id: resolvedLeadId || null, p_business_id: null, p_project_id: null, p_business_info: business, p_requested_sections: [] });
-    if (result.error) throw result.error;
-    const created: CreationProject = { id: result.data, type: 'website', client_id: normalized.includes('client') ? user.id : null, connector_id: normalized.includes('connector') ? user.id : null, operator_id: null, lead_id: resolvedLeadId || null, project_id: null, business_id: null, title: `${business.businessName || 'Website'} Website`, business_info: business, requested_sections: [], selected_template_id: null, specification: null, attribution_enabled: true, status: 'draft', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    setProject(created); return created;
-  }
-
-  async function markGenerationFailed(projectId: string, message: string) {
-    const failure = message || 'Website generation failed.';
-    const result = await supabase.rpc('mark_creation_generation_failed', { p_creation_project_id: projectId, p_error: failure });
-    if (!result.error) setProject((current) => current ? { ...current, generation_state: 'generation_failed', last_generation_error: failure } : current);
-  }
-
-  async function generate() {
-    if (generating || publishing) return;
-    setError(''); setNotice('');
-    const validation = validateBusinessInformation(business);
-    if (validation.length) { if (project) await markGenerationFailed(project.id, validation.join(' ')); setError(validation.join(' ')); return; }
-    if (!selectedTemplate) { if (project) await markGenerationFailed(project.id, 'Select a template first.'); setError('Select a template first.'); return; }
-    if (authenticated && usage.remaining <= 0) { if (project) await markGenerationFailed(project.id, 'Your five free template generations have been used.'); setError('Your five free template generations have been used.'); return; }
-    setGenerating(true);
-    let currentProject: CreationProject | null = project;
-    try {
-      const current = specification && specification.template.id === selectedTemplate.id
-        ? generateWebsiteFromSpecification(specification, selectedTemplate)
-        : { ok: true as const, artifact: generateWebsiteSpecification(business, selectedTemplate, [], currentProject?.attribution_enabled ?? true), template: selectedTemplate };
-      if (!current.ok) {
-        if (currentProject) await markGenerationFailed(currentProject.id, current.errors.join(' '));
-        throw new Error(current.errors.join(' '));
-      }
-      const spec = current.artifact;
-      if (!authenticated) {
-        setSpecification(spec); setNotice('Preview generated. Sign in when you want to save it.');
-        return;
-      }
-      currentProject = await ensureProject();
-      const generatedAt = new Date().toISOString();
-      const output = generateWebsiteOutputFromSpecification(spec, selectedTemplate, currentProject.id, generatedAt, null);
-      if (!output.ok) {
-        await markGenerationFailed(currentProject.id, output.errors.join(' '));
-        throw new Error(output.errors.join(' '));
-      }
-      const result = await supabase.rpc('consume_creation_generation', {
-        p_creation_project_id: currentProject.id,
-        p_template_id: selectedTemplate.id,
-        p_requested_sections: output.output.specification.sections,
-        p_specification: output.output.specification,
-        p_output_identity: output.output.id,
-        p_output_version: output.output.outputVersion,
-        p_generated_at: output.output.generatedAt,
-      });
-      if (result.error) {
-        await markGenerationFailed(currentProject.id, result.error.message);
-        throw result.error;
-      }
-      const next = result.data as { generation_count: number; generation_limit: number; public_preview_token?: string; latest_generated_output_identity?: string; latest_generated_output_version?: string; latest_generated_at?: string; generation_state?: 'current' };
-      setUsage({ used: next.generation_count, limit: next.generation_limit, remaining: Math.max(next.generation_limit - next.generation_count, 0) });
-      setSpecification(output.output.specification);
-      setPersisted(clone(output.output.specification));
-      setPublishedOutputIdentity(null);
-      setPublishedAt(null);
-      setProject({
-        ...currentProject,
-        selected_template_id: selectedTemplate.id,
-        requested_sections: output.output.specification.sections,
-        specification: output.output.specification,
-        public_preview_token: next.public_preview_token || currentProject.public_preview_token || null,
-        preview_enabled: true,
-        latest_generated_output_identity: next.latest_generated_output_identity || output.output.id,
-        latest_generated_output_version: next.latest_generated_output_version || output.output.outputVersion,
-        latest_generated_at: next.latest_generated_at || output.output.generatedAt,
-        generation_state: next.generation_state || 'current',
-        last_generation_error: null,
-        status: 'preview',
-      });
-      setSelectedSection(output.output.specification.sections.includes('hero') ? 'hero' : output.output.specification.sections[0]);
-      setNotice('Website generated and saved.');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Generation failed.';
-      if (currentProject) await markGenerationFailed(currentProject.id, message);
-      setError(message);
-    } finally { setGenerating(false); }
-  }
-
-  async function publishWebsite() {
-    if (publishing || generating) return;
-    if (!project?.id || !project.latest_generated_output_identity || dirty || lifecycleState !== 'current') {
-      setError('Generate the current website before publishing it.');
-      return;
-    }
-    setPublishing(true); setError(''); setNotice('');
-    try {
-      const result = await supabase.rpc('publish_creation_generated_output', {
-        p_creation_project_id: project.id,
-        p_output_identity: project.latest_generated_output_identity,
-      });
-      if (result.error) throw result.error;
-      const next = result.data as { output_identity: string; output_version: string; status: 'published'; published_at: string; idempotent?: boolean };
-      setPublishedOutputIdentity(next.output_identity);
-      setPublishedAt(next.published_at || null);
-      setProject((current) => current ? { ...current, generation_state: 'current' } : current);
-      setNotice(next.idempotent ? 'Website is already published.' : 'Website published successfully.');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to publish the generated website.');
-    } finally { setPublishing(false); }
-  }
-
-  async function saveSpecification() {
-    if (!project || !specification) { setNotice('Generate a preview before saving editor changes.'); return; }
-    if (templateChanged) { setNotice('Generate Website to apply the selected template.'); return; }
-    setSaving(true); setError('');
-    const result = await supabase.from('creation_projects').update({ business_info: specification.business, requested_sections: specification.sections, selected_template_id: specification.template.id, specification }).eq('id', project.id);
-    if (result.error) setError('Unable to save your changes. Please try again.'); else { setPersisted(clone(specification)); setProject((current) => current ? { ...current, business_info: specification.business, requested_sections: specification.sections, selected_template_id: specification.template.id, specification, updated_at: new Date().toISOString() } : current); setNotice('All changes saved. Generate Website to update the current preview.'); }
-    setSaving(false);
-  }
-
+  const updateSpec = (next: WebsiteSpecification) => { setSpecification(next); setBusiness(next.business); }; const editBusiness = <K extends keyof BusinessInformation>(field: K, value: BusinessInformation[K]) => { setBusiness((current) => ({ ...current, [field]: value })); if (specification) updateSpec(updateWebsiteBusinessField(specification, field, value)); }; const editSection = (field: string, value: unknown) => { if (specification) updateSpec(updateWebsiteSectionContent(specification, selectedSection, field, value)); };
+  async function ensureProject() { if (!user) throw new Error('Sign in to save a creation project and use your generation allowance.'); if (project) return project; const normalized = roles.map((role) => role.toLowerCase()); const result = await supabase.rpc('create_creation_project', { p_type: 'website', p_title: `${business.businessName || 'Website'} Website`, p_client_id: normalized.includes('client') ? user.id : null, p_connector_id: normalized.includes('connector') ? user.id : null, p_lead_id: resolvedLeadId || null, p_business_id: null, p_project_id: null, p_business_info: business, p_requested_sections: [] }); if (result.error) throw result.error; const created: CreationProject = { id: result.data, type: 'website', client_id: normalized.includes('client') ? user.id : null, connector_id: normalized.includes('connector') ? user.id : null, operator_id: null, lead_id: resolvedLeadId || null, project_id: null, business_id: null, title: `${business.businessName || 'Website'} Website`, business_info: business, requested_sections: [], selected_template_id: null, specification: null, attribution_enabled: true, status: 'draft', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }; setProject(created); return created; }
+  async function markGenerationFailed(projectId: string, message: string) { const failure = message || 'Website generation failed.'; const result = await supabase.rpc('mark_creation_generation_failed', { p_creation_project_id: projectId, p_error: failure }); if (!result.error) setProject((current) => current ? { ...current, generation_state: 'generation_failed', last_generation_error: failure } : current); }
+  async function generate() { if (generating || publishing) return; setError(''); setNotice(''); const validation = validateBusinessInformation(business); if (validation.length) { if (project) await markGenerationFailed(project.id, validation.join(' ')); setError(validation.join(' ')); return; } if (!selectedTemplate) { if (project) await markGenerationFailed(project.id, 'Select a template first.'); setError('Select a template first.'); return; } if (authenticated && usage.remaining <= 0) { if (project) await markGenerationFailed(project.id, 'Your five free template generations have been used.'); setError('Your five free template generations have been used.'); return; } setGenerating(true); let currentProject: CreationProject | null = project; try { const current = specification && specification.template.id === selectedTemplate.id ? generateWebsiteFromSpecification(specification, selectedTemplate) : { ok: true as const, artifact: generateWebsiteSpecification(business, selectedTemplate, [], currentProject?.attribution_enabled ?? true), template: selectedTemplate }; if (!current.ok) { if (currentProject) await markGenerationFailed(currentProject.id, current.errors.join(' ')); throw new Error(current.errors.join(' ')); } const spec = current.artifact; if (!authenticated) { setSpecification(spec); setNotice('Preview generated. Sign in when you want to save it.'); return; } currentProject = await ensureProject(); const generatedAt = new Date().toISOString(); const output = generateWebsiteOutputFromSpecification(spec, selectedTemplate, currentProject.id, generatedAt, null); if (!output.ok) { await markGenerationFailed(currentProject.id, output.errors.join(' ')); throw new Error(output.errors.join(' ')); } const result = await supabase.rpc('consume_creation_generation', { p_creation_project_id: currentProject.id, p_template_id: selectedTemplate.id, p_requested_sections: output.output.specification.sections, p_specification: output.output.specification, p_output_identity: output.output.id, p_output_version: output.output.outputVersion, p_generated_at: output.output.generatedAt }); if (result.error) { await markGenerationFailed(currentProject.id, result.error.message); throw result.error; } const next = result.data as { generation_count: number; generation_limit: number; public_preview_token?: string; latest_generated_output_identity?: string; latest_generated_output_version?: string; latest_generated_at?: string; generation_state?: 'current' }; setUsage({ used: next.generation_count, limit: next.generation_limit, remaining: Math.max(next.generation_limit - next.generation_count, 0) }); setSpecification(output.output.specification); setPersisted(clone(output.output.specification)); setPublishedOutputIdentity(null); setPublishedAt(null); setProject({ ...currentProject, selected_template_id: selectedTemplate.id, requested_sections: output.output.specification.sections, specification: output.output.specification, public_preview_token: next.public_preview_token || currentProject.public_preview_token || null, preview_enabled: true, latest_generated_output_identity: next.latest_generated_output_identity || output.output.id, latest_generated_output_version: next.latest_generated_output_version || output.output.outputVersion, latest_generated_at: next.latest_generated_at || output.output.generatedAt, generation_state: next.generation_state || 'current', last_generation_error: null, status: 'preview' }); setSelectedSection(output.output.specification.sections.includes('hero') ? 'hero' : output.output.specification.sections[0]); setNotice('Website generated and saved.'); } catch (err) { const message = err instanceof Error ? err.message : 'Generation failed.'; if (currentProject) await markGenerationFailed(currentProject.id, message); setError(message); } finally { setGenerating(false); } }
+  async function publishWebsite() { if (publishing || generating) return; if (!project?.id || !project.latest_generated_output_identity || dirty || lifecycleState !== 'current') { setError('Generate the current website before publishing it.'); return; } setPublishing(true); setError(''); setNotice(''); try { const result = await supabase.rpc('publish_creation_generated_output', { p_creation_project_id: project.id, p_output_identity: project.latest_generated_output_identity }); if (result.error) throw result.error; const next = result.data as { output_identity: string; output_version: string; status: 'published'; published_at: string; idempotent?: boolean }; setPublishedOutputIdentity(next.output_identity); setPublishedAt(next.published_at || null); setProject((current) => current ? { ...current, generation_state: 'current' } : current); setNotice(next.idempotent ? 'Website is already published.' : 'Website published successfully.'); } catch (err) { setError(err instanceof Error ? err.message : 'Unable to publish the generated website.'); } finally { setPublishing(false); } }
+  async function saveSpecification() { if (!project || !specification) { setNotice('Generate a preview before saving editor changes.'); return; } if (templateChanged) { setNotice('Generate Website to apply the selected template.'); return; } setSaving(true); setError(''); const result = await supabase.from('creation_projects').update({ business_info: specification.business, requested_sections: specification.sections, selected_template_id: specification.template.id, specification }).eq('id', project.id); if (result.error) setError('Unable to save your changes. Please try again.'); else { setPersisted(clone(specification)); setProject((current) => current ? { ...current, business_info: specification.business, requested_sections: specification.sections, selected_template_id: specification.template.id, specification, updated_at: new Date().toISOString() } : current); setNotice('All changes saved. Generate Website to update the current preview.'); } setSaving(false); }
   function moveSection(direction: -1 | 1) { if (!specification) return; const sections = [...specification.sections]; const index = sections.indexOf(selectedSection); const next = index + direction; if (index < 0 || next < 0 || next >= sections.length) return; [sections[index], sections[next]] = [sections[next], sections[index]]; updateSpec(applyWebsiteSpecificationPatch(specification, { kind: 'section_order', sections })); }
   function toggleSection(section: WebsiteSectionId) { if (!specification) return; updateSpec(specification.sections.includes(section) ? removeWebsiteSection(specification, section) : addWebsiteSection(specification, section)); setSelectedSection(section); }
   function chooseTemplate(template: WebsiteTemplate) { if (specification && template.id !== specification.template.id && dirty) setTemplateWarning(template); else setTemplateId(template.id); }
 
-  const data = specification ? record(specification, selectedSection) : {};
-  const hero = (specification?.content.hero || {}) as HeroContent;
-  const width = previewMode === 'mobile' ? 'max-w-[390px]' : previewMode === 'tablet' ? 'max-w-[768px]' : 'max-w-none';
-  const navTargets = specification?.sections.filter((section) => !structuralSections.has(section)) || [];
-
+  const data = specification ? record(specification, selectedSection) : {}; const hero = (specification?.content.hero || {}) as HeroContent; const width = previewMode === 'mobile' ? 'max-w-[390px]' : previewMode === 'tablet' ? 'max-w-[768px]' : 'max-w-none'; const navTargets = specification?.sections.filter((section) => !structuralSections.has(section)) || [];
   if (loading) return <div className="flex min-h-96 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-accent-400" /></div>;
   return <div className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-4"><div className="flex items-center gap-3"><button type="button" onClick={() => navigate('/portal/creation-studio')} aria-label="Back to website projects" className="rounded-xl border border-white/10 p-2.5 text-gray-300 hover:bg-white/5"><ArrowLeft className="h-4 w-4" /></button><div><div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-accent-400"><Sparkles className="h-3.5 w-3.5" />Template Studio</div><h1 className="mt-1 text-2xl font-bold text-white">{project?.title || 'New website'}</h1></div></div><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full border px-3 py-2 text-xs font-semibold ${lifecycleClass}`}>{publishedCurrent ? 'Published' : lifecycleDisplay}</span>{authenticated && <span className="rounded-full border border-white/10 px-3 py-2 text-xs text-gray-400">{usage.remaining}/{usage.limit} generations</span>}<button type="button" onClick={() => void saveSpecification()} disabled={!dirty || saving || templateChanged || publishing} className="inline-flex items-center gap-2 rounded-xl bg-accent-500 px-4 py-2.5 text-sm font-bold text-ink-950 disabled:opacity-40"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save'}</button></div></div>
