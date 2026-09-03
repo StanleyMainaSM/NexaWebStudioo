@@ -14,7 +14,7 @@ const sections = fs.readFileSync('src/components/websiteCreation/WebsiteSections
 const foundation = fs.readFileSync('supabase/migrations/20260831100000_website_creation_foundation.sql', 'utf8');
 for (const style of styles) assert.match(renderer, new RegExp(`data-template-style=\\\"${style}\\\"`));
 assert.match(renderer, /data-template-style=\{presentation\.styleKey\}/);
-for (const style of styles) assert.match(sections, new RegExp(style.replace('-', '\\-')));
+for (const style of styles) assert.match(sections, new RegExp(style));
 assert.match(sections, /<details className=.*Menu/);
 assert.doesNotMatch(sections, /A polished digital presence\./);
 assert.doesNotMatch(sections, /A tailored solution designed around your business goals\./);
