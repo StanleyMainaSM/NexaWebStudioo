@@ -2,6 +2,7 @@
 -- AVELIXA WEBSITE TEMPLATE LIBRARY PRESENTATION UPGRADE
 -- Expand the five protected templates with complete compositions.
 -- No publishing, auth, RLS, or generation-security changes.
+-- Stable preview imagery is bundled under public/images.
 -- ============================================================
 
 UPDATE public.website_templates
