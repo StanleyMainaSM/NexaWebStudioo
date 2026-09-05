@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 
 const stage2Migration = readFileSync('supabase/migrations/20260905150100_portal_access_control.sql', 'utf8');
 const migration = readFileSync('supabase/migrations/20260905153000_portal_access_password_management.sql', 'utf8');
+const creationMigration = readFileSync('supabase/migrations/20260905210000_website_template_creation_access_password.sql', 'utf8');
 const component = readFileSync('src/components/portal/PortalAccessPasswordManagement.tsx', 'utf8');
 
 assert.match(stage2Migration, /revoke all on private\.portal_access_passwords from public, anon, authenticated/i);
@@ -14,6 +15,10 @@ assert.match(migration, /change_portal_access_password/);
 assert.match(migration, /reset_portal_access_password/);
 assert.match(migration, /security definer/i);
 assert.match(migration, /length\(v_new\) < 12/);
+assert.match(creationMigration, /'creation'/);
+assert.match(creationMigration, /portal_access_password_configured/);
+assert.match(creationMigration, /crypt\(v_password, gen_salt\('bf'\)\)/i);
+assert.match(component, /Website & Template Creation/);
 assert.match(component, /Configure|Change|Reset/);
 assert.doesNotMatch(component, /password_hash|portal_access_passwords/);
 assert.doesNotMatch(component, /localStorage|sessionStorage/);
