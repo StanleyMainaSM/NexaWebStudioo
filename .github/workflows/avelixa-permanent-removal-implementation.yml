@@ -1,10 +1,43 @@
-name: Avelixa temporary runner
+name: Avelixa permanent owner removal implementation
 on: push
 permissions:
   contents: write
 jobs:
-  test:
+  implement:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo runner-ok
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply targeted implementation
+        run: python3 tools/avelixa_permanent_removal_implementation.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify Owner User Management
+        run: node --experimental-strip-types --test tests/ownerUserManagementCompletion.test.mjs
+      - name: Verify Connector suites
+        run: |
+          npm run test:connector-leads
+          npm run test:connector-earnings
+          npm run test:connector-lifecycle
+          npm run test:connector-notifications
+          npm run test:connector-portal-routing
+          npm run test:connector-activation
+          node --experimental-strip-types tests/connectorOwnerFinalSecurity.test.mjs
+      - name: Verify typecheck and build
+        run: |
+          npm run typecheck
+          npm run build
+      - name: Inspect and commit
+        run: |
+          git diff --check
+          git diff --stat
+          git diff -- server.ts src/pages/portal/OwnerUserManagement.tsx tests/ownerUserManagementCompletion.test.mjs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server.ts src/pages/portal/OwnerUserManagement.tsx tests/ownerUserManagementCompletion.test.mjs
+          git rm .github/workflows/avelixa-permanent-removal-implementation.yml tools/avelixa_permanent_removal_implementation.py
+          git commit -m "feat: add permanent owner account removal"
+          git push origin HEAD:tmp/permanent-owner-removal
