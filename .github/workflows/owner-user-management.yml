@@ -18,7 +18,7 @@ jobs:
           if [[ -n "$(git status --porcelain)" ]]; then
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add server.ts supabase/functions/avelixa-owner-member-status-prod/index.ts src/pages/portal/OwnerUserManagement.tsx scripts/stage4_patch.py .github/workflows/stage4-implementation-patch.yml .github/workflows/stage4-implementation-patch2.yml docs/.stage4-trigger
+            git add -A server.ts supabase/functions/avelixa-owner-member-status-prod/index.ts src/pages/portal/OwnerUserManagement.tsx scripts/stage4_patch.py
             git commit -m 'feat: enforce Owner User Management access gate'
             git push origin HEAD:avelixa-current-work
           fi
