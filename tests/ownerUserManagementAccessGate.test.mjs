@@ -11,11 +11,11 @@ const ui = () => read('src/pages/portal/OwnerUserManagement.tsx');
 const statusFunction = () => read('supabase/functions/avelixa-owner-member-status-prod/index.ts');
 
 function routeBlock(source, method, route) {
-  const normalizedSource = source.replace(/\s+/g, ' ');
-  const normalizedRoute = `app.${method}("${route}")`;
-  const index = normalizedSource.indexOf(normalizedRoute);
+  const normalizedSource = source.replace(/\s+/g, ' ').trim();
+  const routeLiteral = `app.${method}( "${route}"`;
+  const index = normalizedSource.indexOf(routeLiteral);
   assert.ok(index >= 0, `Expected route ${method.toUpperCase()} ${route} to exist`);
-  const next = normalizedSource.indexOf(' app.', index + normalizedRoute.length);
+  const next = normalizedSource.indexOf(' app.', index + routeLiteral.length);
   return normalizedSource.slice(index, next > index ? next : normalizedSource.length);
 }
 
