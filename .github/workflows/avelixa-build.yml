@@ -54,6 +54,7 @@ jobs:
           node --experimental-strip-types tests/connectorActivationResend.test.mjs
           node --experimental-strip-types tests/ownerMemberLifecycle.test.mjs
           node --experimental-strip-types tests/portalAccessControl.test.mjs
+          node --experimental-strip-types tests/portalAccessManagement.test.mjs
           npm run test:client-referrals
           npm run test:client-portal
           npm run test:invoice-notifications
