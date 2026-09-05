@@ -33,17 +33,21 @@ select ok(
   'Package management remains restricted to Owner/Admin roles'
 );
 
+insert into public.packages(name,description,is_active)
+values ('Stage 7 Inactive Public Test','Temporary inactive package for RLS verification',false);
+
+set local role anon;
 select is(
   (select count(*)::bigint from public.packages where is_active = true) > 0,
   true,
-  'At least one active authoritative package exists'
+  'Public pricing can read active authoritative packages'
 );
-
 select is(
-  (select count(*)::bigint from public.packages where is_active = false),
+  (select count(*)::bigint from public.packages where name='Stage 7 Inactive Public Test'),
   0::bigint,
-  'Current package catalogue has no inactive public package rows in the clean fixture'
+  'Public pricing cannot read inactive packages'
 );
+reset role;
 
 create temporary table t_package_security_ids(name text primary key, id uuid not null);
 grant select on t_package_security_ids to authenticated;
@@ -86,14 +90,14 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$update public.packages set min_price = coalesce(min_price,0) + 1 where is_active = true limit 1$$,
+  $$update public.packages set min_price = coalesce(min_price,0) + 1 where id=(select id from public.packages where is_active=true order by created_at limit 1)$$,
   NULL,
   NULL,
   'Client cannot update packages'
 );
 
 select throws_ok(
-  $$delete from public.packages where is_active = true$$,
+  $$delete from public.packages where id=(select id from public.packages where is_active=true order by created_at limit 1)$$,
   NULL,
   NULL,
   'Client cannot delete packages'
