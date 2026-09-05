@@ -25,5 +25,12 @@ assert.match(creationGateSource, /isPortalPasswordConfigured\('creation'\)/, 'Cr
 
 const migrationNames = fs.readdirSync(migrationDir);
 assert.ok(migrationNames.some((name) => /creation.*access.*password/i.test(name)), 'A creation access password migration must exist');
+const creationServerEnforcement = fs.readFileSync(new URL('../supabase/migrations/20260905213000_creation_access_server_enforcement.sql', import.meta.url), 'utf8');
+assert.match(creationServerEnforcement, /private\.verify_portal_access_password[\s\S]*'creation'/, 'Server-side password verification must support creation access');
+assert.match(creationServerEnforcement, /private\.has_portal_access[\s\S]*'creation'/, 'Server-side access assertion must support creation access');
+assert.match(creationServerEnforcement, /Authorized users read creation projects[\s\S]*private\.has_portal_access\('creation'\)/, 'Creation project reads must require the dedicated creation unlock');
+assert.match(creationServerEnforcement, /enforce_creation_access_on_project_mutation/, 'Creation project mutations must be server-enforced');
+assert.match(creationServerEnforcement, /enforce_creation_access_on_output_mutation/, 'Generated output mutations must be server-enforced');
+assert.match(creationServerEnforcement, /Website and template creation access required/, 'Server enforcement must reject creation access without the dedicated unlock');
 
 console.log('creationAccessPassword.test.mjs: PASS');
