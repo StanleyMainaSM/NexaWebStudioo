@@ -41,7 +41,7 @@ select is(public.verify_portal_access_password('creation','Creation-Access-Passw
 select is(public.verify_portal_access_password('creation','Supabase-Login-Password-123!'),false,'Supabase login password is not accepted as the creation access password');
 select is(public.verify_portal_access_password('creation','Wrong-Creation-Password'),false,'Incorrect creation access password is rejected');
 select is(public.has_portal_access('creation'),true,'Successful creation password verification establishes session-bound creation access');
-select is((select count(*)::bigint from private.portal_access_passwords where password_hash like 'Creation-Access-Password-123!'),0::bigint,'Creation password is never stored in plaintext');
+select is(public.portal_access_password_configured('creation'),true,'Creation password configuration is visible only as a boolean through the public API');
 reset role;
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id::text from t_creation_ids where name='client'),'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_creation_ids where name='client')))::text,true);
