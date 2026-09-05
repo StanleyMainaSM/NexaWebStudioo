@@ -1,4 +1,5 @@
 # Stage 4 gate regression is part of the normal Owner User Management verification.
+# This run is intentionally retriggered after the final route-contract correction.
 name: Owner User Management
 
 on:
