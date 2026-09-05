@@ -16,6 +16,8 @@ const recruitmentHelper = '20260829209998_restore_connector_recruitment_summary_
 const provisioningHelper = '20260829209999_restore_connector_provisioning_helpers.sql';
 const provisioningDependent = '20260829210000_fix_connector_provisioning_and_application_duplicates.sql';
 const recruitmentDependent = '20260829210001_tighten_connector_recruitment_summary_security.sql';
+const recurringInvoiceBaseline = '20260829169993_create_recurring_services_baseline.sql';
+const recurringInvoiceDependent = '20260826175329_maintenance_recurring_service_workflow.sql';
 const activationEmailQueueLink = '20260903092000_connector_activation_email_queue_link.sql';
 const onboardingHardening = '20260903092500_harden_connector_onboarding_and_owner_roles.sql';
 const historicalReconciliation = '20260903093000_connector_historical_reconciliation_status.sql';
@@ -28,6 +30,7 @@ assert.ok(fs.existsSync(path.join(migrationsDir, recruitmentHelper)), 'connector
 assert.ok(fs.existsSync(path.join(migrationsDir, provisioningHelper)), 'connector provisioning helper baseline must exist');
 assert.ok(fs.existsSync(path.join(migrationsDir, provisioningDependent)), 'connector provisioning hardening migration must exist');
 assert.ok(fs.existsSync(path.join(migrationsDir, recruitmentDependent)), 'connector recruitment security migration must exist');
+assert.ok(fs.existsSync(path.join(migrationsDir, recurringInvoiceBaseline)), 'recurring invoice metadata baseline must exist');
 
 const queueCreatorPattern = /\bcreate\s+table(?:\s+if\s+not\s+exists)?\s+public\.connector_provisioning_queue\b/i;
 const stripSqlCommentsAndQuotedLiterals = (sql) => sql
@@ -35,6 +38,7 @@ const stripSqlCommentsAndQuotedLiterals = (sql) => sql
   .replace(/'(?:''|[^'])*'/g, "''");
 const queueReferencePattern = /\b(?:on|into|from|update|table)\s+public\.connector_provisioning_queue\b/i;
 const provisioningStatusReferencePattern = /\bca\.provisioning_status\b/i;
+const recurringInvoiceReferencePattern = /\b(?:invoices\.)?(?:recurring_service_id|billing_period_start|billing_period_end)\b/i;
 
 const queueCreatorMigrations = migrationFiles.filter((file) => queueCreatorPattern.test(readMigration(file)));
 const queueReferenceMigrations = migrationFiles.filter((file) =>
@@ -42,6 +46,9 @@ const queueReferenceMigrations = migrationFiles.filter((file) =>
 );
 const provisioningStatusReferenceMigrations = migrationFiles.filter((file) =>
   provisioningStatusReferencePattern.test(stripSqlCommentsAndQuotedLiterals(readMigration(file))),
+);
+const recurringInvoiceReferenceMigrations = migrationFiles.filter((file) =>
+  recurringInvoiceReferencePattern.test(stripSqlCommentsAndQuotedLiterals(readMigration(file))),
 );
 
 const migrationVersion = (file) => file.match(/^(\d{14})_/i)?.[1] ?? null;
@@ -111,6 +118,36 @@ test('connector_applications provisioning metadata exists before any executable 
       `${provisioningMetadataBaseline} must precede ${migration} because ${migration} references connector_applications.provisioning_status`,
     );
   }
+});
+
+test('recurring invoice metadata exists before executable recurring-service invoice references', () => {
+  const baseline = readMigration(recurringInvoiceBaseline);
+  const baselineIndex = migrationFiles.indexOf(recurringInvoiceBaseline);
+
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS recurring_service_id UUID/i);
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS billing_period_start DATE/i);
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS billing_period_end DATE/i);
+  assert.match(baseline, /invoices_recurring_service_id_fkey/i);
+  assert.match(baseline, /idx_invoices_recurring_service/i);
+  assert.match(baseline, /idx_invoices_recurring_period/i);
+
+  assert.ok(
+    recurringInvoiceReferenceMigrations.length > 0,
+    'migration chain must contain executable recurring invoice metadata references',
+  );
+
+  for (const migration of recurringInvoiceReferenceMigrations) {
+    if (migration === recurringInvoiceBaseline) continue;
+    assert.ok(
+      baselineIndex < migrationFiles.indexOf(migration),
+      `${recurringInvoiceBaseline} must precede ${migration} because ${migration} references recurring invoice metadata`,
+    );
+  }
+
+  assert.ok(
+    migrationFiles.indexOf(recurringInvoiceBaseline) < migrationFiles.indexOf(recurringInvoiceDependent),
+    `${recurringInvoiceBaseline} must precede ${recurringInvoiceDependent}`,
+  );
 });
 
 test('connector provisioning helper baselines precede their dependent migrations', () => {
