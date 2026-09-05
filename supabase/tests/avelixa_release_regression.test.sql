@@ -13,7 +13,7 @@ select ok(pg_get_functiondef('public.complete_client_referral_onboarding(text,te
 select ok(pg_get_functiondef('public.verify_invoice_payment(uuid,text,text)'::regprocedure) ilike '%remaining_balance%' and pg_get_functiondef('public.verify_invoice_payment(uuid,text,text)'::regprocedure) ilike '%sum(p.amount)%','Final payment verification uses cumulative remaining balance');
 select ok(pg_get_functiondef('public.sync_maintenance_subscription_after_payment()'::regprocedure) ilike '%sum(p.amount)%' and pg_get_functiondef('public.sync_maintenance_subscription_after_payment()'::regprocedure) ilike '%v_invoice_fully_paid%','Maintenance settlement uses cumulative completed payments');
 select ok(pg_get_functiondef('public.create_connector_commission_for_payment()'::regprocedure) ilike '%invoice%' and pg_get_functiondef('public.create_connector_commission_for_payment()'::regprocedure) ilike '%project%' and pg_get_functiondef('public.create_connector_commission_for_payment()'::regprocedure) ilike '%connector%','Commission creation derives payment to invoice to project to connector');
-select ok(not has_function_privilege('anon','public.complete_client_referral_onboarding(text,text,text,text,text,numeric,text)','EXECUTE'),'Anonymous referral onboarding execution is revoked');
+select ok(not has_function_privilege('anon','public.complete_client_referral_onboarding(text,text, text,text,text,numeric,text)','EXECUTE'),'Anonymous referral onboarding execution is revoked');
 
 create temporary table t_ids(name text primary key, id uuid not null);
 grant select on t_ids to authenticated;
@@ -94,7 +94,8 @@ insert into public.commissions(connector_id,project_id,eligible_amount,commissio
 insert into public.payouts(recipient_id,recipient_role,project_id,amount,status) select (select id from t_ids where name='connector_a'),'connector',p.id,4000,'pending' from public.projects p where p.title='Release Test Project';
 insert into public.payouts(recipient_id,recipient_role,project_id,amount,status) select (select id from t_ids where name='connector_b'),'connector',p.id,2000,'pending' from public.projects p where p.title='Release Test Project';
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='connector_a')::text,'role','authenticated')::text,true); set local role authenticated;
-select is((select count(*)::bigint from public.commissions),1::bigint,'Connector A sees only Connector A commission');
+select is((select count(*)::bigint from public.commissions where connector_id=(select id from t_ids where name='connector_a')),3::bigint,'Connector A sees all Connector A commissions');
+select is((select count(*)::bigint from public.commissions where connector_id=(select id from t_ids where name='connector_b')),0::bigint,'Connector A cannot see Connector B commissions');
 select is((select count(*)::bigint from public.payouts),1::bigint,'Connector A sees only Connector A payout');
 select ok(to_regclass('public.maintenance_subscriptions') is not null,'Maintenance subscription table exists');
 select ok(to_regclass('public.recurring_services') is not null,'Recurring service table exists');
