@@ -17,8 +17,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p = Path('server.ts')
-          s = p.read_text()
-          s = s.replace('supabaseAdmin.from(table)', '(supabaseAdmin as any).from(table)')
+          s = p.read_text().replace('supabaseAdmin.from(table)', '(supabaseAdmin as any).from(table)')
           p.write_text(s)
           PY
       - name: Install dependencies
@@ -35,7 +34,19 @@ jobs:
           npm run test:connector-activation
           node --experimental-strip-types tests/connectorOwnerFinalSecurity.test.mjs
       - name: Verify typecheck
-        run: npm run typecheck
+        run: |
+          set +e
+          npm run typecheck > typecheck.log 2>&1
+          status=$?
+          cat typecheck.log
+          echo "TYPECHECK_STATUS=$status"
+          exit $status
+      - name: Upload typecheck diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owner-removal-typecheck-diagnostics
+          path: typecheck.log
       - name: Verify build
         run: npm run build
       - name: Inspect and commit
