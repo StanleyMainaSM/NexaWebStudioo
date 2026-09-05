@@ -83,6 +83,9 @@ jobs:
       - name: Reset local database and apply all repository migrations
         run: supabase db reset --yes
 
+      - name: Stage 3 portal access database regression
+        run: supabase test db supabase/tests/portal_access_management.test.sql
+
       - name: Run complete local database regression suite
         run: supabase test db
 
