@@ -50,6 +50,21 @@ Deno.serve(async (req: Request) => {
     }
     if (!ownerRole) return json({ error: "Owner permission is required to manage members." }, 403);
 
+    const { data: ownerProfile, error: ownerProfileError } = await admin
+      .from("profiles")
+      .select("is_active")
+      .eq("id", actorId)
+      .maybeSingle();
+    if (ownerProfileError) return json({ error: "Unable to verify the Owner account state." }, 500);
+    if (ownerProfile?.is_active === false) return json({ error: "The Owner account is inactive." }, 403);
+    const caller = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+      global: { headers: { Authorization: authorization } },
+    });
+    const { data: gateOpen, error: gateError } = await caller.rpc("has_portal_access", { p_portal: "owner" });
+    if (gateError) return json({ error: "Unable to verify User Management access." }, 500);
+    if (gateOpen !== true) return json({ error: "User Management access is locked. Re-enter the Owner access password." }, 403);
+
     const body = await req.json().catch(() => null) as { userId?: unknown; active?: unknown } | null;
     const userId = typeof body?.userId === "string" ? body.userId.trim() : "";
     const active = body?.active;

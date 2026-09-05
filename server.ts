@@ -64,6 +64,19 @@ app.get("/api/health", (_req, res) => {
  * ============================================================
  */
 
+async function hasOwnerPortalAccess(token: string) {
+  const caller = createClient(supabaseUrl!, supabaseSecretKey!, {
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data, error } = await caller.rpc('has_portal_access', { p_portal: 'owner' });
+  if (error) {
+    console.error('Owner User Management access-gate verification error:', error);
+    return false;
+  }
+  return data === true;
+}
+
 async function getAuthenticatedUser(req: express.Request) {
   const authorization = req.headers.authorization;
 
@@ -97,6 +110,28 @@ async function getAuthenticatedUser(req: express.Request) {
       user: null,
       error: "Your session is invalid or has expired.",
     };
+  }
+
+  if (req.path.startsWith("/api/owner/users")) {
+    const { data: ownerRole, error: ownerRoleError } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .eq("role", "owner")
+      .maybeSingle();
+    if (ownerRoleError || !ownerRole) {
+      return { user: null, error: ownerRoleError ? "Unable to verify Owner permissions for User Management." : "Owner permission is required to manage users." };
+    }
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("is_active")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profileError) return { user: null, error: "Unable to verify the Owner account state." };
+    if (profile?.is_active === false) return { user: null, error: "The Owner account is inactive." };
+    if (!(await hasOwnerPortalAccess(token))) {
+      return { user: null, error: "User Management access is locked. Re-enter the Owner access password." };
+    }
   }
 
   return {
@@ -470,7 +505,7 @@ app.get(
       } = await supabaseAdmin
         .from("profiles")
         .select(
-          "id, email, full_name, created_at"
+          "id, email, full_name, created_at, is_active"
         );
 
       if (profilesError) {
@@ -556,6 +591,8 @@ app.get(
                 Boolean(
                   authUser.email_confirmed_at
                 ),
+              is_active:
+                profile?.is_active !== false,
               roles,
             };
           }
