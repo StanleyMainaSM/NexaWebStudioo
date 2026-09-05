@@ -14,7 +14,7 @@ const services = [
 export default function Services() {
   useReveal();
   return (
-    <div className="relative pt-32 pb-28">
+    <div className="relative pt-32 pb-28 page-tint">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <img src="https://images.pexels.com/photos/574071/pexels-photo-574071.jpeg?auto=compress&cs=tinysrgb&w=1600" alt="" className="w-full h-full object-cover opacity-[0.03]" />
       </div>
@@ -25,7 +25,7 @@ export default function Services() {
           <p className="mt-5 text-gray-400 text-lg leading-relaxed">Avelixa combines professional design, development, performance, and strategy to create websites that do more than look good. They help businesses attract attention, build trust, and generate opportunities.</p>
         </div>
 
-        <div className="mb-10 rounded-3xl overflow-hidden h-48 relative" data-reveal>
+        <div className="mb-10 rounded-3xl overflow-hidden h-48 relative elevated-surface" data-reveal>
           <img src="https://images.pexels.com/photos/1181676/pexels-photo-1181676.jpeg?auto=compress&cs=tinysrgb&w=1600" alt="Developer working on a professional website" className="w-full h-full object-cover" />
           <div className="service-image-overlay absolute inset-0 bg-gradient-to-r from-ink-950 via-transparent to-ink-950" />
           <div className="absolute inset-0 flex items-center justify-center"><p className="service-image-copy font-display font-bold text-2xl sm:text-3xl text-white text-center px-4">Professional Website. Stronger Presence. More Opportunities.</p></div>
@@ -56,7 +56,7 @@ export default function Services() {
         <div className="mt-14 text-center" data-reveal>
           <p className="text-gray-400 mb-5">Ready to build a website for your business?</p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/pricing" className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-gradient-to-r from-accent-400 to-brand-500 text-ink-950 font-semibold hover:shadow-[0_0_30px_-5px_rgba(34,211,238,0.6)] transition-all">View Pricing<ArrowUpRight className="w-4 h-4" /></Link>
+            <Link to="/pricing" className="light-primary-button inline-flex items-center gap-2 px-8 py-4 rounded-full bg-gradient-to-r from-accent-400 to-brand-500 text-ink-950 font-semibold hover:shadow-[0_0_30px_-5px_rgba(34,211,238,0.6)] transition-all">View Pricing<ArrowUpRight className="w-4 h-4" /></Link>
             <Link to="/contact" className="inline-flex items-center gap-2 px-8 py-4 rounded-full glass text-white hover:text-accent-400 transition-colors">Hire Avelixa<ArrowUpRight className="w-4 h-4" /></Link>
           </div>
         </div>
