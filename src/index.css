@@ -90,10 +90,13 @@
 [data-theme='light'] .glass { background: rgb(var(--avelixa-surface) / 0.86); border-color: rgb(var(--avelixa-border) / 0.9); box-shadow: 0 12px 30px rgb(15 23 42 / 0.055); }
 [data-theme='light'] .glass:hover { border-color: rgb(99 102 241 / 0.2); }
 [data-theme='light'] .page-tint { background: linear-gradient(180deg, rgb(var(--avelixa-page)) 0%, rgb(var(--avelixa-page-alt)) 48%, rgb(var(--avelixa-page)) 100%); }
+[data-theme='light'] .home-content { background: radial-gradient(circle at 10% 8%, rgb(99 102 241 / 0.08), transparent 30%), radial-gradient(circle at 90% 10%, rgb(34 211 238 / 0.07), transparent 28%), linear-gradient(180deg, rgb(247 248 251), rgb(239 242 247)); }
 [data-theme='light'] .section-tint { background: linear-gradient(135deg, rgb(247 249 252), rgb(241 244 249)); border-block: 1px solid rgb(214 220 229 / 0.72); }
 [data-theme='light'] .accent-panel { background: linear-gradient(135deg, rgb(238 242 255 / 0.9), rgb(245 243 255 / 0.82)); border-color: rgb(129 140 248 / 0.24); }
 [data-theme='light'] .soft-divider { border-color: rgb(148 163 184 / 0.28) !important; }
 [data-theme='light'] .elevated-surface { background: rgb(255 255 255 / 0.94); border: 1px solid rgb(214 220 229 / 0.9); box-shadow: 0 18px 44px rgb(15 23 42 / 0.075); }
+[data-theme='light'] footer { background: linear-gradient(180deg, rgb(232 236 242), rgb(239 242 247)); }
+[data-theme='light'] footer .glass { background: rgb(255 255 255 / 0.7); }
 
 /* Images stay natural. Visibility comes from the surrounding surface and restrained local overlays. */
 [data-theme='light'] .service-image-overlay { background: linear-gradient(90deg, rgb(15 23 42 / 0.7), rgb(15 23 42 / 0.16), rgb(15 23 42 / 0.7)) !important; }
@@ -104,8 +107,7 @@
 [data-theme='dark'] .service-image-copy { color: #fff !important; text-shadow: 0 2px 18px rgb(0 0 0 / 0.45); }
 
 /* Light header treatment: distinct from the page without becoming a white slab. */
-[data-theme='light'] header { background: rgb(255 255 255 / 0.74); border-color: rgb(214 220 229 / 0.8); box-shadow: 0 8px 28px rgb(15 23 42 / 0.045); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
-[data-theme='light'] header:not(:has(.some-never-used-class)) { background: rgb(255 255 255 / 0.68); }
+[data-theme='light'] header { background: rgb(255 255 255 / 0.68); border-color: rgb(214 220 229 / 0.8); box-shadow: 0 8px 28px rgb(15 23 42 / 0.045); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 [data-theme='light'] header a { text-decoration-thickness: 1px; text-underline-offset: 3px; }
 [data-theme='light'] .light-primary-button { box-shadow: 0 10px 24px rgb(79 70 229 / 0.18); }
 [data-theme='light'] .light-primary-button:hover { box-shadow: 0 14px 30px rgb(79 70 229 / 0.24); }
