@@ -37,6 +37,9 @@ jobs:
       - name: Portal password management contract tests
         run: node --experimental-strip-types tests/portalAccessPasswordManagement.test.mjs
 
+      - name: Stage 4 Owner User Management access-gate tests
+        run: node --experimental-strip-types tests/ownerUserManagementAccessGate.test.mjs
+
       - name: Website creation foundation tests
         run: |
           node --experimental-strip-types tests/websiteCreationFoundation.test.mjs
