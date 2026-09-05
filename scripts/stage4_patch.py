@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import subprocess
 
 message = subprocess.check_output(["git", "log", "-1", "--pretty=%s"], text=True).strip()
@@ -9,13 +10,18 @@ def replace(path, old, new):
     p = Path(path)
     s = p.read_text()
     if old not in s:
-        raise SystemExit(f"pattern not found: {path}")
+        raise SystemExit(f"pattern not found: {path}: {old[:90]!r}")
     p.write_text(s.replace(old, new, 1))
 
-replace(
-    "server.ts",
-    "async function getAuthenticatedUser(req: express.Request) {",
-    """async function hasOwnerPortalAccess(token: string) {
+def regex_replace(path, pattern, replacement):
+    p = Path(path)
+    s = p.read_text()
+    out, count = re.subn(pattern, replacement, s, count=1, flags=re.S)
+    if count != 1:
+        raise SystemExit(f"regex pattern not found: {path}: {pattern[:90]!r}")
+    p.write_text(out)
+
+replace("server.ts", "async function getAuthenticatedUser(req: express.Request) {", """async function hasOwnerPortalAccess(token: string) {
   const caller = createClient(supabaseUrl!, supabaseSecretKey!, {
     auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     global: { headers: { Authorization: `Bearer ${token}` } },
@@ -28,15 +34,11 @@ replace(
   return data === true;
 }
 
-async function getAuthenticatedUser(req: express.Request) {""",
-)
-replace(
-    "server.ts",
-    """  return {
+async function getAuthenticatedUser(req: express.Request) {""")
+replace("server.ts", """  return {
     user,
     error: null,
-  };""",
-    """  if (req.path.startsWith("/api/owner/users")) {
+  };""", """  if (req.path.startsWith("/api/owner/users")) {
     const { data: ownerRole, error: ownerRoleError } = await supabaseAdmin
       .from("user_roles")
       .select("user_id")
@@ -61,28 +63,20 @@ replace(
   return {
     user,
     error: null,
-  };""",
-)
+  };""")
 replace("server.ts", '"id, email, full_name, created_at"', '"id, email, full_name, created_at, is_active"')
-replace(
-    "server.ts",
-    """              email_confirmed:
+replace("server.ts", """              email_confirmed:
                 Boolean(
                   authUser.email_confirmed_at
                 ),
-              roles,""",
-    """              email_confirmed:
+              roles,""", """              email_confirmed:
                 Boolean(
                   authUser.email_confirmed_at
                 ),
               is_active:
                 profile?.is_active !== false,
-              roles,""",
-)
-replace(
-    "supabase/functions/avelixa-owner-member-status-prod/index.ts",
-    '    if (!ownerRole) return json({ error: "Owner permission is required to manage members." }, 403);\n\n',
-    """    if (!ownerRole) return json({ error: "Owner permission is required to manage members." }, 403);
+              roles,""")
+replace("supabase/functions/avelixa-owner-member-status-prod/index.ts", '    if (!ownerRole) return json({ error: "Owner permission is required to manage members." }, 403);\n\n', """    if (!ownerRole) return json({ error: "Owner permission is required to manage members." }, 403);
 
     const { data: ownerProfile, error: ownerProfileError } = await admin
       .from("profiles")
@@ -99,41 +93,27 @@ replace(
     if (gateError) return json({ error: "Unable to verify User Management access." }, 500);
     if (gateOpen !== true) return json({ error: "User Management access is locked. Re-enter the Owner access password." }, 403);
 
-""",
-)
-replace(
-    "src/pages/portal/OwnerUserManagement.tsx",
-    "import { supabase } from '../../lib/supabase';",
-    "import { supabase } from '../../lib/supabase';\nimport { clearPortalAccess, hasPortalAccess, verifyPortalPassword } from '../../lib/portalAccess';",
-)
-replace(
-    "src/pages/portal/OwnerUserManagement.tsx",
-    """      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) throw new Error('Authenticated Owner account could not be identified.');
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: user.email, password });
-      if (signInError) throw signInError;
-      sessionStorage.setItem(`avelixa_owner_user_management_verified:${user.id}`, 'true');
-      setPassword('');
-      setVerified(true);""",
-    """      const { data: { user } } = await supabase.auth.getUser();
+""")
+
+ui = Path("src/pages/portal/OwnerUserManagement.tsx")
+s = ui.read_text()
+if "clearPortalAccess" not in s:
+    s = s.replace("import { supabase } from '../../lib/supabase';", "import { supabase } from '../../lib/supabase';\nimport { clearPortalAccess, hasPortalAccess, verifyPortalPassword } from '../../lib/portalAccess';", 1)
+verify_pattern = r"      const \{ data: \{ user \} \} = await supabase\.auth\.getUser\(\);\n      if \(!user\?\.email\) throw new Error\('Authenticated Owner account could not be identified\.'\);\n      const \{ error: signInError \} = await supabase\.auth\.signInWithPassword\(\{ email: user\.email, password \}\);\n      if \(signInError\) throw signInError;\n      sessionStorage\.setItem\(`avelixa_owner_user_management_verified:\$\{user\.id\}`, 'true'\);\n      setPassword\(''\);\n      setVerified\(true\);"
+verify_replacement = """      const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) throw new Error('Authenticated Owner account could not be identified.');
       const verified = await verifyPortalPassword('owner', password);
       if (!verified) throw new Error('The Owner User Management access password is incorrect.');
       const unlocked = await hasPortalAccess('owner');
       if (!unlocked) throw new Error('User Management access could not be established for this session.');
       setPassword('');
-      setVerified(true);""",
-)
-replace(
-    "src/pages/portal/OwnerUserManagement.tsx",
-    "setVerified(sessionStorage.getItem(`avelixa_owner_user_management_verified:${user.id}`) === 'true');",
-    "setVerified(await hasPortalAccess('owner'));",
-)
-replace(
-    "src/pages/portal/OwnerUserManagement.tsx",
-    """  useEffect(() => {
-    let mounted = true;""",
-    """  useEffect(() => {
+      setVerified(true);"""
+s, count = re.subn(verify_pattern, verify_replacement, s, count=1)
+if count != 1:
+    raise SystemExit("regex pattern not found: OwnerUserManagement verify block")
+ui.write_text(s)
+replace("src/pages/portal/OwnerUserManagement.tsx", "setVerified(sessionStorage.getItem(`avelixa_owner_user_management_verified:${user.id}`) === 'true');", "setVerified(await hasPortalAccess('owner'));")
+regex_replace("src/pages/portal/OwnerUserManagement.tsx", r"  useEffect\(\(\) => \{\n    let mounted = true;", """  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
         setVerified(false);
@@ -146,10 +126,10 @@ replace(
   }, []);
 
   useEffect(() => {
-    let mounted = true;""",
-)
+    let mounted = true;""")
 replace("src/pages/portal/OwnerUserManagement.tsx", "Re-enter your current Owner account password to manage users.", "Enter your Owner User Management access password to manage users.")
 replace("src/pages/portal/OwnerUserManagement.tsx", 'placeholder="Enter your login password"', 'placeholder="Enter your Owner access password"')
+
 for f in [".github/workflows/stage4-implementation-patch.yml", ".github/workflows/stage4-implementation-patch2.yml", "docs/.stage4-trigger"]:
     p = Path(f)
     if p.exists():
