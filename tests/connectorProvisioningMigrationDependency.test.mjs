@@ -35,6 +35,22 @@ const queueReferenceMigrations = migrationFiles.filter((file) =>
   queueReferencePattern.test(stripSqlCommentsAndQuotedLiterals(readMigration(file))),
 );
 
+const migrationVersion = (file) => file.match(/^(\d{14})_/i)?.[1] ?? null;
+const migrationVersionCounts = new Map();
+for (const file of migrationFiles) {
+  const version = migrationVersion(file);
+  if (version) migrationVersionCounts.set(version, (migrationVersionCounts.get(version) ?? 0) + 1);
+}
+
+
+test('supabase migration versions are globally unique', () => {
+  const duplicates = [...migrationVersionCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([version, count]) => `${version} (${count} files)`);
+
+  assert.deepEqual(duplicates, [], `duplicate Supabase migration versions found: ${duplicates.join(', ')}`);
+});
+
 test('connector_provisioning_queue is created before any executable migration references it', () => {
   assert.equal(queueCreatorMigrations.length, 1, 'migration chain must contain exactly one connector_provisioning_queue creator baseline');
 
