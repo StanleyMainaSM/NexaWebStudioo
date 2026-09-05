@@ -1,3 +1,4 @@
+# Stage 4 patch helper: applies the server-enforced Owner User Management gate in CI.
 from pathlib import Path
 import re
 import subprocess
