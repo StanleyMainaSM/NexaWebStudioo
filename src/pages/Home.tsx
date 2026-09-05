@@ -33,7 +33,7 @@ export default function Home() {
       </div>
 
       {/* Main content */}
-      <div className="relative flex-1 bg-ink-950">
+      <div className="home-content relative flex-1 bg-ink-950">
         <div className="absolute top-0 -left-32 w-[500px] h-[500px] rounded-full bg-accent-500/15 blur-[120px] animate-pulse-glow" />
         <div
           className="absolute top-0 -right-32 w-[400px] h-[400px] rounded-full bg-brand-500/15 blur-[120px] animate-pulse-glow"
@@ -209,89 +209,37 @@ export default function Home() {
         <div className="relative max-w-7xl mx-auto px-6 pb-14">
           <div className="glass rounded-3xl p-6 sm:p-8">
             <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <Link
-                to="/services"
-                className="group rounded-2xl p-4 hover:bg-white/[0.05] transition-colors"
-              >
-                <div className="text-xs uppercase tracking-widest text-accent-400 mb-2">
-                  01
-                </div>
-                <div className="font-semibold text-white group-hover:text-accent-400 transition-colors">
-                  Services
-                </div>
-                <div className="text-sm text-gray-500 mt-1">
-                  See what we build
-                </div>
+              <Link to="/services" className="group rounded-2xl p-4 hover:bg-white/[0.05] transition-colors">
+                <div className="text-xs uppercase tracking-widest text-accent-400 mb-2">01</div>
+                <div className="font-semibold text-white group-hover:text-accent-400 transition-colors">Services</div>
+                <div className="text-sm text-gray-500 mt-1">See what we build</div>
               </Link>
-
-              <Link
-                to="/work"
-                className="group rounded-2xl p-4 hover:bg-white/[0.05] transition-colors"
-              >
-                <div className="text-xs uppercase tracking-widest text-accent-400 mb-2">
-                  02
-                </div>
-                <div className="font-semibold text-white group-hover:text-accent-400 transition-colors">
-                  Our Work
-                </div>
-                <div className="text-sm text-gray-500 mt-1">
-                  See what we have delivered
-                </div>
+              <Link to="/work" className="group rounded-2xl p-4 hover:bg-white/[0.05] transition-colors">
+                <div className="text-xs uppercase tracking-widest text-accent-400 mb-2">02</div>
+                <div className="font-semibold text-white group-hover:text-accent-400 transition-colors">Our Work</div>
+                <div className="text-sm text-gray-500 mt-1">See what we have delivered</div>
               </Link>
-
-              <Link
-                to="/pricing"
-                className="group rounded-2xl p-4 hover:bg-white/[0.05] transition-colors"
-              >
-                <div className="text-xs uppercase tracking-widest text-accent-400 mb-2">
-                  03
-                </div>
-                <div className="font-semibold text-white group-hover:text-accent-400 transition-colors">
-                  Pricing
-                </div>
-                <div className="text-sm text-gray-500 mt-1">
-                  Explore our packages
-                </div>
+              <Link to="/pricing" className="group rounded-2xl p-4 hover:bg-white/[0.05] transition-colors">
+                <div className="text-xs uppercase tracking-widest text-accent-400 mb-2">03</div>
+                <div className="font-semibold text-white group-hover:text-accent-400 transition-colors">Pricing</div>
+                <div className="text-sm text-gray-500 mt-1">Explore our packages</div>
               </Link>
-
-              <Link
-                to="/reviews"
-                className="group rounded-2xl p-4 hover:bg-white/[0.05] transition-colors"
-              >
-                <div className="text-xs uppercase tracking-widest text-accent-400 mb-2">
-                  04
-                </div>
-                <div className="font-semibold text-white group-hover:text-accent-400 transition-colors">
-                  Reviews
-                </div>
-                <div className="text-sm text-gray-500 mt-1">
-                  Hear from our clients
-                </div>
+              <Link to="/reviews" className="group rounded-2xl p-4 hover:bg-white/[0.05] transition-colors">
+                <div className="text-xs uppercase tracking-widest text-accent-400 mb-2">04</div>
+                <div className="font-semibold text-white group-hover:text-accent-400 transition-colors">Reviews</div>
+                <div className="text-sm text-gray-500 mt-1">Hear from our clients</div>
               </Link>
-
-              <Link
-                to="/contact"
-                className="group rounded-2xl p-4 bg-accent-400/10 hover:bg-accent-400/15 transition-colors"
-              >
-                <div className="text-xs uppercase tracking-widest text-accent-400 mb-2">
-                  05
-                </div>
-                <div className="font-semibold text-white group-hover:text-accent-400 transition-colors">
-                  Hire Avelixa
-                </div>
-                <div className="text-sm text-gray-500 mt-1">
-                  Start your project
-                </div>
+              <Link to="/contact" className="group rounded-2xl p-4 bg-accent-400/10 hover:bg-accent-400/15 transition-colors">
+                <div className="text-xs uppercase tracking-widest text-accent-400 mb-2">05</div>
+                <div className="font-semibold text-white group-hover:text-accent-400 transition-colors">Hire Avelixa</div>
+                <div className="text-sm text-gray-500 mt-1">Start your project</div>
               </Link>
             </div>
           </div>
         </div>
 
         <div className="flex justify-center pb-8">
-          <Link
-            to="/services"
-            className="flex flex-col items-center gap-1 text-gray-600 hover:text-accent-400 transition-colors text-xs"
-          >
+          <Link to="/services" className="flex flex-col items-center gap-1 text-gray-600 hover:text-accent-400 transition-colors text-xs">
             <span>Explore services</span>
             <ChevronDown className="w-4 h-4 animate-bounce" />
           </Link>
@@ -303,22 +251,7 @@ export default function Home() {
         <div className="flex gap-12 animate-marquee whitespace-nowrap font-display font-semibold text-gray-500 text-sm uppercase tracking-widest">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="flex gap-12">
-              <span>React</span>
-              <span>•</span>
-              <span>Next.js</span>
-              <span>•</span>
-              <span>Tailwind CSS</span>
-              <span>•</span>
-              <span>SEO</span>
-              <span>•</span>
-              <span>Shopify</span>
-              <span>•</span>
-              <span>WordPress</span>
-              <span>•</span>
-              <span>UI / UX</span>
-              <span>•</span>
-              <span>TypeScript</span>
-              <span>•</span>
+              <span>React</span><span>•</span><span>Next.js</span><span>•</span><span>Tailwind CSS</span><span>•</span><span>SEO</span><span>•</span><span>Shopify</span><span>•</span><span>WordPress</span><span>•</span><span>UI / UX</span><span>•</span><span>TypeScript</span><span>•</span>
             </div>
           ))}
         </div>
