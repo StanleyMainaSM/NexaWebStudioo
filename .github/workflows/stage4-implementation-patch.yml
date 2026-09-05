@@ -1,0 +1,442 @@
+name: Stage 4 implementation patch
+
+on:
+  push:
+    branches:
+      - avelixa-current-work
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.sha == 'd7ce6c3191c462a67d427d752d6b38ded1567e7f'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: avelixa-current-work
+          fetch-depth: 0
+
+      - name: Apply Stage 4 implementation
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          server = Path('server.ts')
+          s = server.read_text()
+
+          marker = '''async function getAuthenticatedUser(req: express.Request) {'''
+          helper = r'''async function hasOwnerPortalAccess(token: string) {
+            const caller = createClient(supabaseUrl!, supabaseSecretKey!, {
+              auth: {
+                autoRefreshToken: false,
+                persistSession: false,
+                detectSessionInUrl: false,
+              },
+              global: {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              },
+            });
+
+            const { data, error } = await caller.rpc('has_portal_access', {
+              p_portal: 'owner',
+            });
+
+            if (error) {
+              console.error('Owner User Management access-gate verification error:', error);
+              return false;
+            }
+
+            return data === true;
+          }
+
+          async function getAuthenticatedUser(req: express.Request) {'''
+          if 'async function hasOwnerPortalAccess(token: string)' not in s:
+              s = s.replace(marker, helper, 1)
+
+          old = '''  const {
+    data: { user },
+    error,
+  } = await supabaseAdmin.auth.getUser(token);
+
+  if (error || !user) {
+    console.error("Authentication error:", error);
+
+    return {
+      user: null,
+      error: "Your session is invalid or has expired.",
+    };
+  }
+
+  return {
+    user,
+    error: null,
+  };'''
+          new = '''  const {
+    data: { user },
+    error,
+  } = await supabaseAdmin.auth.getUser(token);
+
+  if (error || !user) {
+    console.error("Authentication error:", error);
+
+    return {
+      user: null,
+      error: "Your session is invalid or has expired.",
+    };
+  }
+
+  if (req.path.startsWith("/api/owner/users")) {
+    const { data: ownerRole, error: ownerRoleError } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .eq("role", "owner")
+      .maybeSingle();
+
+    if (ownerRoleError) {
+      console.error("Owner User Management role verification error:", ownerRoleError);
+      return {
+        user: null,
+        error: "Unable to verify Owner permissions for User Management.",
+      };
+    }
+
+    if (!ownerRole) {
+      return {
+        user: null,
+        error: "Owner permission is required to manage users.",
+      };
+    }
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("is_active")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("Owner User Management active-state verification error:", profileError);
+      return {
+        user: null,
+        error: "Unable to verify the Owner account state.",
+      };
+    }
+
+    if (profile && profile.is_active === false) {
+      return {
+        user: null,
+        error: "The Owner account is inactive.",
+      };
+    }
+
+    if (!(await hasOwnerPortalAccess(token))) {
+      return {
+        user: null,
+        error: "User Management access is locked. Re-enter the Owner access password.",
+      };
+    }
+  }
+
+  return {
+    user,
+    error: null,
+  };'''
+          if old not in s:
+              raise SystemExit('server.ts authentication block not found')
+          s = s.replace(old, new, 1)
+
+          old_profiles = '''      const {
+        data: profiles,
+        error: profilesError,
+      } = await supabaseAdmin
+        .from("profiles")
+        .select(
+          "id, email, full_name, created_at"
+        );'''
+          new_profiles = '''      const {
+        data: profiles,
+        error: profilesError,
+      } = await supabaseAdmin
+        .from("profiles")
+        .select(
+          "id, email, full_name, created_at, is_active"
+        );'''
+          if old_profiles not in s:
+              raise SystemExit('server.ts profile list block not found')
+          s = s.replace(old_profiles, new_profiles, 1)
+
+          old_user = '''              email_confirmed:
+                Boolean(
+                  authUser.email_confirmed_at
+                ),
+              roles,'''
+          new_user = '''              email_confirmed:
+                Boolean(
+                  authUser.email_confirmed_at
+                ),
+              is_active:
+                profile?.is_active !== false,
+              roles,'''
+          if old_user not in s:
+              raise SystemExit('server.ts user response block not found')
+          s = s.replace(old_user, new_user, 1)
+          server.write_text(s)
+
+          edge = Path('supabase/functions/avelixa-owner-member-status-prod/index.ts')
+          e = edge.read_text()
+          marker = '''    if (!ownerRole) return json({ error: "Owner permission is required to manage members." }, 403);
+
+    const body = await req.json().catch(() => null) as { userId?: unknown; active?: unknown } | null;'''
+          replacement = '''    if (!ownerRole) return json({ error: "Owner permission is required to manage members." }, 403);
+
+    const { data: ownerProfile, error: ownerProfileError } = await admin
+      .from("profiles")
+      .select("is_active")
+      .eq("id", actorId)
+      .maybeSingle();
+    if (ownerProfileError) {
+      console.error("Owner account-state verification failed:", ownerProfileError);
+      return json({ error: "Unable to verify the Owner account state." }, 500);
+    }
+    if (ownerProfile?.is_active === false) return json({ error: "The Owner account is inactive." }, 403);
+
+    const caller = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+      global: { headers: { Authorization: authorization } },
+    });
+    const { data: gateOpen, error: gateError } = await caller.rpc("has_portal_access", { p_portal: "owner" });
+    if (gateError) {
+      console.error("Owner User Management access-gate verification failed:", gateError);
+      return json({ error: "Unable to verify User Management access." }, 500);
+    }
+    if (gateOpen !== true) return json({ error: "User Management access is locked. Re-enter the Owner access password." }, 403);
+
+    const body = await req.json().catch(() => null) as { userId?: unknown; active?: unknown } | null;'''
+          if marker not in e:
+              raise SystemExit('owner member status insertion point not found')
+          e = e.replace(marker, replacement, 1)
+          edge.write_text(e)
+
+          ui = Path('src/pages/portal/OwnerUserManagement.tsx')
+          u = ui.read_text()
+          u = u.replace("import { supabase } from '../../../lib/supabase';", "import { supabase } from '../../../lib/supabase';\nimport { clearPortalAccess, hasPortalAccess, verifyPortalPassword } from '../../../lib/portalAccess';", 1)
+          u = u.replace('  roles: string[];\n}', '  roles: string[];\n  is_active: boolean;\n}', 1)
+          old_verify = '''      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user?.email) {
+        throw new Error(
+          'Your current session could not be verified. Please sign in again.'
+        );
+      }
+
+      /*
+       * Re-authentication is intentionally performed against the
+       * currently signed-in user's email. The password is never
+       * stored by this page.
+       */
+      const { error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: user.email,
+          password,
+        });
+
+      if (signInError) {
+        throw new Error(
+          'The password is incorrect. Please enter the password you used to sign in.'
+        );
+      }
+
+      setPassword('');
+      setAuthenticated(true);'''
+          new_verify = '''      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user?.email) {
+        throw new Error(
+          'Your current session could not be verified. Please sign in again.'
+        );
+      }
+
+      const verified = await verifyPortalPassword('owner', password);
+      if (!verified) {
+        throw new Error(
+          'The Owner User Management access password is incorrect.'
+        );
+      }
+
+      const unlocked = await hasPortalAccess('owner');
+      if (!unlocked) {
+        throw new Error(
+          'User Management access could not be established for this session.'
+        );
+      }
+
+      setPassword('');
+      setAuthenticated(true);'''
+          if old_verify not in u:
+              raise SystemExit('OwnerUserManagement password block not found')
+          u = u.replace(old_verify, new_verify, 1)
+
+          listener = '''  useEffect(() => {
+    let mounted = true;
+
+    async function checkSession() {'''
+          listener_insert = '''  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        setAuthenticated(false);
+        setUsers([]);
+        setPassword('');
+        void clearPortalAccess('owner');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkSession() {'''
+          if listener not in u:
+              raise SystemExit('OwnerUserManagement listener insertion point not found')
+          u = u.replace(listener, listener_insert, 1)
+
+          status_fn = '''  const handleRefresh = async () => {'''
+          status_code = '''  const setMemberActive = async (user: ManagedUser, active: boolean) => {
+    if (user.roles.includes('owner')) {
+      return;
+    }
+
+    const action = active ? 'reactivate' : 'deactivate';
+    const confirmed = window.confirm(
+      `${active ? 'Reactivate' : 'Deactivate'} ${user.full_name || user.email}?`
+    );
+    if (!confirmed) return;
+
+    setActionUserId(user.id);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const token = await getAccessToken();
+      const { data, error: invokeError } = await supabase.functions.invoke(
+        'avelixa-owner-member-status-prod',
+        {
+          body: { userId: user.id, active },
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (invokeError) throw invokeError;
+      if (data?.error) throw new Error(data.error);
+
+      setSuccess(
+        data?.message || `User account ${active ? 'reactivated' : 'deactivated'} successfully.`
+      );
+      await loadUsers(false);
+    } catch (err) {
+      setError(
+        `User could not be ${action}d: ${getErrorMessage(err)}`
+      );
+    } finally {
+      setActionUserId(null);
+    }
+  };
+
+  const handleRefresh = async () => {'''
+          if status_fn not in u:
+              raise SystemExit('OwnerUserManagement refresh insertion point not found')
+          u = u.replace(status_fn, status_code, 1)
+
+          status_col = '''                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+                    Verification
+                  </th>'''
+          status_col_new = '''                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+                    Status
+                  </th>
+
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+                    Verification
+                  </th>'''
+          if status_col not in u:
+              raise SystemExit('OwnerUserManagement status header not found')
+          u = u.replace(status_col, status_col_new, 1)
+
+          status_cell = '''                      <td className="px-6 py-5">
+                        {user.email_confirmed ? ('''
+          status_cell_new = '''                      <td className="px-6 py-5">
+                        {user.is_active ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-red-400">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            Inactive
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-6 py-5">
+                        {user.email_confirmed ? ('''
+          if status_cell not in u:
+              raise SystemExit('OwnerUserManagement status cell not found')
+          u = u.replace(status_cell, status_cell_new, 1)
+
+          delete_btn = '''                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() =>
+                                  handleDeleteUser(
+                                    user
+                                  )
+                                }'''
+          active_btn = '''                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() =>
+                                  void setMemberActive(user, !user.is_active)
+                                }
+                                title={user.is_active ? 'Deactivate user account' : 'Reactivate user account'}
+                                className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${
+                                  user.is_active
+                                    ? 'border-amber-500/20 bg-amber-500/5 text-amber-300 hover:bg-amber-500/10'
+                                    : 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300 hover:bg-emerald-500/10'
+                                }`}
+                              >
+                                {user.is_active ? 'Deactivate' : 'Reactivate'}
+                              </button>
+
+''' + delete_btn
+          if delete_btn not in u:
+              raise SystemExit('OwnerUserManagement delete button not found')
+          u = u.replace(delete_btn, active_btn, 1)
+
+          u = u.replace('please re-enter your Owner\n              account password before continuing.', 'please enter your Owner User Management access\n              password before continuing.', 1)
+          u = u.replace('Owner Password', 'Owner User Management Access Password', 1)
+          u = u.replace('placeholder="Enter your login password"', 'placeholder="Enter your Owner access password"', 1)
+          u = u.replace('Your password is used only to verify your\n                  current Supabase account. It is not stored\n                  by Avelixa or sent to the Avelixa server.', 'Your Owner User Management access password is verified\n                  through Avelixa\'s existing Owner portal access gate. It is not stored\n                  in browser storage or returned to the browser.', 1)
+          u = u.replace('Your Owner password was verified for this session.', 'Your Owner User Management access was verified for this session.', 1)
+          ui.write_text(u)
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add server.ts supabase/functions/avelixa-owner-member-status-prod/index.ts src/pages/portal/OwnerUserManagement.tsx .github/workflows/stage4-implementation-patch.yml
+          git commit -m 'feat: enforce Owner User Management access gate' || exit 0
+          git push origin HEAD:avelixa-current-work
