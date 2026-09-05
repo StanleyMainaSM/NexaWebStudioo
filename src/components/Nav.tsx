@@ -33,17 +33,64 @@ export default function Nav() {
 
   return (
     <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ${scrolled ? 'h-20 bg-ink-950/80 backdrop-blur-xl border-b border-ink-800/50 flex items-center shrink-0' : 'h-20 flex items-center border-b border-transparent shrink-0'}`}>
-      <nav className="w-full max-w-7xl mx-auto px-6 lg:px-12 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3"><img src="/logo.avif" alt="Avelixa" className="w-10 h-10 object-contain" /><span className="text-xl font-medium tracking-tight text-white">Avelixa</span></Link>
-        <div className="hidden md:flex items-center gap-6 lg:gap-10 text-sm font-medium text-ink-600 uppercase tracking-widest">{links.map((l) => <Link key={l.to} to={l.to} className={`cursor-pointer transition-colors ${location.pathname === l.to ? 'text-accent-400' : 'hover:text-accent-400'}`}>{l.label}</Link>)}</div>
-        <div className="hidden md:flex items-center gap-4 lg:gap-6">
-          <Link to="/studio" className="text-accent-400 hover:text-white transition-colors uppercase tracking-widest text-sm font-bold flex items-center gap-2"><Sparkles className="w-4 h-4" />Create a Website</Link>
-          <Link to="/login" className="text-white hover:text-accent-400 transition-colors uppercase tracking-widest text-sm font-medium flex items-center gap-2"><LogIn className="w-4 h-4" />Portal</Link>
-          <a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-5 py-2 bg-zinc-100 text-black rounded-full hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-medium"><MessageCircle className="w-4 h-4" />Start a Project</a>
+      <nav className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 flex items-center gap-4">
+        <Link to="/" className="flex items-center gap-3 shrink-0 whitespace-nowrap">
+          <img src="/logo.avif" alt="Avelixa" className="w-10 h-10 object-contain shrink-0" />
+          <span className="text-xl font-medium tracking-tight text-white">Avelixa</span>
+        </Link>
+
+        <div className="hidden lg:flex min-w-0 flex-1 items-center justify-center gap-4 xl:gap-7 text-sm font-medium text-ink-600 uppercase tracking-widest whitespace-nowrap">
+          {links.map((l) => (
+            <Link key={l.to} to={l.to} className={`cursor-pointer transition-colors ${location.pathname === l.to ? 'text-accent-400' : 'hover:text-accent-400'}`}>
+              {l.label}
+            </Link>
+          ))}
         </div>
-        <button onClick={() => setOpen(!open)} className="md:hidden p-2 text-white" aria-label="Menu">{open ? <X /> : <Menu />}</button>
+
+        <div className="hidden lg:flex items-center gap-3 xl:gap-5 shrink-0 whitespace-nowrap">
+          <Link to="/studio" className="text-accent-400 hover:text-white transition-colors uppercase tracking-widest text-sm font-bold flex items-center gap-2">
+            <Sparkles className="w-4 h-4" />Create a Website
+          </Link>
+          <Link to="/login" className="text-white hover:text-accent-400 transition-colors uppercase tracking-widest text-sm font-medium flex items-center gap-2">
+            <LogIn className="w-4 h-4" />Portal
+          </Link>
+          <a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 xl:px-5 py-2 bg-zinc-100 text-black rounded-full hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-medium">
+            <MessageCircle className="w-4 h-4" />Start a Project
+          </a>
+        </div>
+
+        <button
+          onClick={() => setOpen(!open)}
+          className="lg:hidden ml-auto shrink-0 p-2 text-white"
+          aria-label="Menu"
+          aria-expanded={open}
+          aria-controls="avelixa-mobile-navigation"
+        >
+          {open ? <X /> : <Menu />}
+        </button>
       </nav>
-      {open && <div className="md:hidden absolute top-20 inset-x-0 mx-4 glass rounded-2xl p-4 flex flex-col gap-1">{links.map((l) => <Link key={l.to} to={l.to} className={`px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest ${location.pathname === l.to ? 'text-accent-400 bg-white/5' : 'text-gray-400 hover:bg-white/5'}`}>{l.label}</Link>)}<Link to="/studio" className="mt-2 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-accent-500 text-white hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-bold"><Sparkles className="w-4 h-4" />Create a Website</Link><Link to="/login" className="px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest text-accent-400 bg-accent-400/10">Portal Login</Link><Link to="/connector-apply" className="mt-2 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-zinc-100 text-black hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-bold">Become a Connector</Link><a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-white/10 text-white hover:bg-white/5 transition-colors uppercase tracking-widest text-sm font-medium"><MessageCircle className="w-4 h-4" />Message on WhatsApp</a></div>}
+
+      {open && (
+        <div id="avelixa-mobile-navigation" className="lg:hidden absolute top-20 inset-x-0 mx-4 glass rounded-2xl p-4 flex flex-col gap-1">
+          {links.map((l) => (
+            <Link key={l.to} to={l.to} className={`px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest ${location.pathname === l.to ? 'text-accent-400 bg-white/5' : 'text-gray-400 hover:bg-white/5'}`}>
+              {l.label}
+            </Link>
+          ))}
+          <Link to="/studio" className="mt-2 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-accent-500 text-white hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-bold">
+            <Sparkles className="w-4 h-4" />Create a Website
+          </Link>
+          <Link to="/login" className="px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest text-accent-400 bg-accent-400/10">
+            Portal Login
+          </Link>
+          <Link to="/connector-apply" className="mt-2 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-zinc-100 text-black hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-bold">
+            Become a Connector
+          </Link>
+          <a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-white/10 text-white hover:bg-white/5 transition-colors uppercase tracking-widest text-sm font-medium">
+            <MessageCircle className="w-4 h-4" />Message on WhatsApp
+          </a>
+        </div>
+      )}
     </header>
   );
 }
