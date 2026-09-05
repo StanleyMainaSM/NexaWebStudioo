@@ -5,9 +5,10 @@ import test from 'node:test';
 
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
+const migrationPath = 'supabase/migrations/20260905150100_portal_access_control.sql';
 
 test('portal access has one centralized server-enforced database mechanism for all five portals', () => {
-  const sql = read('supabase/migrations/20260905150000_portal_access_control.sql');
+  const sql = read(migrationPath);
   for (const portal of ['client', 'operator', 'connector', 'admin', 'owner']) assert.match(sql, new RegExp(`'${portal}'`));
   assert.match(sql, /private\.portal_access_passwords/);
   assert.match(sql, /private\.portal_access_unlocks/);
@@ -18,7 +19,7 @@ test('portal access has one centralized server-enforced database mechanism for a
 });
 
 test('portal access never exposes hashes or passwords and is not stored in browser storage', () => {
-  const sql = read('supabase/migrations/20260905150000_portal_access_control.sql');
+  const sql = read(migrationPath);
   const route = read('src/components/portal/ProtectedRoute.tsx');
   const access = read('src/lib/portalAccess.ts');
   assert.doesNotMatch(sql, /returning[\s\S]*password_hash/i);
@@ -39,7 +40,7 @@ test('portal routing keeps existing Supabase Auth and role authorization before 
 
 test('logout remains Supabase-session based so server-side session termination invalidates the unlock', () => {
   const layout = read('src/pages/portal/PortalLayout.tsx');
-  const sql = read('supabase/migrations/20260905150000_portal_access_control.sql');
+  const sql = read(migrationPath);
   assert.match(layout, /supabase\.auth\.signOut\(\)/);
   assert.match(sql, /auth\.sessions/);
   assert.match(sql, /s\.id = v_session_id/);
@@ -47,7 +48,7 @@ test('logout remains Supabase-session based so server-side session termination i
 });
 
 test('portal passwords are session-bound rather than indefinite browser unlocks', () => {
-  const sql = read('supabase/migrations/20260905150000_portal_access_control.sql');
+  const sql = read(migrationPath);
   assert.match(sql, /session_id uuid not null/i);
   assert.match(sql, /auth\.jwt\(\) ->> 'session_id'/);
   assert.match(sql, /expires_at timestamptz not null/i);
