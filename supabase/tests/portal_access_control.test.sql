@@ -21,15 +21,13 @@ begin
   return v_id;
 end $$;
 
-select pg_temp.make_user('owner','avelixa-portal-owner@example.test');
 select pg_temp.make_user('client','avelixa-portal-client@example.test');
 select pg_temp.make_user('connector','avelixa-portal-connector@example.test');
 select pg_temp.make_user('operator','avelixa-portal-operator@example.test');
 select pg_temp.make_user('admin','avelixa-portal-admin@example.test');
 
 insert into public.user_roles(user_id,role)
-select id,'owner' from t_portal_ids where name='owner'
-union all select id,'client' from t_portal_ids where name='client'
+select id,'client' from t_portal_ids where name='client'
 union all select id,'connector' from t_portal_ids where name='connector'
 union all select id,'operator' from t_portal_ids where name='operator'
 union all select id,'admin' from t_portal_ids where name='admin'
@@ -38,13 +36,13 @@ on conflict (user_id, role) do nothing;
 insert into auth.sessions(id,user_id,created_at,updated_at,aal,not_after)
 select gen_random_uuid(),id,now(),now(),'aal1',now()+interval '1 hour' from t_portal_ids;
 
-select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='owner')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='owner')) )::text,true);
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='admin')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='admin')) )::text,true);
 set local role authenticated;
-select lives_ok($$select private.set_portal_access_password('client','Client-Portal-Password-123!')$$,'Authorized Owner can configure a portal password');
-select lives_ok($$select private.set_portal_access_password('operator','Operator-Portal-Password-123!')$$,'Authorized Owner can configure another portal password');
-select lives_ok($$select private.set_portal_access_password('connector','Connector-Portal-Password-123!')$$,'Authorized Owner can configure Connector password');
-select lives_ok($$select private.set_portal_access_password('admin','Admin-Portal-Password-123!')$$,'Authorized Owner can configure Admin password');
-select lives_ok($$select private.set_portal_access_password('owner','Owner-Portal-Password-123!')$$,'Authorized Owner can configure Owner password');
+select lives_ok($$select private.set_portal_access_password('client','Client-Portal-Password-123!')$$,'Authorized Admin can configure a portal password');
+select lives_ok($$select private.set_portal_access_password('operator','Operator-Portal-Password-123!')$$,'Authorized Admin can configure another portal password');
+select lives_ok($$select private.set_portal_access_password('connector','Connector-Portal-Password-123!')$$,'Authorized Admin can configure Connector password');
+select lives_ok($$select private.set_portal_access_password('admin','Admin-Portal-Password-123!')$$,'Authorized Admin can configure Admin password');
+select lives_ok($$select private.set_portal_access_password('owner','Owner-Portal-Password-123!')$$,'Authorized Admin can configure Owner password without gaining Owner role');
 reset role;
 
 select is((select count(*)::bigint from private.portal_access_passwords where password_hash like 'Client-Portal-Password-123!'),0::bigint,'Plaintext Client portal password is never stored');
