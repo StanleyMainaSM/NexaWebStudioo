@@ -21,17 +21,27 @@ test('Connector notification presentation preserves supported notification routi
     const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const escapedLink = link.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const escapedCategory = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const casePattern = new RegExp(
-      `notification_type\\s*===\\s*["']${escapedType}["'][\\s\\S]*?label:\\s*["']${escapedLabel}["'][\\s\\S]*?link:\\s*["']${escapedLink}["'][\\s\\S]*?category:\\s*["']${escapedCategory}["']`,
+
+    const mappingPattern = new RegExp(
+      `${escapedType}\\s*:\\s*\\{[\\s\\S]*?label:\\s*["']${escapedLabel}["'][\\s\\S]*?category:\\s*["']${escapedCategory}["']`,
     );
-    assert.match(source, casePattern, `Notification mapping must remain intact for ${type}`);
+    assert.match(source, mappingPattern, `Centralized notification mapping must remain intact for ${type}`);
+
+    const defaultLinkPattern = new RegExp(
+      `${escapedCategory}\\s*:\\s*["']${escapedLink}["']`,
+    );
+    assert.match(source, defaultLinkPattern, `Default notification link must remain intact for ${type}`);
   }
 });
 
 test('Unknown Connector notifications retain the safe system fallback', () => {
-  assert.match(source, /title\s*\?\?\s*["']Avelixa announcement["']/);
-  assert.match(source, /link:\s*["']\/portal\/activity["']/);
+  assert.match(source, /notification\.title\?\.trim\(\)\s*\|\|\s*["']Avelixa update["']/);
+  assert.match(source, /system:\s*["']\/portal\/activity["']/);
   assert.match(source, /category:\s*["']system["']/);
+});
+
+test('Unknown Connector notifications preserve provided non-empty titles', () => {
+  assert.match(source, /notification\.title\?\.trim\(\)\s*\|\|/);
 });
 
 test('Connector activation notification does not expose activation URLs or credentials', () => {
