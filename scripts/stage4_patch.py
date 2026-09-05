@@ -1,4 +1,5 @@
 # Stage 4 patch helper: applies the server-enforced Owner User Management gate in CI.
+# The helper is intentionally idempotent and fails closed on unexpected source drift.
 from pathlib import Path
 import re
 import subprocess
