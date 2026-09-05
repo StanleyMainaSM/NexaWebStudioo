@@ -1,5 +1,5 @@
 begin;
-select plan(10);
+select plan(13);
 
 select has_trigger('public','creation_projects','protect_creation_project_relationships','Creation project ownership references are protected by trigger');
 select ok(pg_get_functiondef('public.create_creation_project(text,text,uuid,uuid,uuid,uuid,uuid,jsonb,text[])'::regprocedure) ilike '%Project reference access denied%','Creation project creation validates non-owner project references');
