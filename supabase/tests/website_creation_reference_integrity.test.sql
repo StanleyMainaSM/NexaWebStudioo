@@ -69,4 +69,5 @@ select lives_ok($$select public.create_creation_project(p_type=>'website',p_titl
 select is((select count(*)::bigint from public.creation_projects where client_id=auth.uid()),1::bigint,'Own project creation is stored under the authenticated Client');
 select throws_ok($$update public.creation_projects set client_id=(select id from public.profiles where email='creation-client-b@example.test') where client_id=auth.uid()$$,NULL,'Creation project access fields are protected','Client cannot transfer creation ownership');
 
+select * from finish();
 rollback;
