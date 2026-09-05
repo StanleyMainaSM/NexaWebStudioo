@@ -6,13 +6,15 @@ import test from 'node:test';
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
-test('owner role mutation uses a real database conflict target', () => {
+test('owner role mutation uses a real database conflict target and permanent deletion has separate Owner controls', () => {
   const sql = read('supabase/migrations/20260903092000_harden_connector_onboarding_and_owner_roles.sql');
   const server = read('server.ts');
   assert.match(sql, /create unique index if not exists user_roles_user_id_role_unique/i);
   assert.match(sql, /on public\.user_roles \(user_id, role\)/i);
   assert.match(server, /onConflict:\s*"user_id,role"/);
-  assert.doesNotMatch(server, /app\.delete\(\s*\"\/api\/owner\/users\/:id\"/s);
+  assert.match(server, /app\.delete\(\s*"\/api\/owner\/users\/\:id"/s);
+  assert.match(server, /isOwner\(ownerUser\.id\)/);
+  assert.match(server, /auth\.admin\.deleteUser\(targetUserId\)/);
 });
 
 test('connector activation resend is Admin/Owner-only and does not persist its bearer URL', () => {
