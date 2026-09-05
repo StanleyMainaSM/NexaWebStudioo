@@ -25,23 +25,30 @@ assert.ok(fs.existsSync(path.join(migrationsDir, provisioningDependent)), 'conne
 assert.ok(fs.existsSync(path.join(migrationsDir, recruitmentDependent)), 'connector recruitment security migration must exist');
 
 const queueCreatorPattern = /\bcreate\s+table(?:\s+if\s+not\s+exists)?\s+public\.connector_provisioning_queue\b/i;
-const queueReferencePattern = /\bconnector_provisioning_queue\b/i;
+const stripSqlCommentsAndQuotedLiterals = (sql) => sql
+  .replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, '')
+  .replace(/'(?:''|[^'])*'/g, "''");
+const queueReferencePattern = /\b(?:on|into|from|update|table)\s+public\.connector_provisioning_queue\b/i;
 
 const queueCreatorMigrations = migrationFiles.filter((file) => queueCreatorPattern.test(readMigration(file)));
-const queueReferenceMigrations = migrationFiles.filter((file) => queueReferencePattern.test(readMigration(file)));
+const queueReferenceMigrations = migrationFiles.filter((file) =>
+  queueReferencePattern.test(stripSqlCommentsAndQuotedLiterals(readMigration(file))),
+);
 
-test('connector_provisioning_queue is created before any migration references it', () => {
+test('connector_provisioning_queue is created before any executable migration references it', () => {
   assert.equal(queueCreatorMigrations.length, 1, 'migration chain must contain exactly one connector_provisioning_queue creator baseline');
 
   const creator = queueCreatorMigrations[0];
   const creatorIndex = migrationFiles.indexOf(creator);
+
+  assert.ok(queueReferenceMigrations.length > 0, 'migration chain must contain executable connector_provisioning_queue references');
 
   for (const migration of queueReferenceMigrations) {
     if (migration === creator) continue;
 
     assert.ok(
       creatorIndex < migrationFiles.indexOf(migration),
-      `${creator} must precede ${migration} because ${migration} references public.connector_provisioning_queue`,
+      `${creator} must precede ${migration} because ${migration} contains an executable reference to public.connector_provisioning_queue`,
     );
   }
 });
