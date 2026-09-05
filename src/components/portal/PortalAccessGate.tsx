@@ -1,4 +1,5 @@
-import { FormEvent, ReactNode, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { AlertCircle, KeyRound, Loader2, LockKeyhole } from 'lucide-react';
 import { hasPortalAccess, verifyPortalPassword, type PortalAccessKey } from '../../lib/portalAccess';
 
