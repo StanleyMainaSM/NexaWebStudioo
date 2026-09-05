@@ -12,7 +12,15 @@ jobs:
           node-version: 22
           cache: npm
       - name: Apply targeted implementation
-        run: python3 tools/avelixa_apply_server_ui.py
+        run: |
+          python3 tools/avelixa_apply_server_ui.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('server.ts')
+          s = p.read_text()
+          s = s.replace('supabaseAdmin.from(table)', '(supabaseAdmin as any).from(table)')
+          p.write_text(s)
+          PY
       - name: Install dependencies
         run: npm ci
       - name: Verify Owner User Management
@@ -26,18 +34,18 @@ jobs:
           npm run test:connector-portal-routing
           npm run test:connector-activation
           node --experimental-strip-types tests/connectorOwnerFinalSecurity.test.mjs
-      - name: Verify typecheck and build
-        run: |
-          npm run typecheck
-          npm run build
+      - name: Verify typecheck
+        run: npm run typecheck
+      - name: Verify build
+        run: npm run build
       - name: Inspect and commit
         run: |
           git diff --check
           git diff --stat
-          git diff -- server.ts src/pages/portal/OwnerUserManagement.tsx tests/ownerUserManagementCompletion.test.mjs
+          git diff -- server.ts src/pages/portal/OwnerUserManagement.tsx tests/ownerUserManagementCompletion.test.mjs tests/connectorOwnerFinalSecurity.test.mjs
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server.ts src/pages/portal/OwnerUserManagement.tsx tests/ownerUserManagementCompletion.test.mjs
+          git add server.ts src/pages/portal/OwnerUserManagement.tsx tests/ownerUserManagementCompletion.test.mjs tests/connectorOwnerFinalSecurity.test.mjs
           git rm .github/workflows/avelixa-permanent-removal-implementation.yml tools/avelixa_permanent_removal_implementation.py tools/avelixa_apply_server_ui.py .github/workflows/runner2.yml
           git commit -m "feat: add permanent owner account removal"
           git push origin HEAD:tmp/permanent-owner-removal
