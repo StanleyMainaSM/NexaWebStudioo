@@ -15,7 +15,7 @@ assert.match(themeSource, /DEFAULT_THEME:\s*Theme\s*=\s*'light'/, 'Light must be
 assert.match(themeSource, /localStorage\.getItem\(THEME_STORAGE_KEY\)/, 'Theme should restore persisted preference.');
 assert.match(themeSource, /localStorage\.setItem\(THEME_STORAGE_KEY, theme\)/, 'Theme should persist the selected preference.');
 assert.match(themeSource, /root\.dataset\.theme\s*=\s*theme/, 'Theme state should be applied centrally to the document root.');
-assert.match(themeSource, /theme === 'light' \? 'dark' : 'light'/, 'Theme toggle must switch between Light and Dark.');
+assert.match(themeSource, /current === 'light' \? 'dark' : 'light'/, 'Theme toggle must switch between Light and Dark.');
 assert.match(mainSource, /<ThemeProvider>/, 'The application must use the centralized ThemeProvider.');
 assert.match(mainSource, /<ThemeToggle \/>/, 'A shared theme toggle must be mounted globally.');
 assert.match(htmlSource, /avelixa-theme/, 'The pre-React bootstrap must restore the theme preference.');
