@@ -11,6 +11,7 @@ const financeRecordsMigrationPath = path.join(root, 'supabase', 'migrations', '2
 const financeAccountsMigrationPath = path.join(root, 'supabase', 'migrations', '20260829169997_create_finance_accounts_baseline.sql');
 const paymentColumnMigrationPath = path.join(root, 'supabase', 'migrations', '20260829169998_restore_payment_reconciliation_columns.sql');
 const projectColumnMigrationPath = path.join(root, 'supabase', 'migrations', '20260829169999_restore_project_operator_payment_columns.sql');
+const recurringBillingBaselinePath = path.join(root, 'supabase', 'migrations', '20260829169993_create_recurring_services_baseline.sql');
 
 assert.ok(fs.existsSync(migrationPath), 'Suit & Wear transaction migration must exist');
 assert.ok(fs.existsSync(payoutColumnMigrationPath), 'payout reconciliation column migration must exist');
@@ -20,6 +21,7 @@ assert.ok(fs.existsSync(financeTransactionsMigrationPath), 'finance transactions
 assert.ok(fs.existsSync(financeAccountsMigrationPath), 'finance accounts baseline migration must exist');
 assert.ok(fs.existsSync(paymentColumnMigrationPath), 'payment reconciliation column migration must exist');
 assert.ok(fs.existsSync(projectColumnMigrationPath), 'project operator payment column migration must exist');
+assert.ok(fs.existsSync(recurringBillingBaselinePath), 'recurring billing baseline migration must exist');
 
 const migration = fs.readFileSync(migrationPath, 'utf8');
 const payoutColumnMigration = fs.readFileSync(payoutColumnMigrationPath, 'utf8');
@@ -29,6 +31,7 @@ const financeTransactionsMigration = fs.readFileSync(financeTransactionsMigratio
 const financeAccountsMigration = fs.readFileSync(financeAccountsMigrationPath, 'utf8');
 const paymentColumnMigration = fs.readFileSync(paymentColumnMigrationPath, 'utf8');
 const projectColumnMigration = fs.readFileSync(projectColumnMigrationPath, 'utf8');
+const recurringBillingBaseline = fs.readFileSync(recurringBillingBaselinePath, 'utf8');
 
 assert.match(migration, /IF NOT EXISTS \(\s*SELECT 1\s+FROM public\.profiles[\s\S]*?WHERE id = v_connector[\s\S]*?\) THEN\s+RETURN;\s+END IF;/i, 'migration must exit cleanly on a fresh database when the production connector profile is absent');
 assert.match(migration, /IF NOT EXISTS \([\s\S]*?FROM public\.user_roles[\s\S]*?role = 'connector'[\s\S]*?\) THEN\s+RAISE EXCEPTION 'Expected Suit & Wear connector role is missing'/i, 'existing production-data role validation must remain present once the connector profile exists');
@@ -47,11 +50,17 @@ for (const column of ['payment_method', 'reference_number', 'verification_messag
 for (const column of ['operator_payment_status', 'operator_paid_at', 'operator_payment_method', 'operator_payment_reference', 'operator_payment_verification']) {
   assert.match(projectColumnMigration, new RegExp(`ADD COLUMN IF NOT EXISTS ${column}\\b`, 'i'), `project operator payment column ${column} must be restored before finance reconciliation`);
 }
+for (const column of ['recurring_service_id', 'billing_period_start', 'billing_period_end']) {
+  assert.match(recurringBillingBaseline, new RegExp(`ADD COLUMN IF NOT EXISTS ${column}\\b`, 'i'), `invoice recurring billing column ${column} must be restored before maintenance payment reconciliation`);
+}
+assert.match(recurringBillingBaseline, /invoices_recurring_service_id_fkey/i, 'invoice recurring-service foreign key must be restored');
+assert.match(recurringBillingBaseline, /idx_invoices_recurring_service/i, 'invoice recurring-service index must be restored');
 assert.ok(
   '20260829149998_restore_payout_reconciliation_columns.sql' < '20260829149999_restore_commission_reconciliation_columns.sql'
     && '20260829149999_restore_commission_reconciliation_columns.sql' < '20260829150000_connect_suit_wear_transaction.sql'
     && '20260829150000_connect_suit_wear_transaction.sql' < '20260829150001_owner_connector_commission_management.sql'
-    && '20260829150001_owner_connector_commission_management.sql' < '20260829169995_create_financial_records_baseline.sql'
+    && '20260829150001_owner_connector_commission_management.sql' < '20260829169993_create_recurring_services_baseline.sql'
+    && '20260829169993_create_recurring_services_baseline.sql' < '20260829169995_create_financial_records_baseline.sql'
     && '20260829169995_create_financial_records_baseline.sql' < '20260829169996_create_finance_transactions_baseline.sql'
     && '20260829169996_create_finance_transactions_baseline.sql' < '20260829169997_create_finance_accounts_baseline.sql'
     && '20260829169997_create_finance_accounts_baseline.sql' < '20260829169998_restore_payment_reconciliation_columns.sql'
