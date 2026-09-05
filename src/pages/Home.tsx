@@ -20,7 +20,7 @@ const highlights = [
 
 export default function Home() {
   return (
-    <section className="relative min-h-screen flex flex-col overflow-hidden">
+    <section className="relative min-h-screen flex flex-col overflow-hidden page-tint">
       {/* Hero image banner */}
       <div className="relative w-full h-[30vh] min-h-[240px] overflow-hidden">
         <img
@@ -28,7 +28,7 @@ export default function Home() {
           alt="Professional web development workspace"
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-ink-950/85 via-ink-950/65 to-ink-950" />
+        <div className="hero-image-overlay absolute inset-0 bg-gradient-to-b from-ink-950/85 via-ink-950/65 to-ink-950" />
         <div className="absolute inset-0 grid-bg opacity-10" />
       </div>
 
@@ -66,7 +66,7 @@ export default function Home() {
                 href={DEFAULT_WA}
                 target="_blank"
                 rel="noreferrer"
-                className="group inline-flex items-center gap-2.5 px-7 py-4 rounded-full bg-zinc-100 text-black hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-medium"
+                className="light-primary-button group inline-flex items-center gap-2.5 px-7 py-4 rounded-full bg-zinc-100 text-black hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-medium"
               >
                 <MessageCircle className="w-5 h-5" />
                 Hire Avelixa
@@ -127,7 +127,7 @@ export default function Home() {
                 <img
                   src="https://images.pexels.com/photos/196644/pexels-photo-196644.jpeg?auto=compress&cs=tinysrgb&w=700"
                   alt="Professional website displayed on a laptop"
-                  className="w-full h-52 object-cover opacity-70"
+                  className="w-full h-52 object-cover"
                 />
 
                 <div className="p-5 space-y-4">
@@ -326,4 +326,3 @@ export default function Home() {
     </section>
   );
 }
-
