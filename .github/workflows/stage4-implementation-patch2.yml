@@ -6,7 +6,7 @@ permissions:
   contents: write
 jobs:
   patch:
-    if: github.sha == '8577facc9b2b4a543b4b7692cc6ec70637b609e0'
+    if: ${{ !contains(github.event.head_commit.message, 'feat: enforce Owner User Management access gate') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,9 +23,7 @@ jobs:
               if old not in s: raise SystemExit(f'pattern not found: {path}')
               p.write_text(s.replace(old,new,1))
 
-          replace('server.ts',
-            'async function getAuthenticatedUser(req: express.Request) {',
-            '''async function hasOwnerPortalAccess(token: string) {
+          replace('server.ts','async function getAuthenticatedUser(req: express.Request) {','''async function hasOwnerPortalAccess(token: string) {
             const caller = createClient(supabaseUrl!, supabaseSecretKey!, { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
             const { data, error } = await caller.rpc('has_portal_access', { p_portal: 'owner' });
             if (error) { console.error('Owner User Management access-gate verification error:', error); return false; }
@@ -33,12 +31,10 @@ jobs:
           }
 
           async function getAuthenticatedUser(req: express.Request) {''')
-          replace('server.ts',
-            '''  return {
+          replace('server.ts','''  return {
     user,
     error: null,
-  };''',
-            '''  if (req.path.startsWith("/api/owner/users")) {
+  };''','''  if (req.path.startsWith("/api/owner/users")) {
     const { data: ownerRole, error: ownerRoleError } = await supabaseAdmin.from("user_roles").select("user_id").eq("user_id", user.id).eq("role", "owner").maybeSingle();
     if (ownerRoleError || !ownerRole) return { user: null, error: ownerRoleError ? "Unable to verify Owner permissions for User Management." : "Owner permission is required to manage users." };
     const { data: profile, error: profileError } = await supabaseAdmin.from("profiles").select("is_active").eq("id", user.id).maybeSingle();
@@ -51,12 +47,12 @@ jobs:
     user,
     error: null,
   };''')
-          replace('server.ts', '"id, email, full_name, created_at"', '"id, email, full_name, created_at, is_active"')
-          replace('server.ts', '''              email_confirmed:
+          replace('server.ts','"id, email, full_name, created_at"','"id, email, full_name, created_at, is_active"')
+          replace('server.ts','''              email_confirmed:
                 Boolean(
                   authUser.email_confirmed_at
                 ),
-              roles,''', '''              email_confirmed:
+              roles,''','''              email_confirmed:
                 Boolean(
                   authUser.email_confirmed_at
                 ),
@@ -64,9 +60,7 @@ jobs:
                 profile?.is_active !== false,
               roles,''')
 
-          replace('supabase/functions/avelixa-owner-member-status-prod/index.ts',
-            '    if (!ownerRole) return json({ error: "Owner permission is required to manage members." }, 403);\n\n',
-            '''    if (!ownerRole) return json({ error: "Owner permission is required to manage members." }, 403);
+          replace('supabase/functions/avelixa-owner-member-status-prod/index.ts','    if (!ownerRole) return json({ error: "Owner permission is required to manage members." }, 403);\n\n','''    if (!ownerRole) return json({ error: "Owner permission is required to manage members." }, 403);
 
     const { data: ownerProfile, error: ownerProfileError } = await admin.from("profiles").select("is_active").eq("id", actorId).maybeSingle();
     if (ownerProfileError) return json({ error: "Unable to verify the Owner account state." }, 500);
@@ -119,11 +113,8 @@ jobs:
           s=s.replace('Re-enter your current Owner account password to manage users.', 'Enter your Owner User Management access password to manage users.',1)
           s=s.replace('placeholder="Enter your login password"','placeholder="Enter your Owner access password"',1)
           u.write_text(s)
-
-          for f in ['.github/workflows/stage4-implementation-patch.yml','.github/workflows/stage4-implementation-patch2.yml']:
-              p=Path(f)
-              if p.exists(): p.unlink()
           PY
+          rm -f .github/workflows/stage4-implementation-patch.yml .github/workflows/stage4-implementation-patch2.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add server.ts supabase/functions/avelixa-owner-member-status-prod/index.ts src/pages/portal/OwnerUserManagement.tsx .github/workflows/stage4-implementation-patch.yml .github/workflows/stage4-implementation-patch2.yml
