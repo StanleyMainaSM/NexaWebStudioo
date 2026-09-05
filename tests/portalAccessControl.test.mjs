@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import test from 'node:test';
+
+const root = process.cwd();
+const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
+
+test('portal access has one centralized server-enforced database mechanism for all five portals', () => {
+  const sql = read('supabase/migrations/20260905150000_portal_access_control.sql');
+  for (const portal of ['client', 'operator', 'connector', 'admin', 'owner']) assert.match(sql, new RegExp(`'${portal}'`));
+  assert.match(sql, /private\.portal_access_passwords/);
+  assert.match(sql, /private\.portal_access_unlocks/);
+  assert.match(sql, /private\.verify_portal_access_password\(p_portal text, p_password text\)/);
+  assert.match(sql, /private\.has_portal_access\(p_portal text\)/);
+  assert.match(sql, /crypt\(p_password, gen_salt\('bf'\)\)/i);
+  assert.match(sql, /crypt\(p_password, v_password_hash\) = v_password_hash/i);
+});
+
+test('portal access never exposes hashes or passwords and is not stored in browser storage', () => {
+  const sql = read('supabase/migrations/20260905150000_portal_access_control.sql');
+  const route = read('src/components/portal/ProtectedRoute.tsx');
+  const access = read('src/lib/portalAccess.ts');
+  assert.doesNotMatch(sql, /returning[\s\S]*password_hash/i);
+  assert.doesNotMatch(access, /localStorage|sessionStorage/);
+  assert.match(access, /verify_portal_access_password/);
+  assert.match(access, /has_portal_access/);
+  assert.match(route, /hasPortalAccess/);
+});
+
+test('portal routing keeps existing Supabase Auth and role authorization before the access gate', () => {
+  const route = read('src/components/portal/ProtectedRoute.tsx');
+  assert.match(route, /const \{ user, loading, roles, rolesLoading/);
+  assert.match(route, /if \(!user\)/);
+  assert.match(route, /hasRequiredRole/);
+  assert.match(route, /hasPortalAccess/);
+  assert.match(route, /requiredRoles/);
+});
+
+test('logout clears the centralized portal unlock state', () => {
+  const auth = read('src/lib/auth.tsx');
+  const layout = read('src/pages/portal/PortalLayout.tsx');
+  assert.match(auth, /clearPortalAccess/);
+  assert.match(layout, /clearPortalAccess/);
+  assert.match(layout, /supabase\.auth\.signOut\(\)/);
+});
+
+test('portal passwords are session-bound rather than indefinite browser unlocks', () => {
+  const sql = read('supabase/migrations/20260905150000_portal_access_control.sql');
+  assert.match(sql, /session_id uuid NOT NULL/);
+  assert.match(sql, /auth\.jwt\(\) ->> 'session_id'/);
+  assert.match(sql, /expires_at timestamptz NOT NULL/);
+  assert.match(sql, /auth\.sessions/);
+});
+
+console.log('portalAccessControl.test.mjs: PASS');
