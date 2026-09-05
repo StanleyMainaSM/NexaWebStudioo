@@ -44,7 +44,7 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = pg_catalog, public, private, pg_temp
+set search_path = pg_catalog, public, private, extensions, pg_temp
 as $$
   select exists (
     select 1
@@ -58,7 +58,7 @@ create or replace function private.set_portal_access_password(p_portal text, p_p
 returns boolean
 language plpgsql
 security definer
-set search_path = pg_catalog, public, private, pg_temp
+set search_path = pg_catalog, public, private, extensions, pg_temp
 as $$
 declare
   v_portal text := lower(trim(p_portal));
@@ -104,7 +104,7 @@ create or replace function private.verify_portal_access_password(p_portal text, 
 returns boolean
 language plpgsql
 security definer
-set search_path = pg_catalog, public, private, pg_temp
+set search_path = pg_catalog, public, private, extensions, pg_temp
 as $$
 declare
   v_portal text := lower(trim(p_portal));
@@ -164,7 +164,7 @@ create or replace function private.has_portal_access(p_portal text)
 returns boolean
 language plpgsql
 security definer
-set search_path = pg_catalog, public, private, pg_temp
+set search_path = pg_catalog, public, private, extensions, pg_temp
 as $$
 declare
   v_portal text := lower(trim(p_portal));
@@ -217,7 +217,7 @@ create or replace function private.clear_portal_access(p_portal text default nul
 returns boolean
 language plpgsql
 security definer
-set search_path = pg_catalog, public, private, pg_temp
+set search_path = pg_catalog, public, private, extensions, pg_temp
 as $$
 declare
   v_user_id uuid := auth.uid();
@@ -254,7 +254,7 @@ create or replace function public.verify_portal_access_password(p_portal text, p
 returns boolean
 language sql
 security definer
-set search_path = pg_catalog, public, private, pg_temp
+set search_path = pg_catalog, public, private, extensions, pg_temp
 as $$
   select private.verify_portal_access_password(p_portal, p_password);
 $$;
@@ -263,7 +263,7 @@ create or replace function public.has_portal_access(p_portal text)
 returns boolean
 language sql
 security definer
-set search_path = pg_catalog, public, private, pg_temp
+set search_path = pg_catalog, public, private, extensions, pg_temp
 as $$
   select private.has_portal_access(p_portal);
 $$;
@@ -272,7 +272,7 @@ create or replace function public.clear_portal_access(p_portal text default null
 returns boolean
 language sql
 security definer
-set search_path = pg_catalog, public, private, pg_temp
+set search_path = pg_catalog, public, private, extensions, pg_temp
 as $$
   select private.clear_portal_access(p_portal);
 $$;
@@ -281,7 +281,7 @@ create or replace function public.set_portal_access_password(p_portal text, p_pa
 returns boolean
 language sql
 security definer
-set search_path = pg_catalog, public, private, pg_temp
+set search_path = pg_catalog, public, private, extensions, pg_temp
 as $$
   select private.set_portal_access_password(p_portal, p_password);
 $$;
