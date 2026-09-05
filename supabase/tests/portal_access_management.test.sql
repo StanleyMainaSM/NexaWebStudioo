@@ -29,8 +29,16 @@ set local role authenticated;
 select is((select count(*) from public.get_portal_access_status()),5::bigint,'Owner can see status for all five portals');
 select is(public.set_portal_access_password('client','Stage3-Old-Password-123!'),true,'Owner can configure a portal password');
 select is(public.set_portal_access_password('client','Stage3-New-Password-456!'),true,'Owner can change an existing portal password');
+reset role;
+
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_stage3_users where name='client')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_stage3_users where name='client')) )::text,true);
+set local role authenticated;
 select is(public.verify_portal_access_password('client','Stage3-Old-Password-123!'),false,'Old portal password stops working after change');
 select is(public.verify_portal_access_password('client','Stage3-New-Password-456!'),true,'New portal password works after change');
+reset role;
+
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_stage3_users where name='owner')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_stage3_users where name='owner')) )::text,true);
+set local role authenticated;
 select is((select count(*) from public.get_portal_access_status() where portal='client' and configured),1::bigint,'Configured state is reported without exposing the password');
 reset role;
 
