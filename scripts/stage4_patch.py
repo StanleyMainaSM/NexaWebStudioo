@@ -112,8 +112,12 @@ s, count = re.subn(verify_pattern, verify_replacement, s, count=1)
 if count != 1:
     raise SystemExit("regex pattern not found: OwnerUserManagement verify block")
 ui.write_text(s)
-replace("src/pages/portal/OwnerUserManagement.tsx", "setVerified(sessionStorage.getItem(`avelixa_owner_user_management_verified:${user.id}`) === 'true');", "setVerified(await hasPortalAccess('owner'));")
-regex_replace("src/pages/portal/OwnerUserManagement.tsx", r"  useEffect\(\(\) => \{\n    let mounted = true;", """  useEffect(() => {
+s = ui.read_text()
+if "sessionStorage.getItem(`avelixa_owner_user_management_verified:${user.id}`)" in s:
+    s = s.replace("setVerified(sessionStorage.getItem(`avelixa_owner_user_management_verified:${user.id}`) === 'true');", "setVerified(await hasPortalAccess('owner'));")
+ui.write_text(s)
+if "clearPortalAccess('owner')" not in s:
+    regex_replace("src/pages/portal/OwnerUserManagement.tsx", r"  useEffect\(\(\) => \{\n    let mounted = true;", """  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
         setVerified(false);
@@ -127,8 +131,10 @@ regex_replace("src/pages/portal/OwnerUserManagement.tsx", r"  useEffect\(\(\) =>
 
   useEffect(() => {
     let mounted = true;""")
-replace("src/pages/portal/OwnerUserManagement.tsx", "Re-enter your current Owner account password to manage users.", "Enter your Owner User Management access password to manage users.")
-replace("src/pages/portal/OwnerUserManagement.tsx", 'placeholder="Enter your login password"', 'placeholder="Enter your Owner access password"')
+s = ui.read_text()
+s = s.replace('Re-enter your current Owner account password to manage users.', 'Enter your Owner User Management access password to manage users.')
+s = s.replace('placeholder="Enter your login password"', 'placeholder="Enter your Owner access password"')
+ui.write_text(s)
 
 for f in [".github/workflows/stage4-implementation-patch.yml", ".github/workflows/stage4-implementation-patch2.yml", "docs/.stage4-trigger"]:
     p = Path(f)
