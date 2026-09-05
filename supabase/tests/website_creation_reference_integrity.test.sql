@@ -46,6 +46,23 @@ select is(auth.uid(),(select id from t_ids where name='client_a'),'Website creat
 select is(private.user_has_any_role(auth.uid(),ARRAY['client']::text[]),true,'Website creation fixture gives Client A the client role');
 select is(private.user_has_any_role(auth.uid(),ARRAY['owner','admin']::text[]),false,'Website creation fixture does not grant Client A management role');
 
+create or replace function pg_temp.debug_creation_context() returns text
+language plpgsql security definer
+set search_path = pg_catalog, public, private, pg_temp
+as $$
+declare
+  v_claims jsonb := nullif(current_setting('request.jwt.claims', true), '')::jsonb;
+  v_sub text := case when v_claims is null then null else v_claims ->> 'sub' end;
+  v_uid uuid := auth.uid();
+begin
+  return format('claims_sub=%s auth_uid=%s client_role=%s owner_admin=%s',
+    coalesce(v_sub,'<null>'),
+    coalesce(v_uid::text,'<null>'),
+    exists(select 1 from public.user_roles ur where ur.user_id=v_uid and ur.role='client'),
+    exists(select 1 from public.user_roles ur where ur.user_id=v_uid and ur.role in ('owner','admin')));
+end $$;
+select diag(pg_temp.debug_creation_context());
+
 select throws_ok($$select public.create_creation_project(p_type=>'website',p_title=>'Cross-business',p_business_id=>(select id from t_refs where name='business_b'))$$,NULL,'Business reference is owner-managed','Client cannot attach an arbitrary business reference');
 select throws_ok($$select public.create_creation_project(p_type=>'website',p_title=>'Cross-project',p_project_id=>(select id from t_refs where name='project_b'))$$,NULL,'Project reference access denied','Client cannot attach another client project');
 select lives_ok($$select public.create_creation_project(p_type=>'website',p_title=>'Own project',p_project_id=>(select id from t_refs where name='project_a'))$$,'Client can attach their own project reference');
