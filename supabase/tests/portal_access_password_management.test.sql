@@ -60,7 +60,8 @@ set local role authenticated;
 select is(public.reset_portal_access_password('client',pg_temp.pw('owner-configure')),true,'Owner can configure/reset a portal password through the authorized management RPC');
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='admin')::text,'role','authenticated','session_id',(select id::text from t_sessions where name='admin'))::text,true);
-select is((select count(*) from public.portal_access_password_status()),5::bigint,'Admin receives status for all five portals without password data');
+select is((select count(*) from public.portal_access_password_status()),6::bigint,'Admin receives status for all six managed access namespaces without password data');
+select is((select count(*) from public.portal_access_password_status() where portal in ('client','operator','connector','admin','owner','creation')),6::bigint,'Admin status contains exactly the five role portals plus the dedicated creation namespace');
 select is(public.reset_portal_access_password('owner',pg_temp.pw('owner-initial')),true,'Admin can configure/reset the Owner portal password');
 select is((select configured from public.portal_access_password_status() where portal='owner'),true,'Owner portal status becomes configured');
 select is(public.change_portal_access_password('owner',pg_temp.pw('owner-initial'),pg_temp.pw('owner-changed')),true,'Admin can change an existing portal password with the current password');
