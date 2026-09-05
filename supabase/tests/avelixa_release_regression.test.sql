@@ -89,12 +89,23 @@ insert into public.notifications(user_id,title,content) select (select id from t
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='client_a')::text,'role','authenticated')::text,true); set local role authenticated;
 select is((select count(*)::bigint from public.notifications where title like 'Isolation %'),1::bigint,'Client A cannot read Client B notifications');
 reset role;
-insert into public.commissions(connector_id,project_id,eligible_amount,commission_percentage,amount,status) select (select id from t_ids where name='connector_a'),p.id,1000,20,200,'pending' from public.projects p where p.title='Release Test Project';
-insert into public.commissions(connector_id,project_id,eligible_amount,commission_percentage,amount,status) select (select id from t_ids where name='connector_b'),p.id,1000,20,200,'pending' from public.projects p where p.title='Release Test Project';
+
+-- Isolate the Connector commission visibility fixture from the commission already
+-- created by payment verification above. Using connector-specific projects also
+-- ensures the assertion is testing the production visibility boundary rather
+-- than relying on a global commission count.
+insert into public.projects(client_id,connector_id,title,description,status,price)
+select (select id from t_ids where name='client_a'),(select id from t_ids where name='connector_a'),'Commission Isolation Project A','Connector A isolation project','in_progress',10000;
+insert into public.projects(client_id,connector_id,title,description,status,price)
+select (select id from t_ids where name='client_a'),(select id from t_ids where name='connector_b'),'Commission Isolation Project B','Connector B isolation project','in_progress',10000;
+insert into public.commissions(connector_id,project_id,eligible_amount,commission_percentage,amount,status)
+select (select id from t_ids where name='connector_a'),p.id,1000,20,200,'pending' from public.projects p where p.title='Commission Isolation Project A';
+insert into public.commissions(connector_id,project_id,eligible_amount,commission_percentage,amount,status)
+select (select id from t_ids where name='connector_b'),p.id,1000,20,200,'pending' from public.projects p where p.title='Commission Isolation Project B';
 insert into public.payouts(recipient_id,recipient_role,project_id,amount,status) select (select id from t_ids where name='connector_a'),'connector',p.id,4000,'pending' from public.projects p where p.title='Release Test Project';
 insert into public.payouts(recipient_id,recipient_role,project_id,amount,status) select (select id from t_ids where name='connector_b'),'connector',p.id,2000,'pending' from public.projects p where p.title='Release Test Project';
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='connector_a')::text,'role','authenticated')::text,true); set local role authenticated;
-select is((select count(*)::bigint from public.commissions),1::bigint,'Connector A sees only Connector A commission');
+select is((select count(*)::bigint from public.commissions where project_id=(select id from public.projects where title='Commission Isolation Project A')),1::bigint,'Connector A sees only Connector A commission');
 select is((select count(*)::bigint from public.payouts),1::bigint,'Connector A sees only Connector A payout');
 select ok(to_regclass('public.maintenance_subscriptions') is not null,'Maintenance subscription table exists');
 select ok(to_regclass('public.recurring_services') is not null,'Recurring service table exists');

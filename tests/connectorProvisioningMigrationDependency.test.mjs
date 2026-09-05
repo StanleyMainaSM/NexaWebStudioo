@@ -11,29 +11,71 @@ const migrationFiles = fs
   .sort();
 
 const queueBaseline = '20260829180000_restore_connector_provisioning_queue_baseline.sql';
+const provisioningMetadataBaseline = '20260829189999_restore_connector_application_provisioning_metadata.sql';
 const recruitmentHelper = '20260829209998_restore_connector_recruitment_summary_helper.sql';
 const provisioningHelper = '20260829209999_restore_connector_provisioning_helpers.sql';
 const provisioningDependent = '20260829210000_fix_connector_provisioning_and_application_duplicates.sql';
 const recruitmentDependent = '20260829210001_tighten_connector_recruitment_summary_security.sql';
+const recurringInvoiceBaseline = '20260829169993_create_recurring_services_baseline.sql';
+const activationEmailQueueLink = '20260903092000_connector_activation_email_queue_link.sql';
+const onboardingHardening = '20260903092500_harden_connector_onboarding_and_owner_roles.sql';
+const historicalReconciliation = '20260903093000_connector_historical_reconciliation_status.sql';
 
 const readMigration = (file) => fs.readFileSync(path.join(migrationsDir, file), 'utf8');
 
 assert.ok(fs.existsSync(path.join(migrationsDir, queueBaseline)), 'connector provisioning queue baseline must exist');
+assert.ok(fs.existsSync(path.join(migrationsDir, provisioningMetadataBaseline)), 'connector application provisioning metadata baseline must exist');
 assert.ok(fs.existsSync(path.join(migrationsDir, recruitmentHelper)), 'connector recruitment summary helper baseline must exist');
 assert.ok(fs.existsSync(path.join(migrationsDir, provisioningHelper)), 'connector provisioning helper baseline must exist');
 assert.ok(fs.existsSync(path.join(migrationsDir, provisioningDependent)), 'connector provisioning hardening migration must exist');
 assert.ok(fs.existsSync(path.join(migrationsDir, recruitmentDependent)), 'connector recruitment security migration must exist');
+assert.ok(fs.existsSync(path.join(migrationsDir, recurringInvoiceBaseline)), 'recurring invoice metadata baseline must exist');
 
 const queueCreatorPattern = /\bcreate\s+table(?:\s+if\s+not\s+exists)?\s+public\.connector_provisioning_queue\b/i;
 const stripSqlCommentsAndQuotedLiterals = (sql) => sql
   .replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, '')
   .replace(/'(?:''|[^'])*'/g, "''");
 const queueReferencePattern = /\b(?:on|into|from|update|table)\s+public\.connector_provisioning_queue\b/i;
+const provisioningStatusReferencePattern = /\bca\.provisioning_status\b/i;
+const recurringInvoiceReferencePattern = /\b(?:invoices\.)?(?:recurring_service_id|billing_period_start|billing_period_end)\b/i;
 
 const queueCreatorMigrations = migrationFiles.filter((file) => queueCreatorPattern.test(readMigration(file)));
 const queueReferenceMigrations = migrationFiles.filter((file) =>
   queueReferencePattern.test(stripSqlCommentsAndQuotedLiterals(readMigration(file))),
 );
+const provisioningStatusReferenceMigrations = migrationFiles.filter((file) =>
+  provisioningStatusReferencePattern.test(stripSqlCommentsAndQuotedLiterals(readMigration(file))),
+);
+const recurringInvoiceReferenceMigrations = migrationFiles.filter((file) =>
+  recurringInvoiceReferencePattern.test(stripSqlCommentsAndQuotedLiterals(readMigration(file))),
+);
+
+const migrationVersion = (file) => file.match(/^(\d{14})_/i)?.[1] ?? null;
+const migrationVersionCounts = new Map();
+for (const file of migrationFiles) {
+  const version = migrationVersion(file);
+  if (version) migrationVersionCounts.set(version, (migrationVersionCounts.get(version) ?? 0) + 1);
+}
+
+test('supabase migration versions are globally unique', () => {
+  const duplicates = [...migrationVersionCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([version, count]) => `${version} (${count} files)`);
+
+  assert.deepEqual(duplicates, [], `duplicate Supabase migration versions found: ${duplicates.join(', ')}`);
+});
+
+test('connector activation hardening migrations preserve their intended order', () => {
+  assert.ok(fs.existsSync(path.join(migrationsDir, activationEmailQueueLink)), 'activation email queue migration must exist');
+  assert.ok(fs.existsSync(path.join(migrationsDir, onboardingHardening)), 'onboarding hardening migration must exist');
+  assert.ok(fs.existsSync(path.join(migrationsDir, historicalReconciliation)), 'historical reconciliation migration must exist');
+
+  assert.ok(
+    migrationFiles.indexOf(activationEmailQueueLink) < migrationFiles.indexOf(onboardingHardening)
+      && migrationFiles.indexOf(onboardingHardening) < migrationFiles.indexOf(historicalReconciliation),
+    'activation email queue linkage must precede onboarding hardening, which must precede historical reconciliation',
+  );
+});
 
 test('connector_provisioning_queue is created before any executable migration references it', () => {
   assert.equal(queueCreatorMigrations.length, 1, 'migration chain must contain exactly one connector_provisioning_queue creator baseline');
@@ -49,6 +91,55 @@ test('connector_provisioning_queue is created before any executable migration re
     assert.ok(
       creatorIndex < migrationFiles.indexOf(migration),
       `${creator} must precede ${migration} because ${migration} contains an executable reference to public.connector_provisioning_queue`,
+    );
+  }
+});
+
+test('connector_applications provisioning metadata exists before any executable provisioning_status reference', () => {
+  const baseline = readMigration(provisioningMetadataBaseline);
+  const baselineIndex = migrationFiles.indexOf(provisioningMetadataBaseline);
+
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS provisioning_status TEXT NOT NULL DEFAULT 'pending'/i);
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS provisioned_user_id UUID/i);
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS provisioned_at TIMESTAMPTZ/i);
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS provisioning_error TEXT/i);
+  assert.match(baseline, /connector_applications_provisioning_status_check/i);
+  assert.match(baseline, /connector_applications_provisioned_user_id_fkey/i);
+
+  assert.ok(
+    provisioningStatusReferenceMigrations.length > 0,
+    'migration chain must contain executable connector_applications.provisioning_status references',
+  );
+
+  for (const migration of provisioningStatusReferenceMigrations) {
+    assert.ok(
+      baselineIndex < migrationFiles.indexOf(migration),
+      `${provisioningMetadataBaseline} must precede ${migration} because ${migration} references connector_applications.provisioning_status`,
+    );
+  }
+});
+
+test('recurring invoice metadata exists before executable recurring-service invoice references', () => {
+  const baseline = readMigration(recurringInvoiceBaseline);
+  const baselineIndex = migrationFiles.indexOf(recurringInvoiceBaseline);
+
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS recurring_service_id UUID/i);
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS billing_period_start DATE/i);
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS billing_period_end DATE/i);
+  assert.match(baseline, /invoices_recurring_service_id_fkey/i);
+  assert.match(baseline, /idx_invoices_recurring_service/i);
+  assert.match(baseline, /idx_invoices_recurring_period/i);
+
+  assert.ok(
+    recurringInvoiceReferenceMigrations.length > 0,
+    'migration chain must contain executable recurring invoice metadata references',
+  );
+
+  for (const migration of recurringInvoiceReferenceMigrations) {
+    if (migration === recurringInvoiceBaseline) continue;
+    assert.ok(
+      baselineIndex < migrationFiles.indexOf(migration),
+      `${recurringInvoiceBaseline} must precede ${migration} because ${migration} references recurring invoice metadata`,
     );
   }
 });

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
+import { getPortalForPath } from '../../lib/portalAccess';
+import PortalAccessGate from './PortalAccessGate';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -11,7 +13,7 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requiredRoles, requiresConnectorTerms = false }: ProtectedRouteProps) {
-  const { user, loading, roles, rolesLoading } = useAuth();
+  const { user, loading, roles, rolesLoading, activeWorkspace } = useAuth();
   const location = useLocation();
   const [memberAccessLoading, setMemberAccessLoading] = useState(true);
   const [memberActive, setMemberActive] = useState(false);
@@ -85,16 +87,13 @@ export default function ProtectedRoute({ children, requiredRoles, requiresConnec
     return <Navigate to="/login" replace state={{ from: location.pathname, inactive: true }} />;
   }
 
-  if (!requiredRoles || requiredRoles.length === 0) {
-    return children ? <>{children}</> : <Outlet />;
-  }
-
   const normalizedUserRoles = roles.map((role) => String(role).trim().toLowerCase()).filter(Boolean);
-  const normalizedRequiredRoles = requiredRoles.map((role) => String(role).trim().toLowerCase()).filter(Boolean);
-  const hasRequiredRole = normalizedRequiredRoles.some((role) => normalizedUserRoles.includes(role));
+  const normalizedRequiredRoles = (requiredRoles ?? []).map((role) => String(role).trim().toLowerCase()).filter(Boolean);
+  const hasRequiredRole = normalizedRequiredRoles.length === 0 || normalizedRequiredRoles.some((role) => normalizedUserRoles.includes(role));
 
   if (!hasRequiredRole) return <Navigate to="/portal" replace />;
   if (requiresConnectorTerms && !connectorAccessAllowed) return <Navigate to="/portal/connector/terms" replace />;
 
-  return children ? <>{children}</> : <Outlet />;
+  const portal = getPortalForPath(location.pathname, activeWorkspace);
+  return <PortalAccessGate portal={portal}>{children ? <>{children}</> : <Outlet />}</PortalAccessGate>;
 }

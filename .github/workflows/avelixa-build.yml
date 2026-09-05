@@ -56,6 +56,8 @@ jobs:
           npm run test:connector-activation
           node --experimental-strip-types tests/connectorActivationResend.test.mjs
           node --experimental-strip-types tests/ownerMemberLifecycle.test.mjs
+          node --experimental-strip-types tests/portalAccessControl.test.mjs
+          node --experimental-strip-types tests/portalAccessManagement.test.mjs
           npm run test:client-referrals
           npm run test:client-portal
           npm run test:invoice-notifications
@@ -63,15 +65,47 @@ jobs:
           npm run test:client-payment-amount
 
       - name: Migration dependency regression tests
+        id: migration_dependencies
+        continue-on-error: true
         run: |
-          node --experimental-strip-types tests/adminAuthorizationMigrationDependency.test.mjs
-          node --experimental-strip-types tests/communicationMigrationDependency.test.mjs
-          node --experimental-strip-types tests/suitWearMigrationFreshDatabase.test.mjs
-          node --experimental-strip-types tests/connectorProvisioningMigrationDependency.test.mjs
-          node --experimental-strip-types tests/clientReferralMigrationDependency.test.mjs
-          node --experimental-strip-types tests/automationMigrationDependency.test.mjs
-          node --experimental-strip-types tests/notificationMigrationDependency.test.mjs
-          node --experimental-strip-types tests/notificationEmailQueueMigrationDependency.test.mjs
+          set +e
+          : > migration-dependency-test.log
+          tests=(
+            tests/adminAuthorizationMigrationDependency.test.mjs
+            tests/communicationMigrationDependency.test.mjs
+            tests/suitWearMigrationFreshDatabase.test.mjs
+            tests/connectorProvisioningMigrationDependency.test.mjs
+            tests/clientReferralMigrationDependency.test.mjs
+            tests/automationMigrationDependency.test.mjs
+            tests/notificationMigrationDependency.test.mjs
+            tests/notificationEmailQueueMigrationDependency.test.mjs
+          )
+          status=0
+          for test_file in "${tests[@]}"; do
+            echo "===== $test_file =====" | tee -a migration-dependency-test.log
+            node --experimental-strip-types "$test_file" 2>&1 | tee -a migration-dependency-test.log
+            current=${PIPESTATUS[0]}
+            if [ "$current" -ne 0 ]; then status=1; fi
+          done
+          {
+            echo '## Migration dependency regression output'
+            echo '```text'
+            cat migration-dependency-test.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload migration dependency regression log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-dependency-regression-log
+          path: migration-dependency-test.log
+          if-no-files-found: error
+
+      - name: Fail if migration dependency regression failed
+        if: steps.migration_dependencies.outcome != 'success'
+        run: exit 1
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -83,6 +117,33 @@ jobs:
 
       - name: Reset local database and apply all repository migrations
         run: supabase db reset --yes
+
+      - name: Stage 3 portal access database regression
+        id: stage3_db
+        continue-on-error: true
+        run: |
+          set +e
+          supabase test db supabase/tests/portal_access_management.test.sql 2>&1 | tee stage3-db-test.log
+          status=${PIPESTATUS[0]}
+          {
+            echo '## Stage 3 database regression output'
+            echo '```text'
+            cat stage3-db-test.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload Stage 3 database regression log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3-db-regression-log
+          path: stage3-db-test.log
+          if-no-files-found: error
+
+      - name: Fail if Stage 3 database regression failed
+        if: steps.stage3_db.outcome != 'success'
+        run: exit 1
 
       - name: Run complete local database regression suite
         run: supabase test db
