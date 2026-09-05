@@ -1,15 +1,15 @@
 # Stage 4 Owner User Management verification workflow.
 name: Owner User Management
 on:
-  push:
-    branches: [avelixa-current-work]
-  pull_request:
-    branches: [avelixa-current-work]
+  workflow_run:
+    workflows: [Avelixa Build Verification]
+    types: [completed]
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
   owner-user-management:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
