@@ -18,7 +18,7 @@ test('portal access retains one centralized server-enforced database mechanism f
   assert.match(sql, /crypt\(v_password, v_password_hash\) <> v_password_hash/i);
 });
 
-test('portal passwords never expose hashes or use browser storage', () => {
+test('legacy portal passwords never expose hashes or use browser storage', () => {
   const sql = read(migrationPath);
   const route = read('src/components/portal/ProtectedRoute.tsx');
   const access = read('src/lib/portalAccess.ts');
@@ -26,20 +26,20 @@ test('portal passwords never expose hashes or use browser storage', () => {
   assert.doesNotMatch(access, /localStorage|sessionStorage/);
   assert.match(access, /verify_portal_access_password/);
   assert.match(access, /has_portal_access/);
-  assert.match(route, /PortalAccessGate/);
+  assert.doesNotMatch(route, /PortalAccessGate/);
 });
 
-test('Owner entry is based on Supabase Auth and role authorization, not the legacy shared Owner portal password gate', () => {
+test('normal portal entry is based only on Supabase Auth, account activity, and role authorization', () => {
   const route = read('src/components/portal/ProtectedRoute.tsx');
   assert.match(route, /const \{ user, loading, roles, rolesLoading/);
   assert.match(route, /if \(!user\)/);
   assert.match(route, /hasRequiredRole/);
-  assert.match(route, /isOwnerArea/);
-  assert.match(route, /effectiveGate === 'none'/);
-  assert.match(route, /requiredRoles/);
+  assert.match(route, /accessGate = 'none'/);
+  assert.match(route, /accessGate === 'creation'/);
+  assert.doesNotMatch(route, /effectiveGate/);
 });
 
-test('logout remains Supabase-session based so server-side session termination invalidates legacy unlocks', () => {
+test('logout remains Supabase-session based so server-side session termination invalidates any legacy unlocks', () => {
   const layout = read('src/pages/portal/PortalLayout.tsx');
   const sql = read(migrationPath);
   assert.match(layout, /supabase\.auth\.signOut\(\)/);
@@ -48,7 +48,7 @@ test('logout remains Supabase-session based so server-side session termination i
   assert.match(sql, /s\.user_id = v_user_id/);
 });
 
-test('legacy portal passwords remain session-bound rather than indefinite browser unlocks', () => {
+test('legacy portal password records remain session-bound even though normal portal navigation no longer prompts for them', () => {
   const sql = read(migrationPath);
   assert.match(sql, /session_id uuid not null/i);
   assert.match(sql, /auth\.jwt\(\) ->> 'session_id'/);
