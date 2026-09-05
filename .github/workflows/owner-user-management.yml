@@ -6,6 +6,9 @@ on:
       - avelixa-current-work
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   owner-user-management:
     runs-on: ubuntu-latest
@@ -16,16 +19,18 @@ jobs:
           fetch-depth: 0
 
       - name: Apply Stage 4 implementation
-        if: ${{ !contains(github.event.head_commit.message, 'feat: enforce Owner User Management access gate') }}
         shell: bash
         run: |
+          if [[ "${GITHUB_EVENT_HEAD_COMMIT_MESSAGE:-}" == *"feat: enforce Owner User Management access gate"* ]]; then
+            echo "Stage 4 implementation already applied; skipping patch step."
+            exit 0
+          fi
           python3 <<'PY'
           from pathlib import Path
           def replace(path, old, new):
               p=Path(path); s=p.read_text()
               if old not in s: raise SystemExit(f'pattern not found: {path}')
               p.write_text(s.replace(old,new,1))
-
           replace('server.ts','async function getAuthenticatedUser(req: express.Request) {','''async function hasOwnerPortalAccess(token: string) {
             const caller = createClient(supabaseUrl!, supabaseSecretKey!, { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
             const { data, error } = await caller.rpc('has_portal_access', { p_portal: 'owner' });
@@ -73,7 +78,6 @@ jobs:
     if (gateOpen !== true) return json({ error: "User Management access is locked. Re-enter the Owner access password." }, 403);
 
 ''')
-
           u=Path('src/pages/portal/OwnerUserManagement.tsx'); s=u.read_text()
           s=s.replace("import { supabase } from '../../lib/supabase';", "import { supabase } from '../../lib/supabase';\nimport { clearPortalAccess, hasPortalAccess, verifyPortalPassword } from '../../lib/portalAccess';",1)
           old="""      const { data: { user } } = await supabase.auth.getUser();
@@ -115,7 +119,6 @@ jobs:
           s=s.replace('Re-enter your current Owner account password to manage users.', 'Enter your Owner User Management access password to manage users.',1)
           s=s.replace('placeholder="Enter your login password"','placeholder="Enter your Owner access password"',1)
           u.write_text(s)
-
           for f in ['.github/workflows/stage4-implementation-patch.yml','.github/workflows/stage4-implementation-patch2.yml']:
               p=Path(f)
               if p.exists(): p.unlink()
