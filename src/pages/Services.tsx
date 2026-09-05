@@ -28,7 +28,7 @@ export default function Services() {
         <div className="mb-10 rounded-3xl overflow-hidden h-48 relative" data-reveal>
           <img src="https://images.pexels.com/photos/1181676/pexels-photo-1181676.jpeg?auto=compress&cs=tinysrgb&w=1600" alt="Developer working on a professional website" className="w-full h-full object-cover" />
           <div className="service-image-overlay absolute inset-0 bg-gradient-to-r from-ink-950 via-transparent to-ink-950" />
-          <div className="absolute inset-0 flex items-center justify-center"><p className="font-display font-bold text-2xl sm:text-3xl text-white text-center px-4">Professional Website. Stronger Presence. More Opportunities.</p></div>
+          <div className="absolute inset-0 flex items-center justify-center"><p className="service-image-copy font-display font-bold text-2xl sm:text-3xl text-white text-center px-4">Professional Website. Stronger Presence. More Opportunities.</p></div>
         </div>
 
         <div className="service-grid grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
