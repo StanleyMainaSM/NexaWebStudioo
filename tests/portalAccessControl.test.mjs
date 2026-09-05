@@ -7,6 +7,8 @@ const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 const migrationPath = 'supabase/migrations/20260905150100_portal_access_control.sql';
 
+// The Stage 2 migration version is intentionally unique against the current
+// base branch migration chain so pull-request merge refs also reset cleanly.
 test('portal access has one centralized server-enforced database mechanism for all five portals', () => {
   const sql = read(migrationPath);
   for (const portal of ['client', 'operator', 'connector', 'admin', 'owner']) assert.match(sql, new RegExp(`'${portal}'`));
