@@ -36,6 +36,9 @@ jobs:
       - name: Stage 8 header responsive regression tests
         run: node --experimental-strip-types tests/navResponsive.test.mjs
 
+      - name: Creation access password regression contract
+        run: node --experimental-strip-types tests/creationAccessPassword.test.mjs
+
       - name: Package pricing synchronization tests
         run: node --experimental-strip-types tests/packagePricingSynchronization.test.mjs
 
