@@ -1,6 +1,7 @@
 name: Avelixa Build Verification
 
 # Stage 2 portal access verification is part of the standard build regression suite.
+# This workflow intentionally runs the full local database reset and regression suite.
 
 on:
   push:
