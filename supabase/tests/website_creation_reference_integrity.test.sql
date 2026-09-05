@@ -27,7 +27,6 @@ insert into public.projects(client_id,title,status) select (select id from t_ids
 insert into public.projects(client_id,title,status) select (select id from t_ids where name='client_b'),'Creation Project B','pending';
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='client_a')::text,'role','authenticated')::text,true);
-select set_config('request.jwt.claim.sub',(select id from t_ids where name='client_a')::text,true);
 set local role authenticated;
 
 select is(auth.uid(),(select id from t_ids where name='client_a'),'Website creation fixture authenticates as Client A');
