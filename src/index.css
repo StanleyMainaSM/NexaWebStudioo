@@ -41,42 +41,17 @@
 
 @layer base {
   html { scroll-behavior: smooth; background: rgb(var(--avelixa-page)); }
-  body {
-    background-color: rgb(var(--avelixa-page));
-    color: rgb(var(--avelixa-text));
-    -webkit-font-smoothing: antialiased;
-    transition: background-color 180ms ease, color 180ms ease;
-  }
+  body { background-color: rgb(var(--avelixa-page)); color: rgb(var(--avelixa-text)); -webkit-font-smoothing: antialiased; transition: background-color 180ms ease, color 180ms ease; }
   ::selection { background-color: rgba(99, 102, 241, 0.3); color: rgb(var(--avelixa-text)); }
 }
 
 @layer components {
-  .theme-toggle {
-    position: fixed; top: 1rem; right: 1rem; z-index: 60;
-    display: inline-flex; align-items: center; gap: 0.5rem;
-    min-height: 2.5rem; padding: 0.625rem 0.875rem;
-    border: 1px solid rgb(var(--avelixa-border-strong) / 0.8); border-radius: 9999px;
-    background: rgb(var(--avelixa-surface) / 0.9); color: rgb(var(--avelixa-text));
-    box-shadow: 0 10px 30px rgb(15 23 42 / 0.12);
-    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease;
-  }
+  .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 60; display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.5rem; padding: 0.625rem 0.875rem; border: 1px solid rgb(var(--avelixa-border-strong) / 0.8); border-radius: 9999px; background: rgb(var(--avelixa-surface) / 0.9); color: rgb(var(--avelixa-text)); box-shadow: 0 10px 30px rgb(15 23 42 / 0.12); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease; }
   .theme-toggle:hover { transform: translateY(-1px); border-color: rgb(99 102 241 / 0.45); color: rgb(79 70 229); }
   .theme-toggle:focus-visible { outline: 2px solid rgb(99 102 241); outline-offset: 3px; }
-
   .service-card { border-color: rgb(var(--avelixa-border) / 0.95); box-shadow: 0 16px 36px rgb(15 23 42 / 0.06); }
-  [data-theme='light'] .service-card-1 { background: linear-gradient(145deg, rgb(255 255 255), rgb(245 248 255)); }
-  [data-theme='light'] .service-card-2 { background: linear-gradient(145deg, rgb(255 255 255), rgb(248 246 255)); }
-  [data-theme='light'] .service-card-3 { background: linear-gradient(145deg, rgb(255 255 255), rgb(244 250 252)); }
-  [data-theme='light'] .service-card-4 { background: linear-gradient(145deg, rgb(255 255 255), rgb(247 249 255)); }
-  [data-theme='light'] .service-card-5 { background: linear-gradient(145deg, rgb(255 255 255), rgb(250 247 244)); }
-  [data-theme='light'] .service-card-6 { background: linear-gradient(145deg, rgb(255 255 255), rgb(245 250 248)); }
-  [data-theme='light'] .service-card:hover { border-color: rgb(99 102 241 / 0.28); box-shadow: 0 20px 44px rgb(15 23 42 / 0.1); }
-  [data-theme='light'] .service-icon { border-color: rgb(99 102 241 / 0.16); }
-
   .social-link { color: rgb(var(--avelixa-text-secondary)); }
-  .social-link:hover { transform: translateY(-1px); }
+  .social-link:hover { transform: translateY(-1px); background: rgb(var(--avelixa-surface-strong) / 0.75); }
   [data-theme='light'] .social-instagram { color: #c13584; }
   [data-theme='light'] .social-facebook { color: #1877f2; }
   [data-theme='light'] .social-email { color: #52525b; }
@@ -85,9 +60,6 @@
   [data-theme='dark'] .social-facebook { color: #60a5fa; }
   [data-theme='dark'] .social-email { color: #d4d4d8; }
   [data-theme='dark'] .social-whatsapp { color: #4ade80; }
-  .social-link:hover { background: rgb(var(--avelixa-surface-strong) / 0.75); }
-
-  .creation-access-surface { background: radial-gradient(circle at top, rgb(99 102 241 / 0.12), transparent 48%), rgb(var(--avelixa-surface)); }
 }
 
 @layer utilities {
@@ -96,6 +68,16 @@
   .grid-bg { background-image: linear-gradient(to right, rgb(var(--avelixa-border) / 0.55) 1px, transparent 1px), linear-gradient(to bottom, rgb(var(--avelixa-border) / 0.55) 1px, transparent 1px); background-size: 56px 56px; }
   .glow { box-shadow: 0 0 60px -15px rgb(99 102 241 / 0.2); }
 }
+
+/* Premium light-theme differentiation for the six service cards. */
+[data-theme='light'] .service-card-1 { background: linear-gradient(145deg, rgb(255 255 255), rgb(245 248 255)); }
+[data-theme='light'] .service-card-2 { background: linear-gradient(145deg, rgb(255 255 255), rgb(248 246 255)); }
+[data-theme='light'] .service-card-3 { background: linear-gradient(145deg, rgb(255 255 255), rgb(244 250 252)); }
+[data-theme='light'] .service-card-4 { background: linear-gradient(145deg, rgb(255 255 255), rgb(247 249 255)); }
+[data-theme='light'] .service-card-5 { background: linear-gradient(145deg, rgb(255 255 255), rgb(250 247 244)); }
+[data-theme='light'] .service-card-6 { background: linear-gradient(145deg, rgb(255 255 255), rgb(245 250 248)); }
+[data-theme='light'] .service-card:hover { border-color: rgb(99 102 241 / 0.28); box-shadow: 0 20px 44px rgb(15 23 42 / 0.1); }
+[data-theme='light'] .service-icon { border-color: rgb(99 102 241 / 0.16); }
 
 /* Light-theme compatibility layer for the established dark utility vocabulary. */
 [data-theme='light'] [class*='bg-zinc-950'],
