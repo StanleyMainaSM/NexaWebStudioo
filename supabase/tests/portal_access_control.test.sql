@@ -1,0 +1,93 @@
+begin;
+select no_plan();
+
+select has_schema('private','Private schema is available for server-only portal access state');
+select has_table('private','portal_access_passwords','Portal password hashes stay in the private schema');
+select has_table('private','portal_access_unlocks','Portal unlock state stays in the private schema');
+select has_function('private','verify_portal_access_password',ARRAY['text','text'],'Password verification function exists');
+select has_function('private','has_portal_access',ARRAY['text'],'Server-side portal access assertion function exists');
+select has_function('private','set_portal_access_password',ARRAY['text','text'],'Owner/Admin portal password management function exists');
+select isnt_definer('private','has_portal_access',ARRAY['text'],'Portal access assertion does not need elevated privileges');
+select is_definer('private','verify_portal_access_password',ARRAY['text','text'],'Password verification uses controlled server-side privileges');
+select is_definer('private','set_portal_access_password',ARRAY['text','text'],'Password configuration uses controlled server-side privileges');
+
+create temporary table t_portal_ids(name text primary key,id uuid not null);
+create or replace function pg_temp.make_user(p_name text,p_email text) returns uuid language plpgsql as $$
+declare v_id uuid := gen_random_uuid();
+begin
+  insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
+  values('00000000-0000-0000-0000-000000000000',v_id,'authenticated','authenticated',p_email,crypt('avelixa-test-password',gen_salt('bf')),now(),'{"provider":"email","providers":["email"]}'::jsonb,'{}'::jsonb,now(),now());
+  insert into t_portal_ids values(p_name,v_id);
+  return v_id;
+end $$;
+
+select pg_temp.make_user('owner','avelixa-portal-owner@example.test');
+select pg_temp.make_user('client','avelixa-portal-client@example.test');
+select pg_temp.make_user('connector','avelixa-portal-connector@example.test');
+select pg_temp.make_user('operator','avelixa-portal-operator@example.test');
+select pg_temp.make_user('admin','avelixa-portal-admin@example.test');
+
+set local session_replication_role = replica;
+insert into public.user_roles(user_id,role)
+select id,'owner' from t_portal_ids where name='owner'
+union all select id,'client' from t_portal_ids where name='client'
+union all select id,'connector' from t_portal_ids where name='connector'
+union all select id,'operator' from t_portal_ids where name='operator'
+union all select id,'admin' from t_portal_ids where name='admin';
+set local session_replication_role = origin;
+
+insert into auth.sessions(id,user_id,created_at,updated_at,aal,not_after)
+select gen_random_uuid(),id,now(),now(),'aal1',now()+interval '1 hour' from t_portal_ids;
+
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='owner')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='owner')) )::text,true);
+set local role authenticated;
+select ok(public.is_owner_or_admin(auth.uid()),'Fixture Owner remains authorized through the existing role system');
+select lives_ok($$select private.set_portal_access_password('client','Client-Portal-Password-123!')$$,'Authorized Owner can configure a portal password');
+select lives_ok($$select private.set_portal_access_password('operator','Operator-Portal-Password-123!')$$,'Authorized Owner can configure another portal password');
+select lives_ok($$select private.set_portal_access_password('connector','Connector-Portal-Password-123!')$$,'Authorized Owner can configure Connector password');
+select lives_ok($$select private.set_portal_access_password('admin','Admin-Portal-Password-123!')$$,'Authorized Owner can configure Admin password');
+select lives_ok($$select private.set_portal_access_password('owner','Owner-Portal-Password-123!')$$,'Authorized Owner can configure Owner password');
+reset role;
+
+select is((select count(*)::bigint from private.portal_access_passwords where password_hash like 'Client-Portal-Password-123!'),0::bigint,'Plaintext Client portal password is never stored');
+select is((select count(*)::bigint from private.portal_access_passwords where password_hash like '%Portal-Password%'),0::bigint,'Portal password hashes are not exposed as plaintext values');
+
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='client')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='client')) )::text,true);
+set local role authenticated;
+select is(private.verify_portal_access_password('client','Client-Portal-Password-123!'),true,'Authenticated Client with the correct Client password unlocks Client portal');
+select is(private.has_portal_access('client'),true,'Unlocked Client portal is recognized server-side');
+select is(private.verify_portal_access_password('client','Wrong-Password'),false,'Wrong portal password is rejected');
+select is(private.has_portal_access('operator'),false,'Client password cannot unlock Operator portal');
+select is(private.verify_portal_access_password('operator','Client-Portal-Password-123!'),false,'A password for one portal cannot unlock another portal');
+reset role;
+
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='connector')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='connector')) )::text,true);
+set local role authenticated;
+select is(private.verify_portal_access_password('client','Client-Portal-Password-123!'),false,'A valid password cannot bypass the user role requirement');
+select is(private.has_portal_access('client'),false,'Unauthorized role cannot gain portal access without its role');
+reset role;
+
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='client')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='client')) )::text,true);
+set local role authenticated;
+select private.verify_portal_access_password('client','Client-Portal-Password-123!');
+select is((select count(*)::bigint from private.portal_access_unlocks where user_id=auth.uid() and portal='client' and session_id=(auth.jwt()->>'session_id')::uuid),1::bigint,'Unlock is tied to the authenticated session');
+reset role;
+
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='client')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='client')) )::text,true);
+set local role authenticated;
+select is(private.has_portal_access('client'),true,'Direct server-side access check succeeds for the current authenticated session');
+reset role;
+
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='client')::text,'role','authenticated','session_id',gen_random_uuid()::text)::text,true);
+set local role authenticated;
+select is(private.has_portal_access('client'),false,'Manipulating the client session identifier cannot reuse another session unlock');
+reset role;
+
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='client')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='client')) )::text,true);
+set local role authenticated;
+delete from auth.sessions where user_id=auth.uid();
+select is(private.has_portal_access('client'),false,'Session termination invalidates the portal unlock');
+reset role;
+
+select * from finish();
+rollback;
