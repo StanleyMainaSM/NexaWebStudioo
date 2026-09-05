@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 export type Theme = 'light' | 'dark';
 
 export const THEME_STORAGE_KEY = 'avelixa-theme';
-export const DEFAULT_THEME: Theme = 'light';
+export const DEFAULT_THEME: Theme = 'dark';
 
 function isTheme(value: string | null): value is Theme {
   return value === 'light' || value === 'dark';
