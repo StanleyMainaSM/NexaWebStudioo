@@ -19,4 +19,4 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Connector onboarding regression tests
-        run: node --test tests/connectorApplicationsAccess.test.mjs tests/connectorOnboardingCompletion.test.mjs tests/connectorActivationLifecycle.test.mjs tests/connectorActivationResend.test.mjs tests/connectorPortalRouting.test.mjs tests/connectorProvisioningMigrationDependency.test.mjs tests/connectorNotifications.test.mjs
+        run: node --test tests/connectorApplicationsAccess.test.mjs tests/connectorOnboardingCompletion.test.mjs tests/connectorActivationLifecycle.test.mjs tests/connectorActivationResend.test.mjs tests/connectorPortalRouting.test.mjs tests/connectorProvisioningMigrationDependency.test.mjs tests/connectorNotifications.test.mjs tests/notificationEmailQueueMigrationDependency.test.mjs
