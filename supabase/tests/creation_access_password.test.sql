@@ -28,7 +28,9 @@ select pg_temp.make_creation_user('client','avelixa-creation-client@example.test
 set local session_replication_role = replica;
 insert into public.user_roles(user_id,role) select id,'owner' from t_creation_ids where name='owner';
 set local session_replication_role = origin;
-insert into public.user_roles(user_id,role) select id,'client' from t_creation_ids where name='client';
+-- The normal auth.users lifecycle already assigns the synthetic Client the
+-- default client role through public.handle_new_user(). Reuse that established
+-- fixture state instead of inserting the same role a second time.
 insert into auth.sessions(id,user_id,created_at,updated_at,aal,not_after)
 select gen_random_uuid(),id,now(),now(),'aal1',now()+interval '1 hour' from t_creation_ids;
 
