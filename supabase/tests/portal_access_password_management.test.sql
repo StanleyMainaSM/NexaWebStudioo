@@ -36,10 +36,14 @@ select is(public.change_portal_access_password('owner','Owner-Stage3-Password-12
 select is(public.change_portal_access_password('owner','Wrong-Current-123!','Owner-Stage3-Failed-123!'),false,'Incorrect current password cannot change a portal password');
 select is(public.reset_portal_access_password('owner','Owner-Stage3-Reset-123!'),true,'Admin can reset an existing portal password without receiving the old password');
 select is(public.verify_portal_access_password('owner','Owner-Stage3-Reset-123!'),false,'Admin reset does not grant the Admin user an Owner portal role or unlock');
+
+-- The private password tables intentionally deny direct access to authenticated
+-- users. Inspect their storage invariants only as the test owner role, after
+-- the authenticated management RPC behavior has been verified above.
+reset role;
 select is((select count(*) from private.portal_access_passwords where password_hash in ('Owner-Stage3-Password-123!','Owner-Stage3-Changed-123!','Owner-Stage3-Reset-123!')),0::bigint,'Management never stores plaintext passwords');
 select is((select count(*) from private.portal_access_passwords where portal='owner'),1::bigint,'Exactly one private hash remains for the Owner portal');
 select is((select count(*) from private.portal_access_unlocks where portal='owner'),0::bigint,'Password update invalidates existing Owner portal unlocks');
-reset role;
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='client')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_ids where name='client')) )::text,true);
 set local role authenticated;
