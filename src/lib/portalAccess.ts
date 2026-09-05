@@ -2,6 +2,15 @@ import { supabase } from './supabase';
 
 export type PortalAccessKey = 'client' | 'operator' | 'connector' | 'admin' | 'owner';
 
+export function getPortalForPath(pathname: string, activeWorkspace: PortalAccessKey | null): PortalAccessKey {
+  if (pathname === '/portal') return 'client';
+  if (pathname.startsWith('/portal/owner')) return 'owner';
+  if (pathname.startsWith('/portal/admin')) return 'admin';
+  if (pathname.startsWith('/portal/connector')) return 'connector';
+  if (pathname.startsWith('/portal/operator')) return 'operator';
+  return activeWorkspace ?? 'client';
+}
+
 export async function hasPortalAccess(portal: PortalAccessKey): Promise<boolean> {
   const { data, error } = await supabase.rpc('has_portal_access', { p_portal: portal });
   if (error) {
