@@ -81,9 +81,12 @@ set local role authenticated;
 select is(public.has_portal_access('client'),false,'Manipulating the client session identifier cannot reuse another session unlock');
 reset role;
 
+-- Simulate Supabase session termination as the database test owner while
+-- retaining the JWT claims. Production authenticated users never receive
+-- direct access to auth.sessions.
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='client')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='client')) )::text,true);
+delete from auth.sessions where user_id = (select id from t_portal_ids where name='client');
 set local role authenticated;
-delete from auth.sessions where user_id=auth.uid();
 select is(public.has_portal_access('client'),false,'Session termination invalidates the portal unlock');
 reset role;
 
