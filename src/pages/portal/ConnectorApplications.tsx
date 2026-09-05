@@ -17,8 +17,6 @@ type Application = {
   created_at: string;
 };
 
-type QueueState = { status: string; attempts: number; last_error: string | null };
-
 const provisioningLabel = (status: string) => {
   switch (status) {
     case 'completed': return 'Provisioned';
@@ -30,7 +28,6 @@ const provisioningLabel = (status: string) => {
 
 export default function ConnectorApplications() {
   const [applications, setApplications] = useState<Application[]>([]);
-  const [queueStates, setQueueStates] = useState<Record<string, QueueState>>({});
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -45,25 +42,7 @@ export default function ConnectorApplications() {
         .select('id,full_name,email,phone,county,town,status,provisioning_status,provisioning_error,provisioned_user_id,provisioned_at,created_at')
         .order('created_at', { ascending: false });
       if (queryError) throw queryError;
-
-      const rows = (data || []) as Application[];
-      setApplications(rows);
-
-      const ids = rows.map((row) => row.id);
-      if (ids.length) {
-        const { data: queue, error: queueError } = await supabase
-          .from('connector_provisioning_queue')
-          .select('application_id,status,attempts,last_error')
-          .in('application_id', ids);
-        if (queueError) throw queueError;
-        const map: Record<string, QueueState> = {};
-        (queue || []).forEach((row: any) => {
-          map[row.application_id] = { status: row.status, attempts: row.attempts, last_error: row.last_error };
-        });
-        setQueueStates(map);
-      } else {
-        setQueueStates({});
-      }
+      setApplications((data || []) as Application[]);
     } catch (loadError: any) {
       console.error('Connector applications load error:', loadError);
       setError(loadError?.message || 'Unable to load Connector applications.');
@@ -159,10 +138,9 @@ export default function ConnectorApplications() {
       ) : (
         <div className="space-y-4">
           {applications.map((application) => {
-            const queue = queueStates[application.id];
             const isPendingReview = application.status === 'pending';
             const provisioned = application.provisioning_status === 'completed';
-            const failed = application.provisioning_status === 'failed' || queue?.status === 'failed';
+            const failed = application.provisioning_status === 'failed';
             const resendProcessing = processing === `resend:${application.id}`;
             return (
               <section key={application.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
@@ -180,8 +158,7 @@ export default function ConnectorApplications() {
                       {provisioned && <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5 text-xs text-emerald-300"><MailCheck className="w-3.5 h-3.5" />Activation workflow completed</span>}
                     </div>
 
-                    {queue && <p className="mt-3 text-xs text-gray-500">Provisioning queue: {queue.status} · attempts {queue.attempts}</p>}
-                    {(application.provisioning_error || queue?.last_error) && <div className="mt-3 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300"><AlertTriangle className="w-4 h-4 shrink-0" />{application.provisioning_error || queue?.last_error}</div>}
+                    {application.provisioning_error && <div className="mt-3 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300"><AlertTriangle className="w-4 h-4 shrink-0" />{application.provisioning_error}</div>}
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-3 shrink-0">
@@ -195,7 +172,7 @@ export default function ConnectorApplications() {
         </div>
       )}
 
-      <div className="flex items-center gap-2 text-xs text-gray-500"><Clock3 className="w-4 h-4" />Only authenticated Owner/Admin users can access this workspace. Passwords and activation links are never displayed by this UI.</div>
+      <div className="flex items-center gap-2 text-xs text-gray-500"><Clock3 className="w-4 h-4" />Only authenticated Owner/Admin users can access this workspace. Provisioning queue records remain backend-only because they can contain sensitive activation state. Passwords and activation links are never displayed by this UI.</div>
     </div>
   );
 }
