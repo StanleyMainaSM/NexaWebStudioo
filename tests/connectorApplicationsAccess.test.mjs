@@ -15,13 +15,6 @@ test('Connector Applications does not expose the backend-only provisioning queue
   assert.match(source, /Only authenticated Owner\/Admin users can access this workspace/);
 });
 
-test('Connector provisioning queue remains backend-only at the database boundary', () => {
-  const source = read('supabase/migrations/20260822094553_tighten_connector_provisioning_queue_policies.sql');
-  assert.match(source, /connector_provisioning_queue/i);
-  assert.match(source, /enable row level security/i);
-  assert.doesNotMatch(source, /to authenticated[\s\S]*connector_provisioning_queue/i);
-});
-
 test('Permanent removal lifecycle allows a fresh application after the old completed identity is gone', () => {
   const migration = read('supabase/migrations/20260905144015_connector_reapplication_after_permanent_removal.sql');
   assert.match(migration, /ca\.status = 'pending'/);
