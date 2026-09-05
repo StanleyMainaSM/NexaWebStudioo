@@ -1,5 +1,5 @@
 begin;
-select plan(12);
+select plan(17);
 
 select has_function('public','portal_access_password_status',ARRAY[]::text[],'Portal password status RPC exists');
 select has_function('public','change_portal_access_password',ARRAY['text','text','text'],'Portal password change RPC exists');
