@@ -54,7 +54,6 @@ from t_sessions s join t_ids i using(name);
 
 grant select on t_ids to authenticated;
 grant select on t_sessions to authenticated;
-grant select on auth.sessions to authenticated;
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated','session_id',(select id::text from t_sessions where name='owner'))::text,true);
 set local role authenticated;
