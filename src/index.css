@@ -179,6 +179,14 @@
 [data-theme='light'] .bg-blue-500 .text-white,
 [data-theme='light'] .bg-blue-600 .text-white,
 [data-theme='light'] .bg-black .text-white,
+[data-theme='light'] .bg-accent-500.text-white,
+[data-theme='light'] .bg-accent-600.text-white,
+[data-theme='light'] .bg-red-500.text-white,
+[data-theme='light'] .bg-red-600.text-white,
+[data-theme='light'] .bg-emerald-500.text-white,
+[data-theme='light'] .bg-emerald-600.text-white,
+[data-theme='light'] .bg-blue-500.text-white,
+[data-theme='light'] .bg-blue-600.text-white,
 [data-theme='light'] .bg-black.text-white {
   color: #fff !important;
 }
