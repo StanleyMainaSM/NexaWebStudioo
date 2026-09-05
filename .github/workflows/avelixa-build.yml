@@ -1,5 +1,7 @@
 name: Avelixa Build Verification
 
+# Stage 2 portal access verification is part of the standard build regression suite.
+
 on:
   push:
     branches:
@@ -20,9 +22,6 @@ jobs:
         with:
           node-version: 24
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Theme system regression tests
         run: node --experimental-strip-types tests/theme.test.mjs
