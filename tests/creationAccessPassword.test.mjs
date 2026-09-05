@@ -13,7 +13,8 @@ assert.doesNotMatch(appSource, /\/studio[\s\S]*PortalAccessGate/, 'Create a Webs
 assert.match(protectedRouteSource, /CreationAccessGate/, 'ProtectedRoute must support the dedicated creation access gate');
 assert.match(protectedRouteSource, /isOwnerArea/, 'Owner routes must be able to enter after normal Supabase/role authorization without the legacy portal gate');
 assert.match(portalAccessSource, /'creation'/, 'Portal access infrastructure must support a creation access namespace');
-assert.match(creationGateSource, /not your normal Supabase login password/i, 'Creation gate must clearly distinguish the creation password from Supabase login');
+assert.match(creationGateSource, /separate creation access password/i, 'Creation gate must identify the dedicated creation password.');
+assert.match(creationGateSource, /not<\/strong>\s+your normal Supabase login password/i, 'Creation gate must clearly distinguish the creation password from Supabase login');
 assert.match(creationGateSource, /isPortalPasswordConfigured\('creation'\)/, 'Creation gate must handle an unconfigured creation password');
 assert.match(portalGateSource, /shared \{label\} Portal access password/, 'Normal portal gate remains available for non-Owner/non-creation areas');
 
