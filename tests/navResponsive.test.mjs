@@ -10,9 +10,9 @@ const nav = () => read('src/components/Nav.tsx');
 
 test('Public header keeps the full desktop navigation out of tablet/mobile widths', () => {
   const source = nav();
-  assert.match(source, /hidden lg:flex items-center gap-4/);
-  assert.match(source, /lg:hidden p-2/);
-  assert.match(source, /lg:hidden absolute top-20/);
+  assert.match(source, /className="hidden lg:flex[^\"]*items-center/);
+  assert.match(source, /className="lg:hidden[^\"]*p-2/);
+  assert.match(source, /className="lg:hidden absolute top-20/);
   assert.doesNotMatch(source, /hidden md:flex items-center gap-6/);
   assert.doesNotMatch(source, /md:hidden p-2/);
 });
@@ -28,6 +28,7 @@ test('Mobile menu remains keyboard/assistive-technology discoverable', () => {
   const source = nav();
   assert.match(source, /aria-label="Menu"/);
   assert.match(source, /aria-expanded=\{open\}/);
+  assert.match(source, /aria-controls="avelixa-mobile-navigation"/);
 });
 
 test('Header retains theme-aware Avelixa styling and the existing navigation destinations', () => {
@@ -35,7 +36,7 @@ test('Header retains theme-aware Avelixa styling and the existing navigation des
   assert.match(source, /bg-ink-950\/80/);
   assert.match(source, /text-ink-600/);
   for (const route of ['/', '/services', '/work', '/pricing', '/reviews', '/connectors']) {
-    assert.match(source, new RegExp(`to="${route.replace('/', '\\/')}"`));
+    assert.match(source, new RegExp(`to: '${route.replace('/', '\\/')}'`));
   }
   assert.match(source, /to="\/studio"/);
   assert.match(source, /to="\/login"/);
