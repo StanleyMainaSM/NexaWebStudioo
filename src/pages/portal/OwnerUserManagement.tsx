@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, LockKeyhole, RefreshCw, UserPlus, UserX, UserCheck, X } from 'lucide-react';
+import { Loader2, LockKeyhole, RefreshCw, UserPlus, UserX, UserCheck, Trash2, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface ManagedUser {
@@ -173,6 +173,33 @@ export default function OwnerUserManagement() {
     }
   };
 
+  const handleDeleteUser = async (user: ManagedUser) => {
+    const confirmed = window.confirm(
+      `Permanent Account Removal\n\n${user.full_name || user.email}'s account will be permanently removed.\n\nThis is NOT Deactivate and it is not Remove Role. Reactivate cannot restore a permanently removed account. This cannot be undone through Owner User Management. Historical/business records are not intentionally erased where they can be safely preserved. If this person returns as a Connector, they must apply and go through Connector onboarding again.\n\nContinue with permanent account removal?`
+    );
+    if (!confirmed) return;
+
+    setAction(user.id);
+    setError('');
+    setSuccess('');
+    try {
+      const token = await getToken();
+      const response = await fetch(`/api/owner/users/${user.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Permanent account removal failed.');
+      setUsers((current) => current.filter((item) => item.id !== user.id));
+      setSuccess(result.message || `${user.full_name || user.email} was permanently removed.`);
+    } catch (deleteError: any) {
+      console.error('Owner permanent account removal error:', deleteError);
+      setError(`Account could not be permanently removed: ${deleteError?.message || 'Unexpected error.'}`);
+    } finally {
+      setAction(null);
+    }
+  };
+
   const setMemberActive = async (user: ManagedUser, active: boolean) => {
     setAction(user.id);
     setError('');
@@ -215,7 +242,7 @@ export default function OwnerUserManagement() {
         <div>
           <div className="text-xs font-bold uppercase tracking-widest text-accent-400">Owner Controls</div>
           <h1 className="mt-2 text-3xl font-semibold text-white">User Management</h1>
-          <p className="mt-2 text-sm text-gray-400">Add members, assign supported roles, remove roles, and reversibly deactivate accounts.</p>
+          <p className="mt-2 text-sm text-gray-400">Add members, assign supported roles, remove roles, reversibly deactivate accounts, or permanently remove eligible accounts.</p>
         </div>
         <button onClick={() => void loadUsers()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-gray-200">
           <RefreshCw className={loading ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />Refresh
@@ -280,6 +307,9 @@ export default function OwnerUserManagement() {
                   <button type="button" onClick={() => void setMemberActive(user, false)} disabled={action === user.id} className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 px-3 py-2 text-xs text-red-300 disabled:opacity-50"><UserX className="w-4 h-4" />Deactivate</button>
                 ) : (
                   <button type="button" onClick={() => void setMemberActive(user, true)} disabled={action === user.id} className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 px-3 py-2 text-xs text-emerald-300 disabled:opacity-50"><UserCheck className="w-4 h-4" />Reactivate</button>
+                )}
+                {user.roles.includes('owner') ? null : (
+                  <button type="button" onClick={() => void handleDeleteUser(user)} disabled={action === user.id} className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200 disabled:opacity-50" aria-label={`Permanently remove ${user.full_name || user.email} account`}><Trash2 className="w-4 h-4" />Permanent Remove</button>
                 )}
               </div>
             </div>
