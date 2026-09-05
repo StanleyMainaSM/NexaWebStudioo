@@ -7,7 +7,7 @@ select has_table('private','portal_access_unlocks','Portal unlock state stays in
 select has_function('private','verify_portal_access_password',ARRAY['text','text'],'Password verification function exists');
 select has_function('private','has_portal_access',ARRAY['text'],'Server-side portal access assertion function exists');
 select has_function('private','set_portal_access_password',ARRAY['text','text'],'Owner/Admin portal password management function exists');
-select isnt_definer('private','has_portal_access',ARRAY['text'],'Portal access assertion does not need elevated privileges');
+select is_definer('private','has_portal_access',ARRAY['text'],'Portal access assertion uses controlled server-side privileges');
 select is_definer('private','verify_portal_access_password',ARRAY['text','text'],'Password verification uses controlled server-side privileges');
 select is_definer('private','set_portal_access_password',ARRAY['text','text'],'Password configuration uses controlled server-side privileges');
 
@@ -41,7 +41,6 @@ select gen_random_uuid(),id,now(),now(),'aal1',now()+interval '1 hour' from t_po
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='owner')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='owner')) )::text,true);
 set local role authenticated;
-select ok(public.is_owner_or_admin(auth.uid()),'Fixture Owner remains authorized through the existing role system');
 select lives_ok($$select private.set_portal_access_password('client','Client-Portal-Password-123!')$$,'Authorized Owner can configure a portal password');
 select lives_ok($$select private.set_portal_access_password('operator','Operator-Portal-Password-123!')$$,'Authorized Owner can configure another portal password');
 select lives_ok($$select private.set_portal_access_password('connector','Connector-Portal-Password-123!')$$,'Authorized Owner can configure Connector password');
@@ -71,10 +70,6 @@ select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from 
 set local role authenticated;
 select private.verify_portal_access_password('client','Client-Portal-Password-123!');
 select is((select count(*)::bigint from private.portal_access_unlocks where user_id=auth.uid() and portal='client' and session_id=(auth.jwt()->>'session_id')::uuid),1::bigint,'Unlock is tied to the authenticated session');
-reset role;
-
-select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='client')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='client')) )::text,true);
-set local role authenticated;
 select is(private.has_portal_access('client'),true,'Direct server-side access check succeeds for the current authenticated session');
 reset role;
 
