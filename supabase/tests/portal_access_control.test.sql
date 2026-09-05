@@ -38,11 +38,11 @@ select gen_random_uuid(),id,now(),now(),'aal1',now()+interval '1 hour' from t_po
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='admin')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='admin')) )::text,true);
 set local role authenticated;
-select lives_ok($$select private.set_portal_access_password('client','Client-Portal-Password-123!')$$,'Authorized Admin can configure a portal password');
-select lives_ok($$select private.set_portal_access_password('operator','Operator-Portal-Password-123!')$$,'Authorized Admin can configure another portal password');
-select lives_ok($$select private.set_portal_access_password('connector','Connector-Portal-Password-123!')$$,'Authorized Admin can configure Connector password');
-select lives_ok($$select private.set_portal_access_password('admin','Admin-Portal-Password-123!')$$,'Authorized Admin can configure Admin password');
-select lives_ok($$select private.set_portal_access_password('owner','Owner-Portal-Password-123!')$$,'Authorized Admin can configure Owner password without gaining Owner role');
+select lives_ok($$select public.set_portal_access_password('client','Client-Portal-Password-123!')$$,'Authorized Admin can configure a portal password');
+select lives_ok($$select public.set_portal_access_password('operator','Operator-Portal-Password-123!')$$,'Authorized Admin can configure another portal password');
+select lives_ok($$select public.set_portal_access_password('connector','Connector-Portal-Password-123!')$$,'Authorized Admin can configure Connector password');
+select lives_ok($$select public.set_portal_access_password('admin','Admin-Portal-Password-123!')$$,'Authorized Admin can configure Admin password');
+select lives_ok($$select public.set_portal_access_password('owner','Owner-Portal-Password-123!')$$,'Authorized Admin can configure Owner password without gaining Owner role');
 reset role;
 
 select is((select count(*)::bigint from private.portal_access_passwords where password_hash like 'Client-Portal-Password-123!'),0::bigint,'Plaintext Client portal password is never stored');
@@ -50,35 +50,35 @@ select is((select count(*)::bigint from private.portal_access_passwords where pa
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='client')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='client')) )::text,true);
 set local role authenticated;
-select is(private.verify_portal_access_password('client','Client-Portal-Password-123!'),true,'Authenticated Client with the correct Client password unlocks Client portal');
-select is(private.has_portal_access('client'),true,'Unlocked Client portal is recognized server-side');
-select is(private.verify_portal_access_password('client','Wrong-Password'),false,'Wrong portal password is rejected');
-select is(private.has_portal_access('operator'),false,'Client password cannot unlock Operator portal');
-select is(private.verify_portal_access_password('operator','Client-Portal-Password-123!'),false,'A password for one portal cannot unlock another portal');
+select is(public.verify_portal_access_password('client','Client-Portal-Password-123!'),true,'Authenticated Client with the correct Client password unlocks Client portal');
+select is(public.has_portal_access('client'),true,'Unlocked Client portal is recognized server-side');
+select is(public.verify_portal_access_password('client','Wrong-Password'),false,'Wrong portal password is rejected');
+select is(public.has_portal_access('operator'),false,'Client password cannot unlock Operator portal');
+select is(public.verify_portal_access_password('operator','Client-Portal-Password-123!'),false,'A password for one portal cannot unlock another portal');
 reset role;
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='connector')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='connector')) )::text,true);
 set local role authenticated;
-select is(private.verify_portal_access_password('client','Client-Portal-Password-123!'),false,'A valid password cannot bypass the user role requirement');
-select is(private.has_portal_access('client'),false,'Unauthorized role cannot gain portal access without its role');
+select is(public.verify_portal_access_password('client','Client-Portal-Password-123!'),false,'A valid password cannot bypass the user role requirement');
+select is(public.has_portal_access('client'),false,'Unauthorized role cannot gain portal access without its role');
 reset role;
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='client')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='client')) )::text,true);
 set local role authenticated;
-select private.verify_portal_access_password('client','Client-Portal-Password-123!');
+select public.verify_portal_access_password('client','Client-Portal-Password-123!');
 select is((select count(*)::bigint from private.portal_access_unlocks where user_id=auth.uid() and portal='client' and session_id=(auth.jwt()->>'session_id')::uuid),1::bigint,'Unlock is tied to the authenticated session');
-select is(private.has_portal_access('client'),true,'Direct server-side access check succeeds for the current authenticated session');
+select is(public.has_portal_access('client'),true,'Direct server-side access check succeeds for the current authenticated session');
 reset role;
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='client')::text,'role','authenticated','session_id',gen_random_uuid()::text)::text,true);
 set local role authenticated;
-select is(private.has_portal_access('client'),false,'Manipulating the client session identifier cannot reuse another session unlock');
+select is(public.has_portal_access('client'),false,'Manipulating the client session identifier cannot reuse another session unlock');
 reset role;
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_portal_ids where name='client')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_portal_ids where name='client')) )::text,true);
 set local role authenticated;
 delete from auth.sessions where user_id=auth.uid();
-select is(private.has_portal_access('client'),false,'Session termination invalidates the portal unlock');
+select is(public.has_portal_access('client'),false,'Session termination invalidates the portal unlock');
 reset role;
 
 select * from finish();
