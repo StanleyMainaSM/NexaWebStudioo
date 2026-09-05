@@ -10,7 +10,7 @@ const migrationFiles = fs
   .filter((file) => file.endsWith('.sql'))
   .sort();
 
-const queueBaseline = '20260829209997_restore_connector_provisioning_queue_baseline.sql';
+const queueBaseline = '20260829180000_restore_connector_provisioning_queue_baseline.sql';
 const recruitmentHelper = '20260829209998_restore_connector_recruitment_summary_helper.sql';
 const provisioningHelper = '20260829209999_restore_connector_provisioning_helpers.sql';
 const provisioningDependent = '20260829210000_fix_connector_provisioning_and_application_duplicates.sql';
