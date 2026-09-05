@@ -1,7 +1,7 @@
--- Harden the Creation Project authorization boundary by preferring Supabase's
--- caller-identity helper inside the SECURITY DEFINER RPC. The request JWT
--- identity is still available as a fallback for local/database regression
--- fixtures that populate the request claim GUC directly.
+-- Harden the Creation Project authorization boundary by resolving the caller
+-- explicitly and evaluating roles against that caller id inside the SECURITY
+-- DEFINER function. Direct role predicates avoid relying on auth-context helpers
+-- whose execution context can change under SECURITY DEFINER.
 
 create or replace function public.create_creation_project(
   p_type text default 'website',
@@ -26,6 +26,8 @@ declare
   v_connector uuid := p_connector_id;
   v_business_id uuid := p_business_id;
   v_is_owner_admin boolean;
+  v_is_client boolean;
+  v_is_connector boolean;
 begin
   if v_actor is null then
     v_actor := nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
@@ -41,7 +43,11 @@ begin
     raise exception 'Authentication required';
   end if;
 
-  v_is_owner_admin := private.user_has_any_role(v_actor, array['owner','admin']);
+  select
+    exists(select 1 from public.user_roles ur where ur.user_id = v_actor and ur.role in ('owner','admin')),
+    exists(select 1 from public.user_roles ur where ur.user_id = v_actor and ur.role = 'client'),
+    exists(select 1 from public.user_roles ur where ur.user_id = v_actor and ur.role = 'connector')
+  into v_is_owner_admin, v_is_client, v_is_connector;
 
   if p_type not in ('website','web_app','mobile_app','custom_software') then
     raise exception 'Invalid creation project type';
@@ -52,7 +58,7 @@ begin
 
   if v_is_owner_admin then
     null;
-  elsif private.user_has_any_role(v_actor, array['client']) then
+  elsif v_is_client then
     v_client := v_actor;
     v_connector := null;
     if p_business_id is not null then
@@ -64,7 +70,7 @@ begin
     ) then
       raise exception 'Project reference access denied';
     end if;
-  elsif private.user_has_any_role(v_actor, array['connector']) then
+  elsif v_is_connector then
     v_connector := v_actor;
     v_client := null;
     if p_business_id is not null and p_lead_id is null then
