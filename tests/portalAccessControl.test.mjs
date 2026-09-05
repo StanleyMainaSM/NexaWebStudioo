@@ -14,7 +14,7 @@ test('portal access has one centralized server-enforced database mechanism for a
   assert.match(sql, /private\.verify_portal_access_password\(p_portal text, p_password text\)/);
   assert.match(sql, /private\.has_portal_access\(p_portal text\)/);
   assert.match(sql, /crypt\(p_password, gen_salt\('bf'\)\)/i);
-  assert.match(sql, /crypt\(p_password, v_password_hash\) = v_password_hash/i);
+  assert.match(sql, /crypt\(v_password, v_password_hash\) <> v_password_hash/i);
 });
 
 test('portal access never exposes hashes or passwords and is not stored in browser storage', () => {
@@ -25,7 +25,7 @@ test('portal access never exposes hashes or passwords and is not stored in brows
   assert.doesNotMatch(access, /localStorage|sessionStorage/);
   assert.match(access, /verify_portal_access_password/);
   assert.match(access, /has_portal_access/);
-  assert.match(route, /hasPortalAccess/);
+  assert.match(route, /PortalAccessGate/);
 });
 
 test('portal routing keeps existing Supabase Auth and role authorization before the access gate', () => {
@@ -33,16 +33,17 @@ test('portal routing keeps existing Supabase Auth and role authorization before 
   assert.match(route, /const \{ user, loading, roles, rolesLoading/);
   assert.match(route, /if \(!user\)/);
   assert.match(route, /hasRequiredRole/);
-  assert.match(route, /hasPortalAccess/);
+  assert.match(route, /PortalAccessGate/);
   assert.match(route, /requiredRoles/);
 });
 
-test('logout clears the centralized portal unlock state', () => {
-  const auth = read('src/lib/auth.tsx');
+test('logout remains Supabase-session based so server-side session termination invalidates the unlock', () => {
   const layout = read('src/pages/portal/PortalLayout.tsx');
-  assert.match(auth, /clearPortalAccess/);
-  assert.match(layout, /clearPortalAccess/);
+  const sql = read('supabase/migrations/20260905150000_portal_access_control.sql');
   assert.match(layout, /supabase\.auth\.signOut\(\)/);
+  assert.match(sql, /auth\.sessions/);
+  assert.match(sql, /s\.id = v_session_id/);
+  assert.match(sql, /s\.user_id = v_user_id/);
 });
 
 test('portal passwords are session-bound rather than indefinite browser unlocks', () => {
@@ -50,7 +51,7 @@ test('portal passwords are session-bound rather than indefinite browser unlocks'
   assert.match(sql, /session_id uuid NOT NULL/);
   assert.match(sql, /auth\.jwt\(\) ->> 'session_id'/);
   assert.match(sql, /expires_at timestamptz NOT NULL/);
-  assert.match(sql, /auth\.sessions/);
+  assert.match(sql, /now\(\) \+ interval '8 hours'/);
 });
 
 console.log('portalAccessControl.test.mjs: PASS');
