@@ -1,7 +1,7 @@
 -- Harden the Creation Project authorization boundary by resolving the caller
--- explicitly and evaluating roles against that caller id inside the SECURITY
--- DEFINER function. Direct role predicates avoid relying on auth-context helpers
--- whose execution context can change under SECURITY DEFINER.
+-- from the request JWT claims before falling back to the auth helper. This keeps
+-- SECURITY DEFINER execution bound to the authenticated request subject rather
+-- than the function's effective database role.
 
 create or replace function public.create_creation_project(
   p_type text default 'website',
@@ -21,22 +21,26 @@ set search_path = pg_catalog, public, private
 as $$
 declare
   v_id uuid;
-  v_actor uuid := auth.uid();
+  v_actor uuid;
   v_client uuid := p_client_id;
   v_connector uuid := p_connector_id;
   v_business_id uuid := p_business_id;
   v_is_owner_admin boolean;
   v_is_client boolean;
   v_is_connector boolean;
+  v_claims jsonb;
 begin
+  v_claims := nullif(current_setting('request.jwt.claims', true), '')::jsonb;
+  if v_claims is not null then
+    v_actor := nullif(v_claims ->> 'sub', '')::uuid;
+  end if;
+
   if v_actor is null then
     v_actor := nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
   end if;
+
   if v_actor is null then
-    v_actor := nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub';
-    if v_actor is not null then
-      v_actor := v_actor::uuid;
-    end if;
+    v_actor := auth.uid();
   end if;
 
   if v_actor is null then
