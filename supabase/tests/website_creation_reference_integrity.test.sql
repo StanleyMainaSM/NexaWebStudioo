@@ -61,6 +61,7 @@ select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from 
 select is(auth.uid(),(select id from t_ids where name='client_a'),'Website creation fixture authenticates as Client A');
 select is(public.has_portal_access('creation'),false,'Client A has no creation access before entering the dedicated creation password');
 select is(private.user_has_any_role(auth.uid(),ARRAY['client']::text[]),true,'Website creation fixture gives Client A the client role');
+select is(private.user_has_any_role(auth.uid(),ARRAY['owner','admin']::text[]),false,'Website creation fixture does not grant Client A management role');
 select throws_ok($$select public.create_creation_project(p_type=>'website',p_title=>'Blocked before unlock')$$,NULL,'Website and template creation access required','Client cannot create a website project before unlocking dedicated creation access');
 select is(public.verify_portal_access_password('creation','Creation-Access-Password-123!'),true,'Client A unlocks website/template creation with the dedicated creation password');
 select is(public.has_portal_access('creation'),true,'Client A creation unlock is recognized server-side');
