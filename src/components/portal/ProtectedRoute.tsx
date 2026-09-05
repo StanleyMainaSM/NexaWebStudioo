@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
@@ -7,13 +7,13 @@ import PortalAccessGate from './PortalAccessGate';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
-  children?: React.ReactNode;
+  children?: ReactNode;
   requiredRoles?: string[];
   requiresConnectorTerms?: boolean;
 }
 
 export default function ProtectedRoute({ children, requiredRoles, requiresConnectorTerms = false }: ProtectedRouteProps) {
-  const { user, loading, roles, rolesLoading, activeWorkspace } = useAuth();
+  const { user, loading, roles, rolesLoading } = useAuth();
   const location = useLocation();
   const [memberAccessLoading, setMemberAccessLoading] = useState(true);
   const [memberActive, setMemberActive] = useState(false);
@@ -76,7 +76,7 @@ export default function ProtectedRoute({ children, requiredRoles, requiresConnec
   }, [requiresConnectorTerms, user?.id, memberActive]);
 
   if (loading || rolesLoading || memberAccessLoading || connectorAccessLoading) {
-    return <div className="min-h-screen bg-ink-950 flex items-center justify-center"><Loader2 className="w-8 h-8 text-accent-400 animate-spin" /></div>;
+    return <div className="min-h-screen bg-ink-950 flex items-center justify-center"><Loader2 className="w-8 h-8 text-accent-400 animate-spin" /> </div>;
   }
 
   if (!user) {
@@ -94,6 +94,6 @@ export default function ProtectedRoute({ children, requiredRoles, requiresConnec
   if (!hasRequiredRole) return <Navigate to="/portal" replace />;
   if (requiresConnectorTerms && !connectorAccessAllowed) return <Navigate to="/portal/connector/terms" replace />;
 
-  const portal = getPortalForPath(location.pathname, activeWorkspace);
+  const portal = getPortalForPath(location.pathname, null);
   return <PortalAccessGate portal={portal}>{children ? <>{children}</> : <Outlet />}</PortalAccessGate>;
 }
