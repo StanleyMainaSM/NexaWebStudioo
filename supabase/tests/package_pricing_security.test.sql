@@ -33,8 +33,10 @@ select ok(
   'Package management remains restricted to Owner/Admin roles'
 );
 
-insert into public.packages(name,description,is_active)
-values ('Stage 7 Inactive Public Test','Temporary inactive package for RLS verification',false);
+insert into public.packages(name,description,is_active,min_price,max_price)
+values
+  ('Stage 7 Active Public Test','Temporary active package for RLS verification',true,10000,15000),
+  ('Stage 7 Inactive Public Test','Temporary inactive package for RLS verification',false,20000,25000);
 
 set local role anon;
 select is(
@@ -77,9 +79,11 @@ select pg_temp.make_user('client','package-client@example.test');
 select pg_temp.make_user('owner','package-owner@example.test');
 
 insert into public.user_roles(user_id,role)
-select id,'client' from t_package_security_ids where name='client';
+select id,'client' from t_package_security_ids where name='client'
+on conflict (user_id,role) do nothing;
 insert into public.user_roles(user_id,role)
-select id,'owner' from t_package_security_ids where name='owner';
+select id,'owner' from t_package_security_ids where name='owner'
+on conflict (user_id,role) do nothing;
 
 select set_config(
   'request.jwt.claims',
