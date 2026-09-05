@@ -14,7 +14,13 @@ as $$
            from private.portal_access_passwords pap
            where pap.portal = p.portal
          ) as configured
-  from unnest(array['client','operator','connector','admin','owner']::text[]) as p(portal);
+  from unnest(array['client','operator','connector','admin','owner']::text[]) as p(portal)
+  where exists (
+    select 1
+    from public.user_roles ur
+    where ur.user_id = auth.uid()
+      and ur.role in ('owner','admin')
+  );
 $$;
 
 create or replace function public.get_portal_access_status()
@@ -29,4 +35,4 @@ $$;
 revoke all on function private.get_portal_access_status() from public, anon, authenticated;
 grant execute on function public.get_portal_access_status() to authenticated;
 
-comment on function public.get_portal_access_status() is 'Returns only configured/not-configured state for the five portal access passwords; never returns password hashes.';
+comment on function public.get_portal_access_status() is 'Returns configured/not-configured state only to authenticated Owner/Admin users; never returns password hashes.';
