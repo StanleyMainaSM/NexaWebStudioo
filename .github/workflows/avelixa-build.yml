@@ -34,6 +34,9 @@ jobs:
       - name: Package pricing synchronization tests
         run: node --experimental-strip-types tests/packagePricingSynchronization.test.mjs
 
+      - name: Portal password management contract tests
+        run: node --experimental-strip-types tests/portalAccessPasswordManagement.test.mjs
+
       - name: Website creation foundation tests
         run: |
           node --experimental-strip-types tests/websiteCreationFoundation.test.mjs
