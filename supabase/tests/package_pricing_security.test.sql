@@ -52,6 +52,15 @@ reset role;
 create temporary table t_package_security_ids(name text primary key, id uuid not null);
 grant select on t_package_security_ids to authenticated;
 
+create temporary table t_package_target(id uuid primary key, original_min_price numeric, original_name text);
+grant select on t_package_target to authenticated;
+insert into t_package_target(id,original_min_price,original_name)
+select id,min_price,name
+from public.packages
+where is_active=true
+order by created_at
+limit 1;
+
 create or replace function pg_temp.make_user(p_name text, p_email text) returns uuid
 language plpgsql
 as $$
@@ -89,18 +98,24 @@ select throws_ok(
   'Client cannot create packages'
 );
 
-select throws_ok(
-  $$update public.packages set min_price = coalesce(min_price,0) + 1 where id=(select id from public.packages where is_active=true order by created_at limit 1)$$,
-  NULL,
-  NULL,
-  'Client cannot update packages'
+select lives_ok(
+  $$update public.packages set min_price = coalesce(min_price,0) + 1 where id=(select id from t_package_target)$$,
+  'Client update attempt is safely contained by package RLS'
+);
+select is(
+  (select min_price from public.packages where id=(select id from t_package_target)),
+  (select original_min_price from t_package_target),
+  'Client cannot change authoritative package pricing'
 );
 
-select throws_ok(
-  $$delete from public.packages where id=(select id from public.packages where is_active=true order by created_at limit 1)$$,
-  NULL,
-  NULL,
-  'Client cannot delete packages'
+select lives_ok(
+  $$delete from public.packages where id=(select id from t_package_target)$$,
+  'Client delete attempt is safely contained by package RLS'
+);
+select is(
+  (select count(*)::bigint from public.packages where id=(select id from t_package_target)),
+  1::bigint,
+  'Client cannot delete authoritative packages'
 );
 
 select set_config(
