@@ -22,7 +22,12 @@ end $$;
 
 select pg_temp.make_creation_user('owner','avelixa-creation-owner@example.test');
 select pg_temp.make_creation_user('client','avelixa-creation-client@example.test');
+-- Fresh test databases intentionally have no pre-existing Owner account.
+-- Bootstrap only this fixture role with trigger execution disabled inside the
+-- test transaction; production Owner-role protection remains unchanged.
+set local session_replication_role = replica;
 insert into public.user_roles(user_id,role) select id,'owner' from t_creation_ids where name='owner';
+set local session_replication_role = origin;
 insert into public.user_roles(user_id,role) select id,'client' from t_creation_ids where name='client';
 insert into auth.sessions(id,user_id,created_at,updated_at,aal,not_after)
 select gen_random_uuid(),id,now(),now(),'aal1',now()+interval '1 hour' from t_creation_ids;
