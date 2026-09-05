@@ -83,7 +83,7 @@ select is(public.has_portal_access('owner'),true,'Owner unlock is active before 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='admin')::text,'role','authenticated','session_id',(select id::text from t_sessions where name='admin'))::text,true);
 select is(public.reset_portal_access_password('owner',pg_temp.pw('owner-reset-2')),true,'Admin password reset succeeds after an existing Owner unlock');
 
-select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated','session_id',(select id::text from t_sessions where user_id=(select id from t_ids where name='owner')) )::text,true);
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated','session_id',(select id::text from t_sessions where name='owner'))::text,true);
 select is(public.has_portal_access('owner'),false,'Password reset invalidates the existing Owner-session unlock');
 
 select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='client')::text,'role','authenticated','session_id',(select id::text from t_sessions where name='client'))::text,true);
