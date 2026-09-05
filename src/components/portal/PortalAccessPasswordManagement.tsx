@@ -2,22 +2,23 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, KeyRound, Loader2, RefreshCw, RotateCcw, ShieldCheck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-type Portal = 'client' | 'operator' | 'connector' | 'admin' | 'owner';
+type Portal = 'client' | 'operator' | 'connector' | 'admin' | 'owner' | 'creation';
 type StatusRow = { portal: Portal; configured: boolean; configured_at: string | null; updated_at: string | null };
 
-const portals: Array<{ id: Portal; label: string }> = [
-  { id: 'client', label: 'Client Portal' },
-  { id: 'operator', label: 'Operator Portal' },
-  { id: 'connector', label: 'Connector Portal' },
-  { id: 'admin', label: 'Admin Portal' },
-  { id: 'owner', label: 'Owner Portal' },
+const portals: Array<{ id: Portal; label: string; description: string }> = [
+  { id: 'creation', label: 'Website & Template Creation', description: 'Separate from Supabase login and normal portal entry.' },
+  { id: 'client', label: 'Client Portal', description: 'Legacy portal access control.' },
+  { id: 'operator', label: 'Operator Portal', description: 'Legacy portal access control.' },
+  { id: 'connector', label: 'Connector Portal', description: 'Legacy portal access control.' },
+  { id: 'admin', label: 'Admin Portal', description: 'Legacy portal access control.' },
+  { id: 'owner', label: 'Owner Portal', description: 'Reserved for sensitive Owner controls such as User Management.' },
 ];
 
 const initialForm = { current: '', next: '', confirm: '' };
 
 export default function PortalAccessPasswordManagement() {
   const [statuses, setStatuses] = useState<StatusRow[]>([]);
-  const [selected, setSelected] = useState<Portal>('owner');
+  const [selected, setSelected] = useState<Portal>('creation');
   const [form, setForm] = useState(initialForm);
   const [mode, setMode] = useState<'configure' | 'change' | 'reset'>('configure');
   const [loading, setLoading] = useState(true);
@@ -26,6 +27,7 @@ export default function PortalAccessPasswordManagement() {
   const [error, setError] = useState('');
 
   const selectedStatus = useMemo(() => statuses.find((item) => item.portal === selected), [statuses, selected]);
+  const selectedPortal = portals.find((portal) => portal.id === selected);
 
   const load = async () => {
     setLoading(true);
@@ -50,7 +52,7 @@ export default function PortalAccessPasswordManagement() {
     setMessage('');
     setError('');
     if (form.next.length < 12) {
-      setError('Use at least 12 characters for the new portal password.');
+      setError('Use at least 12 characters for the new password.');
       return;
     }
     if (form.next !== form.confirm) {
@@ -67,20 +69,20 @@ export default function PortalAccessPasswordManagement() {
           p_new_password: form.next,
         });
         if (rpcError) throw rpcError;
-        if (!data) throw new Error('The current portal password was rejected.');
+        if (!data) throw new Error('The current access password was rejected.');
       } else {
         const { data, error: rpcError } = await supabase.rpc('reset_portal_access_password', {
           p_portal: selected,
           p_new_password: form.next,
         });
         if (rpcError) throw rpcError;
-        if (!data) throw new Error('You are not authorized to manage this portal password.');
+        if (!data) throw new Error('You are not authorized to manage this access password.');
       }
       setForm(initialForm);
-      setMessage(`${portals.find((portal) => portal.id === selected)?.label} password ${mode === 'change' ? 'changed' : selectedStatus?.configured ? 'reset' : 'configured'} successfully.`);
+      setMessage(`${selectedPortal?.label} password ${mode === 'change' ? 'changed' : selectedStatus?.configured ? 'reset' : 'configured'} successfully.`);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to update the portal password.');
+      setError(err instanceof Error ? err.message : 'Unable to update the access password.');
     } finally {
       setSaving(false);
     }
@@ -92,8 +94,8 @@ export default function PortalAccessPasswordManagement() {
         <div className="flex items-start gap-3">
           <div className="rounded-xl border border-accent-500/20 bg-accent-500/10 p-2.5"><ShieldCheck className="h-5 w-5 text-accent-400" /></div>
           <div>
-            <h2 className="text-xl font-medium text-white">Portal Password Management</h2>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-400">Configure, change, or reset the second-factor portal access passwords. Existing passwords are never displayed or retrievable.</p>
+            <h2 className="text-xl font-medium text-white">Access Password Management</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-400">Website & Template Creation has its own access password. It is separate from Supabase login and from Owner portal entry. Existing passwords are never displayed or retrievable.</p>
           </div>
         </div>
         <button onClick={() => void load()} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-gray-200">
@@ -104,7 +106,7 @@ export default function PortalAccessPasswordManagement() {
       {message && <div className="mt-5 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" />{message}</div>}
       {error && <div className="mt-5 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
 
-      <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {portals.map((portal) => {
           const status = statuses.find((item) => item.portal === portal.id);
           const active = selected === portal.id;
@@ -112,7 +114,7 @@ export default function PortalAccessPasswordManagement() {
             <button key={portal.id} onClick={() => { setSelected(portal.id); setForm(initialForm); setMessage(''); setError(''); }} className={`rounded-xl border p-4 text-left transition ${active ? 'border-accent-500/40 bg-accent-500/10' : 'border-white/10 bg-white/[0.02] hover:border-white/20'}`}>
               <div className="flex items-center justify-between gap-2"><KeyRound className="h-4 w-4 text-accent-400" />{status?.configured ? <span className="text-[10px] font-semibold uppercase tracking-widest text-emerald-300">Configured</span> : <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-300">Not configured</span>}</div>
               <div className="mt-3 text-sm font-medium text-white">{portal.label}</div>
-              <div className="mt-1 text-xs text-gray-500">{status?.updated_at ? `Updated ${new Date(status.updated_at).toLocaleDateString()}` : 'No password set'}</div>
+              <div className="mt-1 text-xs leading-5 text-gray-500">{portal.description}</div>
             </button>
           );
         })}
@@ -120,7 +122,7 @@ export default function PortalAccessPasswordManagement() {
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-black/10 p-5">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="mr-2 text-sm font-medium text-white">{portals.find((portal) => portal.id === selected)?.label}</div>
+          <div className="mr-2 text-sm font-medium text-white">{selectedPortal?.label}</div>
           {!selectedStatus?.configured ? (
             <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-amber-300">Configure</span>
           ) : (
