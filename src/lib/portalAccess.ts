@@ -1,8 +1,8 @@
 import { supabase } from './supabase';
 
-export type PortalAccessKey = 'client' | 'operator' | 'connector' | 'admin' | 'owner';
+export type PortalAccessKey = 'client' | 'operator' | 'connector' | 'admin' | 'owner' | 'creation';
 
-export function getPortalForPath(pathname: string, activeWorkspace: PortalAccessKey | null): PortalAccessKey {
+export function getPortalForPath(pathname: string, activeWorkspace: Exclude<PortalAccessKey, 'creation'> | null): Exclude<PortalAccessKey, 'creation'> {
   if (pathname === '/portal') return 'client';
   if (pathname.startsWith('/portal/owner')) return 'owner';
   if (pathname.startsWith('/portal/admin')) return 'admin';
@@ -15,6 +15,15 @@ export async function hasPortalAccess(portal: PortalAccessKey): Promise<boolean>
   const { data, error } = await supabase.rpc('has_portal_access', { p_portal: portal });
   if (error) {
     console.error('Portal access verification failed:', error.message);
+    return false;
+  }
+  return data === true;
+}
+
+export async function isPortalPasswordConfigured(portal: PortalAccessKey): Promise<boolean> {
+  const { data, error } = await supabase.rpc('portal_access_password_configured', { p_portal: portal });
+  if (error) {
+    console.error('Portal password configuration check failed:', error.message);
     return false;
   }
   return data === true;
