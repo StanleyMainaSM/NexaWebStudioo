@@ -1,6 +1,7 @@
 name: Avelixa Build Verification
 
 # Stage 2 portal access verification is part of the standard build regression suite.
+# Stage 4 Owner User Management gate regression is also part of this complete gate.
 # This workflow intentionally runs the full local database reset and regression suite.
 # The complete verification is required before a stage can be certified green.
 
