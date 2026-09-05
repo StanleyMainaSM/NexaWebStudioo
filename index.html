@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f6f7fb" />
+    <meta name="theme-color" content="#09090b" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -24,14 +24,14 @@
       (() => {
         try {
           const stored = window.localStorage.getItem('avelixa-theme');
-          const theme = stored === 'dark' || stored === 'light' ? stored : 'light';
+          const theme = stored === 'dark' || stored === 'light' ? stored : 'dark';
           document.documentElement.dataset.theme = theme;
           document.documentElement.style.colorScheme = theme;
           const meta = document.querySelector('meta[name="theme-color"]');
           if (meta) meta.setAttribute('content', theme === 'light' ? '#f6f7fb' : '#09090b');
         } catch {
-          document.documentElement.dataset.theme = 'light';
-          document.documentElement.style.colorScheme = 'light';
+          document.documentElement.dataset.theme = 'dark';
+          document.documentElement.style.colorScheme = 'dark';
         }
       })();
     </script>
