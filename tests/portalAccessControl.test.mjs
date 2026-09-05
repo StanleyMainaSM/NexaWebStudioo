@@ -13,7 +13,7 @@ test('portal access has one centralized server-enforced database mechanism for a
   assert.match(sql, /private\.portal_access_unlocks/);
   assert.match(sql, /private\.verify_portal_access_password\(p_portal text, p_password text\)/);
   assert.match(sql, /private\.has_portal_access\(p_portal text\)/);
-  assert.match(sql, /crypt\(p_password, gen_salt\('bf'\)\)/i);
+  assert.match(sql, /crypt\(v_password, gen_salt\('bf'\)\)/i);
   assert.match(sql, /crypt\(v_password, v_password_hash\) <> v_password_hash/i);
 });
 
@@ -48,9 +48,9 @@ test('logout remains Supabase-session based so server-side session termination i
 
 test('portal passwords are session-bound rather than indefinite browser unlocks', () => {
   const sql = read('supabase/migrations/20260905150000_portal_access_control.sql');
-  assert.match(sql, /session_id uuid NOT NULL/);
+  assert.match(sql, /session_id uuid not null/i);
   assert.match(sql, /auth\.jwt\(\) ->> 'session_id'/);
-  assert.match(sql, /expires_at timestamptz NOT NULL/);
+  assert.match(sql, /expires_at timestamptz not null/i);
   assert.match(sql, /now\(\) \+ interval '8 hours'/);
 });
 
