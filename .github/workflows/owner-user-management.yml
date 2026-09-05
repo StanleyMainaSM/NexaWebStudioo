@@ -3,6 +3,8 @@ name: Owner User Management
 on:
   push:
     branches: [avelixa-current-work]
+  pull_request:
+    branches: [avelixa-current-work]
   workflow_dispatch:
 permissions:
   contents: write
@@ -12,6 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: avelixa-current-work
           fetch-depth: 0
       - name: Apply Stage 4 implementation
         run: |
