@@ -33,7 +33,8 @@ assert.match(tailwindSource, /--avelixa-ink-950/, 'Tailwind ink colors must use 
 assert.match(servicesSource, /service-grid/, 'Services must use a dedicated visual card grid.');
 assert.match(servicesSource, /service-card service-card-/, 'Service cards must carry differentiated theme hooks.');
 assert.match(servicesSource, /object-cover/, 'Service imagery must preserve intentional image sizing without theme filters.');
-assert.match(footerSource, /data-social="social-instagram"/, 'Instagram must retain a dedicated social brand treatment.');
-assert.match(footerSource, /data-social="social-whatsapp"/, 'WhatsApp must retain a dedicated social brand treatment.');
+assert.match(footerSource, /label:\s*'Instagram',[\s\S]*tone:\s*'social-instagram'/, 'Instagram must retain a dedicated social brand treatment.');
+assert.match(footerSource, /data-social=\{tone\}/, 'Social controls must expose their dedicated tone as the rendered data-social attribute.');
+assert.match(footerSource, /label:\s*'WhatsApp',[\s\S]*tone:\s*'social-whatsapp'/, 'WhatsApp must retain a dedicated social brand treatment.');
 
 console.log('Theme system regression tests passed.');
