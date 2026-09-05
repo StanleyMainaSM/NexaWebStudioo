@@ -11,6 +11,7 @@ const migrationFiles = fs
   .sort();
 
 const queueBaseline = '20260829180000_restore_connector_provisioning_queue_baseline.sql';
+const provisioningMetadataBaseline = '20260829189999_restore_connector_application_provisioning_metadata.sql';
 const recruitmentHelper = '20260829209998_restore_connector_recruitment_summary_helper.sql';
 const provisioningHelper = '20260829209999_restore_connector_provisioning_helpers.sql';
 const provisioningDependent = '20260829210000_fix_connector_provisioning_and_application_duplicates.sql';
@@ -22,6 +23,7 @@ const historicalReconciliation = '20260903093000_connector_historical_reconcilia
 const readMigration = (file) => fs.readFileSync(path.join(migrationsDir, file), 'utf8');
 
 assert.ok(fs.existsSync(path.join(migrationsDir, queueBaseline)), 'connector provisioning queue baseline must exist');
+assert.ok(fs.existsSync(path.join(migrationsDir, provisioningMetadataBaseline)), 'connector application provisioning metadata baseline must exist');
 assert.ok(fs.existsSync(path.join(migrationsDir, recruitmentHelper)), 'connector recruitment summary helper baseline must exist');
 assert.ok(fs.existsSync(path.join(migrationsDir, provisioningHelper)), 'connector provisioning helper baseline must exist');
 assert.ok(fs.existsSync(path.join(migrationsDir, provisioningDependent)), 'connector provisioning hardening migration must exist');
@@ -32,10 +34,14 @@ const stripSqlCommentsAndQuotedLiterals = (sql) => sql
   .replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, '')
   .replace(/'(?:''|[^'])*'/g, "''");
 const queueReferencePattern = /\b(?:on|into|from|update|table)\s+public\.connector_provisioning_queue\b/i;
+const provisioningStatusReferencePattern = /\bca\.provisioning_status\b/i;
 
 const queueCreatorMigrations = migrationFiles.filter((file) => queueCreatorPattern.test(readMigration(file)));
 const queueReferenceMigrations = migrationFiles.filter((file) =>
   queueReferencePattern.test(stripSqlCommentsAndQuotedLiterals(readMigration(file))),
+);
+const provisioningStatusReferenceMigrations = migrationFiles.filter((file) =>
+  provisioningStatusReferencePattern.test(stripSqlCommentsAndQuotedLiterals(readMigration(file))),
 );
 
 const migrationVersion = (file) => file.match(/^(\d{14})_/i)?.[1] ?? null;
@@ -79,6 +85,30 @@ test('connector_provisioning_queue is created before any executable migration re
     assert.ok(
       creatorIndex < migrationFiles.indexOf(migration),
       `${creator} must precede ${migration} because ${migration} contains an executable reference to public.connector_provisioning_queue`,
+    );
+  }
+});
+
+test('connector_applications provisioning metadata exists before any executable provisioning_status reference', () => {
+  const baseline = readMigration(provisioningMetadataBaseline);
+  const baselineIndex = migrationFiles.indexOf(provisioningMetadataBaseline);
+
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS provisioning_status TEXT NOT NULL DEFAULT 'pending'/i);
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS provisioned_user_id UUID/i);
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS provisioned_at TIMESTAMPTZ/i);
+  assert.match(baseline, /ADD COLUMN IF NOT EXISTS provisioning_error TEXT/i);
+  assert.match(baseline, /connector_applications_provisioning_status_check/i);
+  assert.match(baseline, /connector_applications_provisioned_user_id_fkey/i);
+
+  assert.ok(
+    provisioningStatusReferenceMigrations.length > 0,
+    'migration chain must contain executable connector_applications.provisioning_status references',
+  );
+
+  for (const migration of provisioningStatusReferenceMigrations) {
+    assert.ok(
+      baselineIndex < migrationFiles.indexOf(migration),
+      `${provisioningMetadataBaseline} must precede ${migration} because ${migration} references connector_applications.provisioning_status`,
     );
   }
 });
