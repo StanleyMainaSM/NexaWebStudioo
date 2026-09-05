@@ -1,28 +1,32 @@
-# Stage 4 Owner User Management verification workflow.
 name: Owner User Management
+
 on:
-  workflow_run:
-    workflows: [Avelixa Build Verification]
-    types: [completed]
+  push:
+    branches:
+      - avelixa-current-work
   workflow_dispatch:
-permissions:
-  contents: write
+
 jobs:
   owner-user-management:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          ref: avelixa-current-work
-          fetch-depth: 0
-      - name: Apply Stage 4 implementation
-        run: |
-          python3 scripts/stage4_patch.py
-          if [[ -n "$(git status --porcelain)" ]]; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add -A server.ts supabase/functions/avelixa-owner-member-status-prod/index.ts src/pages/portal/OwnerUserManagement.tsx scripts/stage4_patch.py
-            git commit -m 'feat: enforce Owner User Management access gate'
-            git push origin HEAD:avelixa-current-work
-          fi
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Owner User Management regression tests
+        run: node --test tests/ownerMemberLifecycle.test.mjs tests/ownerUserManagementCompletion.test.mjs tests/ownerUserManagementAccessGate.test.mjs
+
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Build
+        run: npm run build
