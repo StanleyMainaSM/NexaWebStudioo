@@ -15,6 +15,9 @@ const recruitmentHelper = '20260829209998_restore_connector_recruitment_summary_
 const provisioningHelper = '20260829209999_restore_connector_provisioning_helpers.sql';
 const provisioningDependent = '20260829210000_fix_connector_provisioning_and_application_duplicates.sql';
 const recruitmentDependent = '20260829210001_tighten_connector_recruitment_summary_security.sql';
+const activationEmailQueueLink = '20260903092000_connector_activation_email_queue_link.sql';
+const onboardingHardening = '20260903092500_harden_connector_onboarding_and_owner_roles.sql';
+const historicalReconciliation = '20260903093000_connector_historical_reconciliation_status.sql';
 
 const readMigration = (file) => fs.readFileSync(path.join(migrationsDir, file), 'utf8');
 
@@ -42,13 +45,24 @@ for (const file of migrationFiles) {
   if (version) migrationVersionCounts.set(version, (migrationVersionCounts.get(version) ?? 0) + 1);
 }
 
-
 test('supabase migration versions are globally unique', () => {
   const duplicates = [...migrationVersionCounts.entries()]
     .filter(([, count]) => count > 1)
     .map(([version, count]) => `${version} (${count} files)`);
 
   assert.deepEqual(duplicates, [], `duplicate Supabase migration versions found: ${duplicates.join(', ')}`);
+});
+
+test('connector activation hardening migrations preserve their intended order', () => {
+  assert.ok(fs.existsSync(path.join(migrationsDir, activationEmailQueueLink)), 'activation email queue migration must exist');
+  assert.ok(fs.existsSync(path.join(migrationsDir, onboardingHardening)), 'onboarding hardening migration must exist');
+  assert.ok(fs.existsSync(path.join(migrationsDir, historicalReconciliation)), 'historical reconciliation migration must exist');
+
+  assert.ok(
+    migrationFiles.indexOf(activationEmailQueueLink) < migrationFiles.indexOf(onboardingHardening)
+      && migrationFiles.indexOf(onboardingHardening) < migrationFiles.indexOf(historicalReconciliation),
+    'activation email queue linkage must precede onboarding hardening, which must precede historical reconciliation',
+  );
 });
 
 test('connector_provisioning_queue is created before any executable migration references it', () => {
