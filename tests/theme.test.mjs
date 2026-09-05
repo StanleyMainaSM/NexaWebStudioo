@@ -28,9 +28,11 @@ assert.match(cssSource, /\.theme-toggle/, 'The theme control must have centraliz
 assert.match(cssSource, /--avelixa-surface-accent/, 'Light/dark themes must provide a deliberate accent surface token.');
 assert.match(cssSource, /service-card-1[\s\S]*service-card-6/, 'Light mode service cards must have restrained visual differentiation.');
 assert.match(cssSource, /social-instagram[\s\S]*social-facebook[\s\S]*social-whatsapp/, 'Social controls must retain recognizable brand colors.');
+assert.doesNotMatch(cssSource, /filter:\s*(?:grayscale|invert|saturate)/i, 'Theme CSS must not globally filter photographs or illustrations.');
 assert.match(tailwindSource, /--avelixa-ink-950/, 'Tailwind ink colors must use centralized theme tokens.');
 assert.match(servicesSource, /service-grid/, 'Services must use a dedicated visual card grid.');
 assert.match(servicesSource, /service-card service-card-/, 'Service cards must carry differentiated theme hooks.');
+assert.match(servicesSource, /object-cover/, 'Service imagery must preserve intentional image sizing without theme filters.');
 assert.match(footerSource, /data-social="social-instagram"/, 'Instagram must retain a dedicated social brand treatment.');
 assert.match(footerSource, /data-social="social-whatsapp"/, 'WhatsApp must retain a dedicated social brand treatment.');
 
