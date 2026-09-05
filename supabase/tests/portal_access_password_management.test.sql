@@ -14,8 +14,7 @@ select is(
 );
 
 create temporary table t_ids(name text primary key,id uuid not null);
-grant select on t_ids to authenticated;
-grant select on auth.sessions to authenticated;
+create temporary table t_sessions(name text primary key,id uuid not null);
 create or replace function pg_temp.pw(p_label text) returns text
 language sql
 immutable
@@ -47,14 +46,20 @@ insert into public.user_roles(user_id,role)
 select id,'owner' from t_ids where name='owner'
 on conflict (user_id,role) do nothing;
 set local session_replication_role = origin;
+insert into t_sessions(name,id)
+select name,gen_random_uuid() from t_ids;
 insert into auth.sessions(id,user_id,created_at,updated_at,aal,not_after)
-select gen_random_uuid(),id,now(),now(),'aal1',now()+interval '1 hour' from t_ids;
+select s.id,i.id,now(),now(),'aal1',now()+interval '1 hour'
+from t_sessions s join t_ids i using(name);
 
-select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_ids where name='owner')) )::text,true);
+grant select on t_ids to authenticated;
+grant select on t_sessions to authenticated;
+
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated','session_id',(select id::text from t_sessions where name='owner'))::text,true);
 set local role authenticated;
 select is(public.reset_portal_access_password('client',pg_temp.pw('owner-configure')),true,'Owner can configure/reset a portal password through the authorized management RPC');
 
-select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='admin')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_ids where name='admin')) )::text,true);
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='admin')::text,'role','authenticated','session_id',(select id::text from t_sessions where name='admin'))::text,true);
 select is((select count(*) from public.portal_access_password_status()),5::bigint,'Admin receives status for all five portals without password data');
 select is(public.reset_portal_access_password('owner',pg_temp.pw('owner-initial')),true,'Admin can configure/reset the Owner portal password');
 select is((select configured from public.portal_access_password_status() where portal='owner'),true,'Owner portal status becomes configured');
@@ -71,17 +76,17 @@ select is(public.verify_portal_access_password('owner',pg_temp.pw('owner-reset')
 
 -- Establish a real Owner-session unlock through the public access RPC, then
 -- verify that an Admin password reset invalidates that unlock.
-select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_ids where name='owner')) )::text,true);
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated','session_id',(select id::text from t_sessions where name='owner'))::text,true);
 select is(public.verify_portal_access_password('owner',pg_temp.pw('owner-reset')),true,'Authorized Owner can unlock the Owner portal with the configured password');
 select is(public.has_portal_access('owner'),true,'Owner unlock is active before the password reset');
 
-select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='admin')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_ids where name='admin')) )::text,true);
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='admin')::text,'role','authenticated','session_id',(select id::text from t_sessions where name='admin'))::text,true);
 select is(public.reset_portal_access_password('owner',pg_temp.pw('owner-reset-2')),true,'Admin password reset succeeds after an existing Owner unlock');
 
-select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_ids where name='owner')) )::text,true);
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='owner')::text,'role','authenticated','session_id',(select id::text from t_sessions where name='owner'))::text,true);
 select is(public.has_portal_access('owner'),false,'Password reset invalidates the existing Owner-session unlock');
 
-select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='client')::text,'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_ids where name='client')) )::text,true);
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from t_ids where name='client')::text,'role','authenticated','session_id',(select id::text from t_sessions where name='client'))::text,true);
 select is((select count(*) from public.portal_access_password_status()),0::bigint,'Non-management users receive no portal password management status');
 select is(public.reset_portal_access_password('owner',pg_temp.pw('client-reset')),false,'Unauthorized Client cannot reset a portal password');
 select is(public.change_portal_access_password('owner',pg_temp.pw('owner-reset-2'),pg_temp.pw('client-changed')),false,'Unauthorized Client cannot change a portal password');
