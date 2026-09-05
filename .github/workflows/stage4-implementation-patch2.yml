@@ -1,0 +1,3 @@
+name: Obsolete Stage 4 Patch Placeholder 2
+on:
+  workflow_dispatch:
