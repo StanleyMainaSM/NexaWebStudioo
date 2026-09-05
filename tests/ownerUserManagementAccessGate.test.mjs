@@ -5,17 +5,18 @@ import test from 'node:test';
 
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
-const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const server = () => read('server.ts');
 const ui = () => read('src/pages/portal/OwnerUserManagement.tsx');
 const statusFunction = () => read('supabase/functions/avelixa-owner-member-status-prod/index.ts');
 
 function routeBlock(source, method, route) {
-  const match = new RegExp(`app\\.${method}\\s*\\(\\s*["']${escapeRegex(route)}["']`).exec(source);
-  assert.ok(match, `Expected route ${method.toUpperCase()} ${route} to exist`);
-  const next = source.indexOf('\napp.', match.index + match[0].length);
-  return source.slice(match.index, next > match.index ? next : source.length);
+  const normalizedSource = source.replace(/\s+/g, ' ');
+  const normalizedRoute = `app.${method}("${route}")`;
+  const index = normalizedSource.indexOf(normalizedRoute);
+  assert.ok(index >= 0, `Expected route ${method.toUpperCase()} ${route} to exist`);
+  const next = normalizedSource.indexOf(' app.', index + normalizedRoute.length);
+  return normalizedSource.slice(index, next > index ? next : normalizedSource.length);
 }
 
 test('Owner User Management gate is server-verifiable and reuses the Owner portal access security boundary', () => {
