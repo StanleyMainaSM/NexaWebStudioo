@@ -1,38 +1,55 @@
 begin;
 select no_plan();
 
-select has_table('private','creation_access_passwords','Creation access password hashes stay in the private schema');
-select has_table('private','creation_access_unlocks','Creation access unlock state stays in the private schema');
-select has_function('private','verify_creation_access_password',ARRAY['text'],'Creation access password verification exists');
-select has_function('private','has_creation_access',ARRAY[]::text[],'Creation access assertion exists');
-select has_function('private','set_creation_access_password',ARRAY['text'],'Users can configure their own creation access password');
-select has_function('private','change_creation_access_password',ARRAY['text','text'],'Users can change their own creation access password');
-select is_definer('private','verify_creation_access_password',ARRAY['text'],'Creation password verification is server-side');
-select is_definer('private','set_creation_access_password',ARRAY['text'],'Creation password configuration is server-side');
+select has_table('private','portal_access_passwords','Creation access password hashes reuse the existing private password store');
+select has_table('private','portal_access_unlocks','Creation access unlock state reuses the existing private session-bound store');
+select has_function('private','verify_portal_access_password',ARRAY['text','text'],'Existing server-side portal password verification supports creation access');
+select has_function('private','has_portal_access',ARRAY['text'],'Existing server-side portal access assertion supports creation access');
+select has_function('private','set_portal_access_password',ARRAY['text','text'],'Owner/Admin can configure the creation access password');
+select has_function('private','change_portal_access_password',ARRAY['text','text','text'],'Owner/Admin can change the creation access password');
+select is_definer('private','verify_portal_access_password',ARRAY['text','text'],'Creation password verification remains server-side');
+select is_definer('private','set_portal_access_password',ARRAY['text','text'],'Creation password configuration remains server-side');
 
-create temporary table t_creation_user(id uuid primary key);
-insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
-values('00000000-0000-0000-0000-000000000000',gen_random_uuid(),'authenticated','authenticated','avelixa-creation@example.test',crypt('Supabase-Login-Password-123!',gen_salt('bf')),now(),'{"provider":"email","providers":["email"]}'::jsonb,'{}'::jsonb,now(),now())
-returning id into t_creation_user;
+create temporary table t_creation_ids(name text primary key,id uuid not null);
+create or replace function pg_temp.make_creation_user(p_name text,p_email text) returns uuid language plpgsql as $$
+declare v_id uuid := gen_random_uuid();
+begin
+  insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
+  values('00000000-0000-0000-0000-000000000000',v_id,'authenticated','authenticated',p_email,crypt('Supabase-Login-Password-123!',gen_salt('bf')),now(),'{"provider":"email","providers":["email"]}'::jsonb,'{}'::jsonb,now(),now());
+  insert into t_creation_ids values(p_name,v_id);
+  return v_id;
+end $$;
 
-insert into public.user_roles(user_id,role) select id,'owner' from t_creation_user;
+select pg_temp.make_creation_user('owner','avelixa-creation-owner@example.test');
+select pg_temp.make_creation_user('client','avelixa-creation-client@example.test');
+insert into public.user_roles(user_id,role) select id,'owner' from t_creation_ids where name='owner';
+insert into public.user_roles(user_id,role) select id,'client' from t_creation_ids where name='client';
 insert into auth.sessions(id,user_id,created_at,updated_at,aal,not_after)
-select gen_random_uuid(),id,now(),now(),'aal1',now()+interval '1 hour' from t_creation_user;
+select gen_random_uuid(),id,now(),now(),'aal1',now()+interval '1 hour' from t_creation_ids;
 
-select set_config('request.jwt.claims',jsonb_build_object('sub',(select id::text from t_creation_user),'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_creation_user)))::text,true);
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id::text from t_creation_ids where name='owner'),'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_creation_ids where name='owner')))::text,true);
 set local role authenticated;
-
-select is(public.set_creation_access_password('Creation-Access-Password-123!'),true,'Owner can configure their own creation access password');
-select is(public.verify_creation_access_password('Creation-Access-Password-123!'),true,'Correct creation access password is accepted');
-select is(public.verify_creation_access_password('Supabase-Login-Password-123!'),false,'Supabase login password is not accepted as creation access password');
-select is(public.verify_creation_access_password('Wrong-Creation-Password'),false,'Incorrect creation access password is rejected');
-select is(public.has_creation_access(),true,'Successful creation password verification establishes session-bound access');
-select is((select count(*)::bigint from private.creation_access_passwords where password_hash like 'Creation-Access-Password-123!'),0::bigint,'Creation password is never stored in plaintext');
-
-select is(public.change_creation_access_password('Creation-Access-Password-123!','New-Creation-Access-Password-456!'),true,'User can change their own creation access password');
-select is(public.verify_creation_access_password('Creation-Access-Password-123!'),false,'Old creation password stops working after change');
-select is(public.verify_creation_access_password('New-Creation-Access-Password-456!'),true,'New creation password works after change');
-
+select is(public.set_portal_access_password('creation','Creation-Access-Password-123!'),true,'Owner can configure the dedicated website/template creation access password');
+select is(public.verify_portal_access_password('creation','Creation-Access-Password-123!'),true,'Correct creation access password is accepted for Owner');
+select is(public.verify_portal_access_password('creation','Supabase-Login-Password-123!'),false,'Supabase login password is not accepted as the creation access password');
+select is(public.verify_portal_access_password('creation','Wrong-Creation-Password'),false,'Incorrect creation access password is rejected');
+select is(public.has_portal_access('creation'),true,'Successful creation password verification establishes session-bound creation access');
+select is((select count(*)::bigint from private.portal_access_passwords where password_hash like 'Creation-Access-Password-123!'),0::bigint,'Creation password is never stored in plaintext');
 reset role;
+
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id::text from t_creation_ids where name='client'),'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_creation_ids where name='client')))::text,true);
+set local role authenticated;
+select is(public.verify_portal_access_password('creation','Creation-Access-Password-123!'),true,'Authorized Client can unlock website/template creation with the dedicated creation password');
+select is(public.has_portal_access('creation'),true,'Authorized Client creation unlock is recognized server-side');
+select is(public.verify_portal_access_password('owner','Creation-Access-Password-123!'),false,'Creation password cannot unlock the Owner portal');
+reset role;
+
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id::text from t_creation_ids where name='owner'),'role','authenticated','session_id',(select id::text from auth.sessions where user_id=(select id from t_creation_ids where name='owner')))::text,true);
+set local role authenticated;
+select is(public.change_portal_access_password('creation','Creation-Access-Password-123!','New-Creation-Access-Password-456!'),true,'Owner can change the creation access password');
+select is(public.verify_portal_access_password('creation','Creation-Access-Password-123!'),false,'Old creation password stops working after change');
+select is(public.verify_portal_access_password('creation','New-Creation-Access-Password-456!'),true,'New creation password works after change');
+reset role;
+
 select * from finish();
 rollback;
