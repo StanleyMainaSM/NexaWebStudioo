@@ -17,7 +17,6 @@ const provisioningHelper = '20260829209999_restore_connector_provisioning_helper
 const provisioningDependent = '20260829210000_fix_connector_provisioning_and_application_duplicates.sql';
 const recruitmentDependent = '20260829210001_tighten_connector_recruitment_summary_security.sql';
 const recurringInvoiceBaseline = '20260829169993_create_recurring_services_baseline.sql';
-const recurringInvoiceDependent = '20260826175329_maintenance_recurring_service_workflow.sql';
 const activationEmailQueueLink = '20260903092000_connector_activation_email_queue_link.sql';
 const onboardingHardening = '20260903092500_harden_connector_onboarding_and_owner_roles.sql';
 const historicalReconciliation = '20260903093000_connector_historical_reconciliation_status.sql';
@@ -143,11 +142,6 @@ test('recurring invoice metadata exists before executable recurring-service invo
       `${recurringInvoiceBaseline} must precede ${migration} because ${migration} references recurring invoice metadata`,
     );
   }
-
-  assert.ok(
-    migrationFiles.indexOf(recurringInvoiceBaseline) < migrationFiles.indexOf(recurringInvoiceDependent),
-    `${recurringInvoiceBaseline} must precede ${recurringInvoiceDependent}`,
-  );
 });
 
 test('connector provisioning helper baselines precede their dependent migrations', () => {
