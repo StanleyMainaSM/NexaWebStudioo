@@ -101,7 +101,7 @@ test('Add Member, supported role assignment/removal, deactivation/reactivation, 
   assert.match(page, /Permanent Account Removal/);
   assert.match(page, /aria-label=\{`Remove \$\{label\(role\)\} role`\}/);
   assert.match(page, /\/roles\/\$\{role\}/);
-  assert.match(page, /Permanent Remove/);
+  assert.match(page, /Permanently Remove/);
 });
 
 test('User Management exposes no password, hash, access token, or browser-stored credential', () => {
