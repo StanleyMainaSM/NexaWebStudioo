@@ -27,12 +27,15 @@ assert.match(cssSource, /\[data-theme='dark'\]/, 'Dark theme tokens must exist c
 assert.match(cssSource, /\.theme-toggle/, 'The theme control must have centralized accessible styling.');
 assert.match(cssSource, /--avelixa-surface-accent/, 'Light/dark themes must provide a deliberate accent surface token.');
 assert.match(cssSource, /service-card-1[\s\S]*service-card-6/, 'Light mode service cards must have restrained visual differentiation.');
+assert.match(cssSource, /text-gray-400[\s\S]*avelixa-text-muted/, 'Light mode must raise muted gray text to a readable semantic token.');
+assert.match(cssSource, /service-image-overlay[\s\S]*service-image-copy/, 'Service imagery must use a local readability overlay rather than altering the image itself.');
 assert.match(cssSource, /social-instagram[\s\S]*social-facebook[\s\S]*social-whatsapp/, 'Social controls must retain recognizable brand colors.');
 assert.doesNotMatch(cssSource, /filter:\s*(?:grayscale|invert|saturate)/i, 'Theme CSS must not globally filter photographs or illustrations.');
 assert.match(tailwindSource, /--avelixa-ink-950/, 'Tailwind ink colors must use centralized theme tokens.');
 assert.match(servicesSource, /service-grid/, 'Services must use a dedicated visual card grid.');
 assert.match(servicesSource, /service-card service-card-/, 'Service cards must carry differentiated theme hooks.');
 assert.match(servicesSource, /object-cover/, 'Service imagery must preserve intentional image sizing without theme filters.');
+assert.match(servicesSource, /service-image-copy/, 'Service image copy must retain readable contrast in both themes.');
 assert.match(footerSource, /label:\s*'Instagram',[\s\S]*tone:\s*'social-instagram'/, 'Instagram must retain a dedicated social brand treatment.');
 assert.match(footerSource, /data-social=\{tone\}/, 'Social controls must expose their dedicated tone as the rendered data-social attribute.');
 assert.match(footerSource, /label:\s*'WhatsApp',[\s\S]*tone:\s*'social-whatsapp'/, 'WhatsApp must retain a dedicated social brand treatment.');
