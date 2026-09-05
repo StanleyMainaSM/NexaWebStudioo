@@ -12,9 +12,6 @@ on:
     branches:
       - avelixa-current-work
 
-permissions:
-  contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
