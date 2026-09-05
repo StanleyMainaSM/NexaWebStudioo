@@ -5,27 +5,12 @@ on:
     branches: [avelixa-current-work]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   connector-onboarding:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Apply Stage 4 implementation
-        run: |
-          python3 scripts/stage4_patch.py
-          if [[ -n "$(git status --porcelain)" ]]; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add server.ts supabase/functions/avelixa-owner-member-status-prod/index.ts src/pages/portal/OwnerUserManagement.tsx scripts/stage4_patch.py .github/workflows/stage4-implementation-patch.yml .github/workflows/stage4-implementation-patch2.yml docs/.stage4-trigger
-            git commit -m 'feat: enforce Owner User Management access gate'
-            git push origin HEAD:avelixa-current-work
-          fi
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
