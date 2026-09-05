@@ -26,7 +26,9 @@ create table if not exists private.portal_access_unlocks (
 create index if not exists portal_access_unlocks_session_idx
   on private.portal_access_unlocks(session_id, portal, expires_at);
 
-revoke all on schema private from public, anon, authenticated;
+-- Do not alter schema-level privileges here. Existing Avelixa private-schema
+-- functions rely on their established privileges. The new tables/functions
+-- themselves are explicitly protected below.
 revoke all on private.portal_access_passwords from public, anon, authenticated;
 revoke all on private.portal_access_unlocks from public, anon, authenticated;
 
