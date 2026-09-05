@@ -15,6 +15,7 @@ select is(
 
 create temporary table t_ids(name text primary key,id uuid not null);
 grant select on t_ids to authenticated;
+grant select on auth.sessions to authenticated;
 create or replace function pg_temp.pw(p_label text) returns text
 language sql
 immutable
