@@ -27,14 +27,13 @@ select pg_temp.make_user('connector','avelixa-portal-connector@example.test');
 select pg_temp.make_user('operator','avelixa-portal-operator@example.test');
 select pg_temp.make_user('admin','avelixa-portal-admin@example.test');
 
-set local session_replication_role = replica;
 insert into public.user_roles(user_id,role)
 select id,'owner' from t_portal_ids where name='owner'
 union all select id,'client' from t_portal_ids where name='client'
 union all select id,'connector' from t_portal_ids where name='connector'
 union all select id,'operator' from t_portal_ids where name='operator'
-union all select id,'admin' from t_portal_ids where name='admin';
-set local session_replication_role = origin;
+union all select id,'admin' from t_portal_ids where name='admin'
+on conflict (user_id, role) do nothing;
 
 insert into auth.sessions(id,user_id,created_at,updated_at,aal,not_after)
 select gen_random_uuid(),id,now(),now(),'aal1',now()+interval '1 hour' from t_portal_ids;
