@@ -5,18 +5,17 @@ import test from 'node:test';
 
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const server = () => read('server.ts');
 const ui = () => read('src/pages/portal/OwnerUserManagement.tsx');
 const statusFunction = () => read('supabase/functions/avelixa-owner-member-status-prod/index.ts');
 
-function routeBlock(source, routeLiteral) {
-  const normalizedSource = source.replace(/\s+/g, ' ');
-  const normalizedRoute = routeLiteral.replace(/\s+/g, ' ');
-  const start = normalizedSource.indexOf(normalizedRoute);
-  assert.ok(start >= 0, `Expected route ${routeLiteral} to exist`);
-  const next = normalizedSource.indexOf(' app.', start + normalizedRoute.length);
-  return normalizedSource.slice(start, next > start ? next : normalizedSource.length);
+function routeBlock(source, method, route) {
+  const match = new RegExp(`app\\.${method}\\s*\\(\\s*["']${escapeRegex(route)}["']`).exec(source);
+  assert.ok(match, `Expected route ${method.toUpperCase()} ${route} to exist`);
+  const next = source.indexOf('\napp.', match.index + match[0].length);
+  return source.slice(match.index, next > match.index ? next : source.length);
 }
 
 test('Owner User Management gate is server-verifiable and reuses the Owner portal access security boundary', () => {
@@ -33,15 +32,15 @@ test('Owner User Management gate is server-verifiable and reuses the Owner porta
 
 test('Every Owner User Management server operation passes through the authenticated-user gate', () => {
   const source = server();
-  for (const route of [
-    'app.get("/api/owner/users"',
-    'app.post("/api/owner/users"',
-    'app.post("/api/owner/users/:id/roles"',
-    'app.delete("/api/owner/users/:id/roles/:role"',
-    'app.delete("/api/owner/users/:id"',
+  for (const [method, route] of [
+    ['get', '/api/owner/users'],
+    ['post', '/api/owner/users'],
+    ['post', '/api/owner/users/:id/roles'],
+    ['delete', '/api/owner/users/:id/roles/:role'],
+    ['delete', '/api/owner/users/:id'],
   ]) {
-    const block = routeBlock(source, route);
-    assert.match(block, /getAuthenticatedUser\(req\)/, `Route ${route} must pass through the authenticated-user gate`);
+    const block = routeBlock(source, method, route);
+    assert.match(block, /getAuthenticatedUser\(req\)/, `Route ${method.toUpperCase()} ${route} must pass through the authenticated-user gate`);
   }
 });
 
@@ -95,10 +94,10 @@ test('Existing Owner authorization and lifecycle protections remain intact', () 
 test('Add Member, supported role assignment/removal, deactivation/reactivation, and permanent removal remain separate operations', () => {
   const source = server();
   const page = ui();
-  assert.match(source, /app\.post\(\s*"\/api\/owner\/users"/);
-  assert.match(source, /app\.post\(\s*"\/api\/owner\/users\/:id\/roles"/);
-  assert.match(source, /app\.delete\(\s*"\/api\/owner\/users\/:id\/roles\/:role"/);
-  assert.match(source, /app\.delete\(\s*"\/api\/owner\/users\/:id"/);
+  assert.ok(routeBlock(source, 'post', '/api/owner/users'));
+  assert.ok(routeBlock(source, 'post', '/api/owner/users/:id/roles'));
+  assert.ok(routeBlock(source, 'delete', '/api/owner/users/:id/roles/:role'));
+  assert.ok(routeBlock(source, 'delete', '/api/owner/users/:id'));
   assert.match(page, /setMemberActive/);
   assert.match(page, /Permanent Account Removal/);
   assert.match(page, /aria-label=\{`Remove \$\{label\(role\)\} role`\}/);
