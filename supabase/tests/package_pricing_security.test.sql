@@ -81,9 +81,15 @@ select pg_temp.make_user('owner','package-owner@example.test');
 insert into public.user_roles(user_id,role)
 select id,'client' from t_package_security_ids where name='client'
 on conflict (user_id,role) do nothing;
+
+-- Fresh test databases intentionally have no pre-existing Owner account.
+-- Bootstrap the fixture Owner role with triggers disabled for this transaction
+-- only; package management itself is still exercised through normal RLS.
+set local session_replication_role = replica;
 insert into public.user_roles(user_id,role)
 select id,'owner' from t_package_security_ids where name='owner'
 on conflict (user_id,role) do nothing;
+set local session_replication_role = origin;
 
 select set_config(
   'request.jwt.claims',
