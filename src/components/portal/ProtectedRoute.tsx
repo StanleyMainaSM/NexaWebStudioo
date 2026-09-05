@@ -5,15 +5,17 @@ import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { getPortalForPath } from '../../lib/portalAccess';
 import PortalAccessGate from './PortalAccessGate';
+import CreationAccessGate from './CreationAccessGate';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children?: ReactNode;
   requiredRoles?: string[];
   requiresConnectorTerms?: boolean;
+  accessGate?: 'portal' | 'creation' | 'none';
 }
 
-export default function ProtectedRoute({ children, requiredRoles, requiresConnectorTerms = false }: ProtectedRouteProps) {
+export default function ProtectedRoute({ children, requiredRoles, requiresConnectorTerms = false, accessGate = 'portal' }: ProtectedRouteProps) {
   const { user, loading, roles, rolesLoading } = useAuth();
   const location = useLocation();
   const [memberAccessLoading, setMemberAccessLoading] = useState(true);
@@ -95,6 +97,10 @@ export default function ProtectedRoute({ children, requiredRoles, requiresConnec
   if (!hasRequiredRole) return <Navigate to="/portal" replace />;
   if (requiresConnectorTerms && !connectorAccessAllowed) return <Navigate to="/portal/connector/terms" replace />;
 
+  const content = children ? <>{children}</> : <Outlet />;
+  if (accessGate === 'none') return content;
+  if (accessGate === 'creation') return <CreationAccessGate>{content}</CreationAccessGate>;
+
   const portal = getPortalForPath(location.pathname, null);
-  return <PortalAccessGate portal={portal}>{children ? <>{children}</> : <Outlet />}</PortalAccessGate>;
+  return <PortalAccessGate portal={portal}>{content}</PortalAccessGate>;
 }
