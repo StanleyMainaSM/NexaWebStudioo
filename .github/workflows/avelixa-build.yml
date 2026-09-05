@@ -84,7 +84,31 @@ jobs:
         run: supabase db reset --yes
 
       - name: Stage 3 portal access database regression
-        run: supabase test db supabase/tests/portal_access_management.test.sql
+        id: stage3_db
+        continue-on-error: true
+        run: |
+          set +e
+          supabase test db supabase/tests/portal_access_management.test.sql 2>&1 | tee stage3-db-test.log
+          status=${PIPESTATUS[0]}
+          {
+            echo '## Stage 3 database regression output'
+            echo '```text'
+            cat stage3-db-test.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload Stage 3 database regression log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3-db-regression-log
+          path: stage3-db-test.log
+          if-no-files-found: error
+
+      - name: Fail if Stage 3 database regression failed
+        if: steps.stage3_db.outcome != 'success'
+        run: exit 1
 
       - name: Run complete local database regression suite
         run: supabase test db
