@@ -35,12 +35,15 @@ test('connector activation links are redacted from notification records after em
   assert.match(sql, /after update of status/i);
 });
 
-test('owner UI exposes only supported assignable roles and reversible status actions', () => {
+test('owner UI preserves supported roles and reversible status while exposing permanent removal separately', () => {
   const source = read('src/pages/portal/OwnerUserManagement.tsx');
   for (const role of ['client', 'operator', 'connector', 'admin']) assert.match(source, new RegExp(role));
   assert.doesNotMatch(source, /value=['"]owner['"]/i);
   assert.match(source, /Deactivate/);
   assert.match(source, /Reactivate/);
   assert.match(source, /setMemberActive/);
-  assert.doesNotMatch(source, /handleDeleteUser/);
+  assert.match(source, /handleDeleteUser/);
+  assert.match(source, /Permanent Remove/);
+  assert.match(source, /changeRole\(user, role as AllowedRole, true\)/);
+  assert.match(source, /aria-label={`Remove \${label\(role\)} role`}/);
 });
