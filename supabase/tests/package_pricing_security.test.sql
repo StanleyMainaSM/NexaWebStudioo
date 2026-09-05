@@ -33,10 +33,10 @@ select ok(
   'Package management remains restricted to Owner/Admin roles'
 );
 
-insert into public.packages(name,description,is_active,min_price,max_price)
+insert into public.packages(name,description,is_active,base_price)
 values
-  ('Stage 7 Active Public Test','Temporary active package for RLS verification',true,10000,15000),
-  ('Stage 7 Inactive Public Test','Temporary inactive package for RLS verification',false,20000,25000);
+  ('Stage 7 Active Public Test','Temporary active package for RLS verification',true,10000),
+  ('Stage 7 Inactive Public Test','Temporary inactive package for RLS verification',false,20000);
 
 set local role anon;
 select is(
@@ -54,10 +54,10 @@ reset role;
 create temporary table t_package_security_ids(name text primary key, id uuid not null);
 grant select on t_package_security_ids to authenticated;
 
-create temporary table t_package_target(id uuid primary key, original_min_price numeric, original_name text);
+create temporary table t_package_target(id uuid primary key, original_base_price numeric, original_name text);
 grant select on t_package_target to authenticated;
-insert into t_package_target(id,original_min_price,original_name)
-select id,min_price,name
+insert into t_package_target(id,original_base_price,original_name)
+select id,base_price,name
 from public.packages
 where is_active=true
 order by created_at
@@ -102,19 +102,19 @@ select set_config(
 set local role authenticated;
 
 select throws_ok(
-  $$insert into public.packages(name,min_price,max_price,description,features) values ('Unauthorized Package',1,2,'Nope','[]'::jsonb)$$,
+  $$insert into public.packages(name,base_price,description,features) values ('Unauthorized Package',1,'Nope','[]'::jsonb)$$,
   NULL,
   NULL,
   'Client cannot create packages'
 );
 
 select lives_ok(
-  $$update public.packages set min_price = coalesce(min_price,0) + 1 where id=(select id from t_package_target)$$,
+  $$update public.packages set base_price = coalesce(base_price,0) + 1 where id=(select id from t_package_target)$$,
   'Client update attempt is safely contained by package RLS'
 );
 select is(
-  (select min_price from public.packages where id=(select id from t_package_target)),
-  (select original_min_price from t_package_target),
+  (select base_price from public.packages where id=(select id from t_package_target)),
+  (select original_base_price from t_package_target),
   'Client cannot change authoritative package pricing'
 );
 
@@ -138,7 +138,7 @@ select set_config(
 );
 
 select lives_ok(
-  $$insert into public.packages(name,min_price,max_price,description,features) values ('Stage 7 Test Package',12345,23456,'Temporary package','["Test feature"]'::jsonb)$$,
+  $$insert into public.packages(name,base_price,description,features) values ('Stage 7 Test Package',12345,'Temporary package','["Test feature"]'::jsonb)$$,
   'Owner can create an authoritative package'
 );
 
@@ -149,12 +149,12 @@ select is(
 );
 
 select lives_ok(
-  $$update public.packages set min_price=15000,max_price=25000 where name='Stage 7 Test Package'$$,
+  $$update public.packages set base_price=15000 where name='Stage 7 Test Package'$$,
   'Owner can update authoritative package pricing'
 );
 
 select is(
-  (select min_price from public.packages where name='Stage 7 Test Package'),
+  (select base_price from public.packages where name='Stage 7 Test Package'),
   15000::numeric,
   'Owner pricing update is persisted'
 );
