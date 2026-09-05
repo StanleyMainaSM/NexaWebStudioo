@@ -9,33 +9,33 @@ export default {
       },
       colors: {
         ink: {
-          950: '#0A0A0A',
-          900: '#18181b', // zinc-900
-          800: '#27272a', // zinc-800
-          700: '#3f3f46', // zinc-700
-          600: '#52525b', // zinc-600
+          950: 'rgb(var(--avelixa-ink-950) / <alpha-value>)',
+          900: 'rgb(var(--avelixa-ink-900) / <alpha-value>)',
+          800: 'rgb(var(--avelixa-ink-800) / <alpha-value>)',
+          700: 'rgb(var(--avelixa-ink-700) / <alpha-value>)',
+          600: 'rgb(var(--avelixa-ink-600) / <alpha-value>)',
         },
         accent: {
-          50: '#eef2ff', // indigo-50
-          100: '#e0e7ff', // indigo-100
-          200: '#c7d2fe', // indigo-200
-          300: '#a5b4fc', // indigo-300
-          400: '#818cf8', // indigo-400
-          500: '#6366f1', // indigo-500
-          600: '#4f46e5', // indigo-600
-          700: '#4338ca', // indigo-700
+          50: '#eef2ff',
+          100: '#e0e7ff',
+          200: '#c7d2fe',
+          300: '#a5b4fc',
+          400: '#818cf8',
+          500: '#6366f1',
+          600: '#4f46e5',
+          700: '#4338ca',
         },
         brand: {
-          400: '#818cf8', // indigo-400
-          500: '#6366f1', // indigo-500
-          600: '#4f46e5', // indigo-600
+          400: '#818cf8',
+          500: '#6366f1',
+          600: '#4f46e5',
         },
       },
       animation: {
-        'float': 'float 6s ease-in-out infinite',
+        float: 'float 6s ease-in-out infinite',
         'float-slow': 'float 9s ease-in-out infinite',
         'pulse-glow': 'pulseGlow 4s ease-in-out infinite',
-        'marquee': 'marquee 30s linear infinite',
+        marquee: 'marquee 30s linear infinite',
         'fade-up': 'fadeUp 0.8s ease-out forwards',
       },
       keyframes: {
