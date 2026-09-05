@@ -98,8 +98,18 @@ export default function ProtectedRoute({ children, requiredRoles, requiresConnec
   if (requiresConnectorTerms && !connectorAccessAllowed) return <Navigate to="/portal/connector/terms" replace />;
 
   const content = children ? <>{children}</> : <Outlet />;
-  if (accessGate === 'none') return content;
-  if (accessGate === 'creation') return <CreationAccessGate>{content}</CreationAccessGate>;
+  const isOwnerArea = location.pathname.startsWith('/portal/owner');
+  const isCreationArea = location.pathname === '/portal/creation'
+    || location.pathname.startsWith('/portal/creation/')
+    || location.pathname === '/portal/creation-studio'
+    || location.pathname.startsWith('/portal/creation-studio/')
+    || location.pathname === '/portal/creation-preview'
+    || location.pathname.startsWith('/portal/creation-preview/')
+    || location.pathname.includes('/creation/');
+  const effectiveGate = accessGate === 'portal' && isOwnerArea ? 'none' : accessGate === 'portal' && isCreationArea ? 'creation' : accessGate;
+
+  if (effectiveGate === 'none') return content;
+  if (effectiveGate === 'creation') return <CreationAccessGate>{content}</CreationAccessGate>;
 
   const portal = getPortalForPath(location.pathname, null);
   return <PortalAccessGate portal={portal}>{content}</PortalAccessGate>;
