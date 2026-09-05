@@ -1,0 +1,83 @@
+name: Avelixa Stage 4 Final Verification
+
+on:
+  push:
+    branches: [avelixa-current-work]
+  workflow_dispatch:
+
+jobs:
+  final-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Theme regression
+        run: node --experimental-strip-types tests/theme.test.mjs
+      - name: Package pricing synchronization
+        run: node --experimental-strip-types tests/packagePricingSynchronization.test.mjs
+      - name: Portal password management contract
+        run: node --experimental-strip-types tests/portalAccessPasswordManagement.test.mjs
+      - name: Stage 4 access gate
+        run: node --experimental-strip-types tests/ownerUserManagementAccessGate.test.mjs
+      - name: Website creation foundation and security
+        run: |
+          node --experimental-strip-types tests/websiteCreationFoundation.test.mjs
+          node --experimental-strip-types tests/websiteCreationSecurity.test.mjs
+          node --experimental-strip-types tests/websiteCreationEditor.test.mjs
+          node --experimental-strip-types tests/websiteCreationStudio.test.mjs
+          node --experimental-strip-types tests/websiteCreationTemplates.test.mjs
+          node --experimental-strip-types tests/websiteCreationProductIntegration.test.mjs
+          npm run test:website-creation-generation
+          npm run test:website-creation-preview
+          npm run test:website-creation-output
+          npm run test:website-creation-lifecycle
+          npm run test:website-creation-artifact
+          npm run test:website-creation-publishing
+          npm run test:website-creation-public-delivery
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+      - name: Existing application regression
+        run: |
+          npm run test:connector-notifications
+          npm run test:connector-portal-routing
+          npm run test:connector-activation
+          node --experimental-strip-types tests/connectorActivationResend.test.mjs
+          node --experimental-strip-types tests/ownerMemberLifecycle.test.mjs
+          node --experimental-strip-types tests/portalAccessControl.test.mjs
+          npm run test:client-referrals
+          npm run test:client-portal
+          npm run test:invoice-notifications
+          npm run test:payment-finance-handoff
+          npm run test:client-payment-amount
+      - name: Migration dependency regression
+        run: |
+          node --experimental-strip-types tests/adminAuthorizationMigrationDependency.test.mjs
+          node --experimental-strip-types tests/communicationMigrationDependency.test.mjs
+          node --experimental-strip-types tests/suitWearMigrationFreshDatabase.test.mjs
+          node --experimental-strip-types tests/connectorProvisioningMigrationDependency.test.mjs
+          node --experimental-strip-types tests/clientReferralMigrationDependency.test.mjs
+          node --experimental-strip-types tests/automationMigrationDependency.test.mjs
+          node --experimental-strip-types tests/notificationMigrationDependency.test.mjs
+          node --experimental-strip-types tests/notificationEmailQueueMigrationDependency.test.mjs
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start local Supabase
+        run: supabase start
+      - name: Fresh database reset
+        run: supabase db reset --yes
+      - name: Complete database regression
+        run: supabase test db
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
