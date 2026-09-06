@@ -10,6 +10,6 @@ test('Mobile header reserves the existing theme-toggle space so the menu button 
   const source = nav();
   assert.match(
     source,
-    /className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 md:pr-0 pr-20 flex items-center gap-4"/
+    /className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 pr-20 md:pr-0 flex items-center gap-4"/
   );
 });
