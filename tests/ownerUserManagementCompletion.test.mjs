@@ -67,8 +67,8 @@ test('Connector permanent removal records connector identity and audit metadata 
 
 test('Permanent removal failure attempts reference restoration and does not report success', () => {
   const source = read('server.ts');
-  assert.match(source, /restore/i);
-  assert.match(source, /Permanent account removal failed/);
+  assert.match(source, /restoreDetachedReferences/);
+  assert.match(source, /Permanent account removal could not be completed/);
 });
 
 test('Owner member status remains reversible and separate from permanent removal', () => {
