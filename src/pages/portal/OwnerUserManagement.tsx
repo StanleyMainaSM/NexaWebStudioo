@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Loader2, LockKeyhole, RefreshCw, UserPlus, UserX, UserCheck, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Loader2, LockKeyhole, RefreshCw, UserPlus, UserX, UserCheck, Trash2, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
 interface ManagedUser {
@@ -258,24 +259,34 @@ export default function OwnerUserManagement() {
   if (!verified) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center">
-        <form onSubmit={verify} className="w-full max-w-md rounded-3xl border border-purple-500/20 bg-ink-950/80 p-8">
-          <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-            <LockKeyhole className="w-7 h-7 text-purple-300" />
-          </div>
-          <h1 className="mt-6 text-2xl font-bold text-white">Owner Verification Required</h1>
-          <p className="mt-2 text-sm text-gray-400">Enter your current Owner account password to manage users.</p>
-          {authError && <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{authError}</div>}
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your login password" autoComplete="current-password" className="mt-5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none" required />
-          <button disabled={checking} className="mt-4 w-full rounded-xl bg-accent-600 px-4 py-3 font-semibold text-white disabled:opacity-50">{checking ? 'Verifying...' : 'Verify Owner Access'}</button>
-        </form>
+        <div className="w-full max-w-md">
+          <Link to="/portal/owner" className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-gray-400 transition-colors hover:text-white">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Owner Dashboard
+          </Link>
+          <form onSubmit={verify} className="w-full rounded-3xl border border-purple-500/20 bg-ink-950/80 p-8">
+            <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+              <LockKeyhole className="w-7 h-7 text-purple-300" />
+            </div>
+            <h1 className="mt-6 text-2xl font-bold text-white">Owner Verification Required</h1>
+            <p className="mt-2 text-sm text-gray-400">Enter your current Owner account password to manage users.</p>
+            {authError && <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{authError}</div>}
+            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your login password" autoComplete="current-password" className="mt-5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none" required />
+            <button disabled={checking} className="mt-4 w-full rounded-xl bg-accent-600 px-4 py-3 font-semibold text-white disabled:opacity-50">{checking ? 'Verifying...' : 'Verify Owner Access'}</button>
+          </form>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
+          <Link to="/portal/owner" className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-gray-400 transition-colors hover:text-white">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Owner Dashboard
+          </Link>
           <div className="text-xs font-bold uppercase tracking-widest text-accent-400">Owner Controls</div>
           <h1 className="mt-2 text-3xl font-semibold text-white">User Management</h1>
           <p className="mt-2 text-sm text-gray-400">Add members, assign supported roles, remove roles, reversibly deactivate accounts, or permanently remove eligible accounts.</p>
