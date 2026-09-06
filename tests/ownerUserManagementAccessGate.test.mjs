@@ -15,16 +15,14 @@ function routeBlock(source, method, route) {
   return source.slice(match.index, next > match.index ? next : source.length);
 }
 
-test('Owner User Management gate is server-verifiable and reuses the Owner portal access security boundary', () => {
+test('Owner User Management is server-verifiable through the authenticated Supabase Owner session', () => {
   const source = read('server.ts');
-  assert.match(source, /async function hasOwnerPortalAccess\(token: string\)/);
-  assert.match(source, /caller\.rpc\(['"]has_portal_access['"]/);
-  assert.match(source, /p_portal:\s*['"]owner['"]/);
   assert.match(source, /async function getAuthenticatedUser\(req: express\.Request\)/);
   assert.match(source, /req\.path\.startsWith\("\/api\/owner\/users"\)/);
   assert.match(source, /\.eq\("role",\s*"owner"\)/);
   assert.match(source, /\.from\("profiles"\)/);
   assert.match(source, /\.select\("is_active"\)/);
+  assert.doesNotMatch(source, /User Management access is locked\. Re-enter the Owner access password/);
 });
 
 test('Every Owner User Management server operation passes through the authenticated-user gate', () => {
@@ -41,51 +39,42 @@ test('Every Owner User Management server operation passes through the authentica
   }
 });
 
-test('User Management verification uses the dedicated Owner portal access credential and never persists credentials', () => {
+test('User Management re-authenticates the currently signed-in Owner with the normal Supabase password', () => {
   const source = read('src/pages/portal/OwnerUserManagement.tsx');
-  assert.match(source, /verifyPortalPassword\('owner'/);
-  assert.match(source, /hasPortalAccess\('owner'/);
-  assert.doesNotMatch(source, /signInWithPassword/);
-  assert.doesNotMatch(source, /localStorage|sessionStorage/);
-  assert.match(source, /Owner User Management access password/);
-  assert.match(source, /clearPortalAccess\('owner'/);
+  assert.match(source, /supabase\.auth\.signInWithPassword/);
+  assert.match(source, /email:\s*user\.email/);
+  assert.match(source, /password/);
+  assert.doesNotMatch(source, /verifyPortalPassword\('owner'/);
+  assert.doesNotMatch(source, /hasPortalAccess\('owner'/);
+  assert.doesNotMatch(source, /Owner User Management access password/);
+  assert.doesNotMatch(source, /clearPortalAccess\('owner'/);
 });
 
-test('Verification errors are no longer mislabeled as a failed current Owner account password', () => {
+test('Verification is bound to the currently signed-in user and cleared on sign-out', () => {
   const source = read('src/pages/portal/OwnerUserManagement.tsx');
-  assert.doesNotMatch(source, /Password verification failed\. Please enter the password for your current Owner account\./);
-  assert.match(source, /Owner User Management verification error/);
-});
-
-test('The Owner portal password verification RPC is present in the repository migration chain', () => {
-  const migration = read('supabase/migrations/20260905150100_portal_access_control.sql');
-  assert.match(migration, /create or replace function private\.verify_portal_access_password\(p_portal text, p_password text\)/);
-  assert.match(migration, /create or replace function public\.verify_portal_access_password\(p_portal text, p_password text\)/);
-  assert.match(migration, /grant execute on function public\.verify_portal_access_password\(text,text\) to authenticated/);
-  assert.match(migration, /private\.portal_access_passwords/);
-  assert.match(migration, /crypt\(v_password, v_password_hash\)/);
-});
-
-test('Logout invalidates the local User Management gate state', () => {
-  const source = read('src/pages/portal/OwnerUserManagement.tsx');
+  assert.match(source, /sessionStorage\.setItem\(OWNER_USER_MANAGEMENT_VERIFICATION_KEY, user\.id\)/);
+  assert.match(source, /sessionStorage\.getItem\(OWNER_USER_MANAGEMENT_VERIFICATION_KEY\)/);
+  assert.match(source, /sessionStorage\.removeItem\(OWNER_USER_MANAGEMENT_VERIFICATION_KEY\)/);
   assert.match(source, /onAuthStateChange/);
   assert.match(source, /SIGNED_OUT/);
   assert.match(source, /setVerified\(false\)/);
-  assert.match(source, /clearPortalAccess\('owner'\)/);
 });
 
-test('Stale and expired unlocks are rejected by the existing session-bound Owner portal gate', () => {
-  const source = read('supabase/migrations/20260905150100_portal_access_control.sql');
-  assert.match(source, /coalesce\(s\.not_after, 'infinity'::timestamptz\) > now\(\)/);
-  assert.match(source, /u\.expires_at > now\(\)/);
-  assert.match(source, /session_id/);
-  assert.match(source, /now\(\) \+ interval '8 hours'/);
-});
-
-test('The User Management gate is explicitly tied to the Owner portal and cannot use another portal password', () => {
+test('Owner User Management does not store plaintext passwords or credential hashes', () => {
   const source = read('src/pages/portal/OwnerUserManagement.tsx');
-  assert.match(source, /verifyPortalPassword\('owner'/);
-  assert.doesNotMatch(source, /verifyPortalPassword\('(?!owner')[^']+'/);
+  assert.doesNotMatch(source, /password_hash\s*[:=]/i);
+  assert.doesNotMatch(source, /localStorage/);
+  assert.doesNotMatch(source, /portal_access_password/i);
+  assert.doesNotMatch(source, /verify_portal_access_password/i);
+});
+
+test('Owner portal access no longer requires a second credential', () => {
+  const migration = read('supabase/migrations/20260906100000_owner_portal_access_uses_authenticated_owner.sql');
+  assert.match(migration, /v_portal = 'owner'/);
+  assert.match(migration, /lower\(ur\.role::text\) = 'owner'/);
+  assert.match(migration, /coalesce\(p\.is_active, true\) = true/);
+  assert.match(migration, /auth\.sessions/);
+  assert.doesNotMatch(migration, /portal_access_passwords.*crypt/i);
 });
 
 test('Existing Owner authorization and lifecycle protections remain intact', () => {
@@ -97,7 +86,7 @@ test('Existing Owner authorization and lifecycle protections remain intact', () 
   assert.match(source, /Another Owner account cannot be permanently removed/);
   assert.match(source, /owner_user_permanently_deleted/);
   assert.match(edge, /\.eq\("role", "owner"\)/);
-  assert.match(edge, /has_portal_access/);
+  assert.doesNotMatch(edge, /has_portal_access/);
   assert.match(edge, /Another Owner account cannot be deactivated/);
   assert.match(edge, /updateUserById\(userId/);
   assert.match(edge, /owner_user_reactivated/);
@@ -121,7 +110,7 @@ test('Add Member, supported role assignment/removal, deactivation/reactivation, 
 test('User Management exposes no password, hash, access token, or browser-stored credential', () => {
   const source = `${read('server.ts')}\n${read('src/pages/portal/OwnerUserManagement.tsx')}\n${read('supabase/functions/avelixa-owner-member-status-prod/index.ts')}`;
   assert.doesNotMatch(source, /password_hash\s*[:=]/i);
-  assert.doesNotMatch(source, /localStorage|sessionStorage/);
+  assert.doesNotMatch(source, /localStorage/);
   assert.doesNotMatch(source, /access_token\s*[:=].*res\./i);
   assert.doesNotMatch(source, /refresh_token\s*[:=].*res\./i);
 });
