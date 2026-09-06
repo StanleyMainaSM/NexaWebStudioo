@@ -11,8 +11,8 @@ declare
   v_portal text := lower(trim(p_portal));
   v_user_id uuid := auth.uid();
   v_session_id uuid;
-  v_client_info text := coalesce(
-    current_setting('request.headers', true)::json->>'x-client-info',
+  v_user_agent text := coalesce(
+    current_setting('request.headers', true)::json->>'user-agent',
     ''
   );
 begin
@@ -42,10 +42,9 @@ begin
 
   -- The Owner User Management server API authenticates the user with the
   -- normal Supabase session and separately verifies the Owner role. Its
-  -- server-side supabase-js client identifies itself as runtime=node.
-  -- Do not change browser Owner portal access behavior: browser requests
-  -- continue to require the existing legacy portal unlock when applicable.
-  if v_portal = 'owner' and v_client_info like 'supabase-js/%; runtime=node%' then
+  -- server-side fetch uses the Node/undici user-agent. Browser Owner portal
+  -- access continues to use the existing legacy portal unlock behavior.
+  if v_portal = 'owner' and v_user_agent ~* '(node|undici)' then
     return exists (
       select 1
       from public.user_roles ur
