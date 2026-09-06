@@ -68,13 +68,15 @@ test('Owner User Management does not store plaintext passwords or credential has
   assert.doesNotMatch(source, /verify_portal_access_password/i);
 });
 
-test('Owner portal access no longer requires a second credential', () => {
-  const migration = read('supabase/migrations/20260906100000_owner_portal_access_uses_authenticated_owner.sql');
+test('Owner User Management server access uses the normal Owner session while legacy browser portal passwords remain unchanged', () => {
+  const migration = read('supabase/migrations/20260906100000_owner_user_management_uses_authenticated_owner.sql');
   assert.match(migration, /v_portal = 'owner'/);
+  assert.match(migration, /x-client-info/);
+  assert.match(migration, /supabase-js\/\.\*; runtime=node/);
   assert.match(migration, /lower\(ur\.role::text\) = 'owner'/);
   assert.match(migration, /coalesce\(p\.is_active, true\) = true/);
   assert.match(migration, /auth\.sessions/);
-  assert.doesNotMatch(migration, /portal_access_passwords.*crypt/i);
+  assert.match(migration, /private\.portal_access_unlocks/);
 });
 
 test('Existing Owner authorization and lifecycle protections remain intact', () => {
