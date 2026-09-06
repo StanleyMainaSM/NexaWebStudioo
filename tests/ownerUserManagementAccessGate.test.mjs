@@ -71,8 +71,9 @@ test('Owner User Management does not store plaintext passwords or credential has
 test('Owner User Management server access uses the normal Owner session while legacy browser portal passwords remain unchanged', () => {
   const migration = read('supabase/migrations/20260906100000_owner_user_management_uses_authenticated_owner.sql');
   assert.match(migration, /v_portal = 'owner'/);
-  assert.match(migration, /x-client-info/);
-  assert.match(migration, /supabase-js\/\.\*; runtime=node/);
+  assert.match(migration, /request\.headers/);
+  assert.match(migration, /user-agent/);
+  assert.match(migration, /node\|undici/);
   assert.match(migration, /lower\(ur\.role::text\) = 'owner'/);
   assert.match(migration, /coalesce\(p\.is_active, true\) = true/);
   assert.match(migration, /auth\.sessions/);
