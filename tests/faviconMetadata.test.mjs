@@ -27,7 +27,7 @@ assert.match(indexHtml, /<link\s+rel=["']icon["'][^>]*type=["']image\/png["'][^>
 assert.match(indexHtml, /<link\s+rel=["']apple-touch-icon["'][^>]*href=["']\/pwa-192x192\.png["'][^>]*>/i);
 assert.match(indexHtml, /<link\s+rel=["']manifest["'][^>]*href=["']\/manifest\.webmanifest["'][^>]*>/i);
 assert.match(indexHtml, /<link\s+rel=["']canonical["'][^>]*href=["']https:\/\/www\.avelixa\.co\.ke\/["'][^>]*>/i);
-assert.match(indexHtml, /<title>Avelixa — Web Design &amp; Development in Kenya<\/title>/i);
+assert.match(indexHtml, /<title>Avelixa — Web Design & Development in Kenya<\/title>/i);
 assert.match(indexHtml, /<meta\s+name=["']description["'][^>]+>/i);
 assert.equal(metaContent('og:type'), 'website');
 assert.equal(metaContent('og:site_name'), 'Avelixa');
