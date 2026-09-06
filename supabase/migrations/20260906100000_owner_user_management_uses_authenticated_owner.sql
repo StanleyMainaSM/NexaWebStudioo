@@ -11,7 +11,7 @@ declare
   v_portal text := lower(trim(p_portal));
   v_user_id uuid := auth.uid();
   v_session_id uuid;
-  v_user_agent text := coalesce(current_setting('request.headers', true)::json->>'user-agent', '');
+  v_user_agent text := coalesce(nullif(current_setting('request.headers', true), '')::json->>'user-agent', '');
 begin
   if v_user_id is null or v_portal not in ('client','operator','connector','admin','owner') then return false; end if;
 
