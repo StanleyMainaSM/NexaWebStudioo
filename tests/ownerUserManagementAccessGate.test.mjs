@@ -22,7 +22,7 @@ test('Owner User Management is server-verifiable through the authenticated Supab
   assert.match(source, /\.eq\("role",\s*"owner"\)/);
   assert.match(source, /\.from\("profiles"\)/);
   assert.match(source, /\.select\("is_active"\)/);
-  assert.doesNotMatch(source, /User Management access is locked\. Re-enter the Owner access password/);
+  assert.match(source, /hasOwnerPortalAccess\(token\)/);
 });
 
 test('Every Owner User Management server operation passes through the authenticated-user gate', () => {
