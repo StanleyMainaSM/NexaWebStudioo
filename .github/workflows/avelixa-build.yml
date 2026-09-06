@@ -34,7 +34,9 @@ jobs:
         run: node --experimental-strip-types tests/theme.test.mjs
 
       - name: Stage 8 header responsive regression tests
-        run: node --experimental-strip-types tests/navResponsive.test.mjs
+        run: |
+          node --experimental-strip-types tests/navResponsive.test.mjs
+          node --experimental-strip-types tests/mobileNavigationCollision.test.mjs
 
       - name: Notification permission and push subscription regression tests
         run: node --experimental-strip-types tests/pushNotificationsPermission.test.mjs
@@ -115,7 +117,7 @@ jobs:
       - name: Run complete local database regression suite
         run: supabase test db
 
-      - name: Stop local Supabase
+      - name: Stop Supabase
         if: always()
         run: |
           if command -v supabase >/dev/null 2>&1; then
