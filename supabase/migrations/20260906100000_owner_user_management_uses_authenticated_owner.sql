@@ -13,7 +13,7 @@ declare
   v_session_id uuid;
   v_user_agent text := coalesce(nullif(current_setting('request.headers', true), '')::json->>'user-agent', '');
 begin
-  if v_user_id is null or v_portal not in ('client','operator','connector','admin','owner') then return false; end if;
+  if v_user_id is null or v_portal not in ('client','operator','connector','admin','owner','creation') then return false; end if;
 
   -- Only the server-side Owner User Management path gets this role/session
   -- authorization shortcut. Browser Owner portal access keeps the legacy
