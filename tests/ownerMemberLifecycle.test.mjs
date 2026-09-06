@@ -44,6 +44,6 @@ test('owner UI preserves supported roles and reversible status while exposing pe
   assert.match(source, /setMemberActive/);
   assert.match(source, /handleDeleteUser/);
   assert.match(source, /Permanent Remove/);
-  assert.match(source, /changeRole\(user, role as AllowedRole, true\)/);
+  assert.match(source, /changeRole\(user, role, true\)/);
   assert.match(source, /aria-label={`Remove \${label\(role\)} role`}/);
 });
