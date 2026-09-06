@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Loader2, LockKeyhole, RefreshCw, UserPlus, UserX, UserCheck, Trash2, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { clearPortalAccess, hasPortalAccess, verifyPortalPassword } from '../../lib/portalAccess';
 
 interface ManagedUser {
   id: string;
@@ -14,6 +13,7 @@ interface ManagedUser {
 
 type AllowedRole = 'client' | 'operator' | 'connector' | 'admin';
 const roles: AllowedRole[] = ['client', 'operator', 'connector', 'admin'];
+const OWNER_USER_MANAGEMENT_VERIFICATION_KEY = 'avelixa_owner_user_management_verified_user';
 const label = (role: string) => role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 export default function OwnerUserManagement() {
@@ -64,12 +64,19 @@ export default function OwnerUserManagement() {
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session?.user?.id) {
         setVerified(false);
         setUsers([]);
         setPassword('');
-        void clearPortalAccess('owner');
+        sessionStorage.removeItem(OWNER_USER_MANAGEMENT_VERIFICATION_KEY);
+        return;
+      }
+
+      const verifiedUserId = sessionStorage.getItem(OWNER_USER_MANAGEMENT_VERIFICATION_KEY);
+      if (verifiedUserId !== session.user.id) {
+        sessionStorage.removeItem(OWNER_USER_MANAGEMENT_VERIFICATION_KEY);
+        setVerified(false);
       }
     });
     return () => subscription.unsubscribe();
@@ -79,8 +86,10 @@ export default function OwnerUserManagement() {
     let mounted = true;
     const restoreVerification = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!mounted || !user) return;
-      setVerified(await hasPortalAccess('owner'));
+      if (!mounted || !user?.id) return;
+      const verifiedUserId = sessionStorage.getItem(OWNER_USER_MANAGEMENT_VERIFICATION_KEY);
+      setVerified(verifiedUserId === user.id);
+      if (verifiedUserId !== user.id) sessionStorage.removeItem(OWNER_USER_MANAGEMENT_VERIFICATION_KEY);
     };
     void restoreVerification();
     return () => { mounted = false; };
@@ -95,14 +104,20 @@ export default function OwnerUserManagement() {
     setChecking(true);
     setAuthError('');
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) throw new Error('Authenticated Owner account could not be identified.');
-      const accessPasswordAccepted = await verifyPortalPassword('owner', password);
-      if (!accessPasswordAccepted) {
-        throw new Error('The Owner User Management access password was rejected.');
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user?.email || !user.id) {
+        throw new Error('Your current session could not be verified. Please sign in again.');
       }
-      const unlocked = await hasPortalAccess('owner');
-      if (!unlocked) throw new Error('User Management access could not be established for this session.');
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password,
+      });
+      if (signInError) {
+        throw new Error('The password is incorrect. Please enter your current Owner password.');
+      }
+
+      sessionStorage.setItem(OWNER_USER_MANAGEMENT_VERIFICATION_KEY, user.id);
       setPassword('');
       setVerified(true);
     } catch (verificationError: unknown) {
@@ -110,7 +125,7 @@ export default function OwnerUserManagement() {
       setAuthError(
         verificationError instanceof Error
           ? verificationError.message
-          : 'Owner User Management access verification failed.'
+          : 'Owner User Management verification failed.'
       );
     } finally {
       setChecking(false);
@@ -248,9 +263,9 @@ export default function OwnerUserManagement() {
             <LockKeyhole className="w-7 h-7 text-purple-300" />
           </div>
           <h1 className="mt-6 text-2xl font-bold text-white">Owner Verification Required</h1>
-          <p className="mt-2 text-sm text-gray-400">Enter your Owner User Management access password to manage users.</p>
+          <p className="mt-2 text-sm text-gray-400">Enter your current Owner account password to manage users.</p>
           {authError && <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{authError}</div>}
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Owner User Management access password" autoComplete="current-password" className="mt-5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none" required />
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your login password" autoComplete="current-password" className="mt-5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none" required />
           <button disabled={checking} className="mt-4 w-full rounded-xl bg-accent-600 px-4 py-3 font-semibold text-white disabled:opacity-50">{checking ? 'Verifying...' : 'Verify Owner Access'}</button>
         </form>
       </div>
