@@ -7,14 +7,15 @@ const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
 const nav = () => read('src/components/Nav.tsx');
+const portalLayout = () => read('src/pages/portal/PortalLayout.tsx');
 
-test('Public header keeps the full desktop navigation out of tablet/mobile widths', () => {
+test('Public header keeps the existing navigation visible from tablet/desktop widths while preserving the mobile menu', () => {
   const source = nav();
-  assert.match(source, /className="hidden lg:flex[^\"]*items-center/);
-  assert.match(source, /className="lg:hidden[^\"]*p-2/);
-  assert.match(source, /className="lg:hidden absolute top-20/);
-  assert.doesNotMatch(source, /hidden md:flex items-center gap-6/);
-  assert.doesNotMatch(source, /md:hidden p-2/);
+  assert.match(source, /className="hidden md:flex[^\"]*items-center/);
+  assert.match(source, /className="md:hidden[^\"]*p-2/);
+  assert.match(source, /className="md:hidden absolute top-20/);
+  assert.doesNotMatch(source, /hidden lg:flex[^\"]*items-center/);
+  assert.doesNotMatch(source, /lg:hidden ml-auto shrink-0 p-2/);
 });
 
 test('Public header reserves non-shrinking space for the logo and actions', () => {
@@ -31,7 +32,7 @@ test('Mobile menu remains keyboard/assistive-technology discoverable', () => {
   assert.match(source, /aria-controls="avelixa-mobile-navigation"/);
 });
 
-test('Header retains theme-aware Avelixa styling and the existing navigation destinations', () => {
+test('Public header retains the existing navigation destinations and portal actions', () => {
   const source = nav();
   assert.match(source, /bg-ink-950\/80/);
   assert.match(source, /text-ink-600/);
@@ -41,4 +42,20 @@ test('Header retains theme-aware Avelixa styling and the existing navigation des
   assert.match(source, /to="\/studio"/);
   assert.match(source, /to="\/login"/);
   assert.match(source, /whatsapp/);
+});
+
+test('Portal navigation keeps the existing dashboard, messages, projects, and authorized navigation structure', () => {
+  const source = portalLayout();
+  for (const item of [
+    ["Dashboard", "/portal"],
+    ["Projects", "/portal/projects"],
+    ["Messages", "/portal/messages"],
+    ["Settings", "/portal/settings"],
+  ]) {
+    assert.match(source, new RegExp(`name: '${item[0]}'.*path: '${item[1].replace('/', '\\/')}'`));
+  }
+  assert.match(source, /visibleNavItems = navItems\.filter/);
+  assert.match(source, /roles\.includes\(currentWorkspaceKey\)/);
+  assert.match(source, /hidden md:flex w-64/);
+  assert.match(source, /md:hidden.*Open portal menu/);
 });
