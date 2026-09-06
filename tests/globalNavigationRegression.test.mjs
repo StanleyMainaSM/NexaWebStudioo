@@ -12,11 +12,9 @@ test('Public navigation exposes the existing Login/Portal route in the mobile me
   assert.match(source, /aria-controls="avelixa-mobile-navigation"/);
   assert.match(source, /to="\/login"/);
   assert.match(source, /Portal Login/);
-  assert.match(source, /to="\/services"/);
-  assert.match(source, /to="\/work"/);
-  assert.match(source, /to="\/pricing"/);
-  assert.match(source, /to="\/reviews"/);
-  assert.match(source, /to="\/connectors"/);
+  for (const route of ['/services', '/work', '/pricing', '/reviews', '/connectors']) {
+    assert.match(source, new RegExp(`to: '${route.replace('/', '\\/')}'`));
+  }
 });
 
 test('Portal navigation keeps the existing hamburger menu and role-filtered items', () => {
