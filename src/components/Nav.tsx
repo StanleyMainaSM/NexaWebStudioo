@@ -39,7 +39,7 @@ export default function Nav() {
           <span className="text-xl font-medium tracking-tight text-white">Avelixa</span>
         </Link>
 
-        <div className="hidden lg:flex min-w-0 flex-1 items-center justify-center gap-4 xl:gap-7 text-sm font-medium text-ink-600 uppercase tracking-widest whitespace-nowrap">
+        <div className="hidden md:flex min-w-0 flex-1 items-center justify-center gap-3 xl:gap-7 text-xs xl:text-sm font-medium text-ink-600 uppercase tracking-widest whitespace-nowrap">
           {links.map((l) => (
             <Link key={l.to} to={l.to} className={`cursor-pointer transition-colors ${location.pathname === l.to ? 'text-accent-400' : 'hover:text-accent-400'}`}>
               {l.label}
@@ -47,7 +47,7 @@ export default function Nav() {
           ))}
         </div>
 
-        <div className="hidden lg:flex items-center gap-3 xl:gap-5 shrink-0 whitespace-nowrap">
+        <div className="hidden xl:flex items-center gap-3 xl:gap-5 shrink-0 whitespace-nowrap">
           <Link to="/studio" className="text-accent-400 hover:text-white transition-colors uppercase tracking-widest text-sm font-bold flex items-center gap-2">
             <Sparkles className="w-4 h-4" />Create a Website
           </Link>
@@ -61,7 +61,7 @@ export default function Nav() {
 
         <button
           onClick={() => setOpen(!open)}
-          className="lg:hidden ml-auto shrink-0 p-2 text-white"
+          className="md:hidden ml-auto shrink-0 p-2 text-white"
           aria-label="Menu"
           aria-expanded={open}
           aria-controls="avelixa-mobile-navigation"
@@ -71,7 +71,7 @@ export default function Nav() {
       </nav>
 
       {open && (
-        <div id="avelixa-mobile-navigation" className="lg:hidden absolute top-20 inset-x-0 mx-4 glass rounded-2xl p-4 flex flex-col gap-1">
+        <div id="avelixa-mobile-navigation" className="md:hidden absolute top-20 inset-x-0 mx-4 glass rounded-2xl p-4 flex flex-col gap-1">
           {links.map((l) => (
             <Link key={l.to} to={l.to} className={`px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest ${location.pathname === l.to ? 'text-accent-400 bg-white/5' : 'text-gray-400 hover:bg-white/5'}`}>
               {l.label}
