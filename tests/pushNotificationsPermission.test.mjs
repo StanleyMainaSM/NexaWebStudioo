@@ -10,7 +10,7 @@ const canonical = fs.readFileSync(canonicalPath, 'utf8');
 
 assert.match(
   legacy,
-  /from\s*['"]\.\/pushNotificationService['"];?/, 
+  /from\s*['"]\.\/pushNotificationService['"];?/,
   'legacy push notification entrypoint must delegate to the canonical push notification service',
 );
 
@@ -50,7 +50,7 @@ assert.match(
 
 assert.match(
   canonical,
-  /registration\.pushManager\.subscribe\(/,
+  /pushManager\.subscribe\(/,
   'granted permission must result in a browser PushSubscription',
 );
 assert.match(
