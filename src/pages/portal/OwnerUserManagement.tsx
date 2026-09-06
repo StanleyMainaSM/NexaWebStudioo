@@ -97,14 +97,21 @@ export default function OwnerUserManagement() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) throw new Error('Authenticated Owner account could not be identified.');
-      const verified = await verifyPortalPassword('owner', password);
-      if (!verified) throw new Error('The Owner User Management access password is incorrect.');
+      const accessPasswordAccepted = await verifyPortalPassword('owner', password);
+      if (!accessPasswordAccepted) {
+        throw new Error('The Owner User Management access password was rejected.');
+      }
       const unlocked = await hasPortalAccess('owner');
       if (!unlocked) throw new Error('User Management access could not be established for this session.');
       setPassword('');
       setVerified(true);
-    } catch {
-      setAuthError('Password verification failed. Please enter the password for your current Owner account.');
+    } catch (verificationError: unknown) {
+      console.error('Owner User Management verification error:', verificationError);
+      setAuthError(
+        verificationError instanceof Error
+          ? verificationError.message
+          : 'Owner User Management access verification failed.'
+      );
     } finally {
       setChecking(false);
     }
@@ -243,7 +250,7 @@ export default function OwnerUserManagement() {
           <h1 className="mt-6 text-2xl font-bold text-white">Owner Verification Required</h1>
           <p className="mt-2 text-sm text-gray-400">Enter your Owner User Management access password to manage users.</p>
           {authError && <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{authError}</div>}
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Owner password" autoComplete="current-password" className="mt-5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none" required />
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Owner User Management access password" autoComplete="current-password" className="mt-5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none" required />
           <button disabled={checking} className="mt-4 w-full rounded-xl bg-accent-600 px-4 py-3 font-semibold text-white disabled:opacity-50">{checking ? 'Verifying...' : 'Verify Owner Access'}</button>
         </form>
       </div>
@@ -299,37 +306,27 @@ export default function OwnerUserManagement() {
                     <div className="font-semibold text-white">{user.full_name || 'Unnamed user'}</div>
                     <div className="text-sm text-gray-400">{user.email}</div>
                   </div>
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${user.is_active ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'}`}>
-                    {user.is_active ? 'Active' : 'Deactivated'}
-                  </span>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${user.is_active ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'}`}>{user.is_active ? 'Active' : 'Deactivated'}</span>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {user.roles.length ? user.roles.map((role) => (
-                    <span key={role} className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-gray-300">
-                      {label(role)}
-                      {role !== 'owner' && <button type="button" onClick={() => void changeRole(user, role as AllowedRole, true)} disabled={action === user.id} className="text-red-300" aria-label={`Remove ${label(role)} role`}><X className="w-3 h-3" /></button>}
-                    </span>
-                  )) : <span className="text-xs text-gray-500">No roles assigned</span>}
-                </div>
+                <div className="mt-3 flex flex-wrap gap-2">{user.roles.map((role) => <span key={role} className="rounded-full bg-accent-500/10 px-2.5 py-1 text-xs text-accent-200">{label(role)}</span>)}</div>
               </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {roles.filter((role) => !user.roles.includes(role)).map((role) => (
-                  <button key={role} type="button" onClick={() => void changeRole(user, role)} disabled={action === user.id || !user.is_active} className="rounded-lg border border-accent-500/20 bg-accent-500/5 px-3 py-2 text-xs text-accent-300 disabled:opacity-40">+ {label(role)}</button>
-                ))}
-                {user.roles.includes('owner') ? null : user.is_active ? (
-                  <button type="button" onClick={() => void setMemberActive(user, false)} disabled={action === user.id} className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 px-3 py-2 text-xs text-red-300 disabled:opacity-50"><UserX className="w-4 h-4" />Deactivate</button>
+              <div className="flex flex-wrap gap-2">
+                {user.is_active ? (
+                  <button onClick={() => void setMemberActive(user, false)} disabled={action === user.id} className="inline-flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-300 disabled:opacity-50"><UserX className="w-4 h-4" />Deactivate</button>
                 ) : (
-                  <button type="button" onClick={() => void setMemberActive(user, true)} disabled={action === user.id} className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 px-3 py-2 text-xs text-emerald-300 disabled:opacity-50"><UserCheck className="w-4 h-4" />Reactivate</button>
+                  <button onClick={() => void setMemberActive(user, true)} disabled={action === user.id} className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300 disabled:opacity-50"><UserCheck className="w-4 h-4" />Reactivate</button>
                 )}
-                {user.roles.includes('owner') ? null : (
-                  <button type="button" onClick={() => void handleDeleteUser(user)} disabled={action === user.id} className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200 disabled:opacity-50" aria-label={`Permanently remove ${user.full_name || user.email} account`}><Trash2 className="w-4 h-4" />Permanent Remove</button>
-                )}
+                {roles.map((role) => user.roles.includes(role) ? (
+                  <button key={role} onClick={() => void changeRole(user, role, true)} disabled={action === user.id} aria-label={`Remove ${label(role)} role`} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-300 disabled:opacity-50"><X className="w-4 h-4" />Remove {label(role)}</button>
+                ) : (
+                  <button key={role} onClick={() => void changeRole(user, role)} disabled={action === user.id} aria-label={`Add ${label(role)} role`} className="inline-flex items-center gap-2 rounded-xl border border-accent-500/20 bg-accent-500/10 px-3 py-2 text-sm text-accent-200 disabled:opacity-50">Add {label(role)}</button>
+                ))}
+                <button onClick={() => void handleDeleteUser(user)} disabled={action === user.id} className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300 disabled:opacity-50"><Trash2 className="w-4 h-4" />Permanent Remove</button>
               </div>
             </div>
           </div>
         )) : (
-          <div className="rounded-2xl border border-white/10 p-10 text-center text-gray-500">No users found.</div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-sm text-gray-400">No managed users found.</div>
         )}
       </div>
     </div>
