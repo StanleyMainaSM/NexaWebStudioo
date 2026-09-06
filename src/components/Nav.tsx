@@ -33,7 +33,7 @@ export default function Nav() {
 
   return (
     <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ${scrolled ? 'h-20 bg-ink-950/80 backdrop-blur-xl border-b border-ink-800/50 flex items-center shrink-0' : 'h-20 flex items-center border-b border-transparent shrink-0'}`}>
-      <nav className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 flex items-center gap-4">
+      <nav className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 pr-20 md:pr-0 flex items-center gap-4">
         <Link to="/" className="flex items-center gap-3 shrink-0 whitespace-nowrap">
           <img src="/logo.avif" alt="Avelixa" className="w-10 h-10 object-contain shrink-0" />
           <span className="text-xl font-medium tracking-tight text-white">Avelixa</span>
