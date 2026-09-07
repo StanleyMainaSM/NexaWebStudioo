@@ -1,3 +1,4 @@
+// Regression contract: Owner User Management must use the normal authenticated Owner session.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
