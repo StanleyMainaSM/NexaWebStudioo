@@ -134,3 +134,4 @@ test('User Management exposes no password, hash, access token, or browser-stored
 
 // Regression contract intentionally triggers the Owner User Management workflow after the server gate fix.
 // Final verification trigger: the production server gate must remain absent.
+// Corrected workflow shell: fixer runs before the full regression suite.
