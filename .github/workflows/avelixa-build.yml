@@ -14,9 +14,6 @@ on:
     branches:
       - avelixa-current-work
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -32,67 +29,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Apply and verify Owner User Management access-lock fix
-        if: github.actor != 'github-actions[bot]'
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          import subprocess
-
-          path = Path("server.ts")
-          source = path.read_text(encoding="utf-8")
-
-          helper_pattern = re.compile(
-              r"async function hasOwnerPortalAccess\(token: string\) \{.*?\n\}\n\n(?=async function getAuthenticatedUser)",
-              re.DOTALL,
-          )
-          lock_pattern = re.compile(
-              r'^\s{4}if \(!\(await hasOwnerPortalAccess\(token\)\)\) \{\n'
-              r'\s{6}return \{ user: null, error: "User Management access is locked\. Re-enter the Owner access password\." \};\n'
-              r'\s{4}\}\n',
-              re.MULTILINE,
-          )
-
-          helper_matches = helper_pattern.findall(source)
-          lock_matches = lock_pattern.findall(source)
-          if len(helper_matches) != 1:
-              raise SystemExit(f"Expected exactly 1 obsolete helper, found {len(helper_matches)}")
-          if len(lock_matches) != 1:
-              raise SystemExit(f"Expected exactly 1 obsolete lock block, found {len(lock_matches)}")
-
-          updated = helper_pattern.sub("", source, count=1)
-          updated = lock_pattern.sub("", updated, count=1)
-
-          required = [
-              r'req\.path\.startsWith\("/api/owner/users"\)',
-              r'\.eq\("role", "owner"\)',
-              r'\.select\("is_active"\)',
-          ]
-          for pattern in required:
-              if not re.search(pattern, updated):
-                  raise SystemExit(f"Required Owner User Management security check missing: {pattern}")
-
-          forbidden = [
-              "hasOwnerPortalAccess",
-              "has_portal_access",
-              "User Management access is locked",
-          ]
-          for text in forbidden:
-              if text in updated:
-                  raise SystemExit(f"Obsolete access-lock dependency remains: {text}")
-
-          path.write_text(updated, encoding="utf-8", newline="")
-          PY
-
-          node --experimental-strip-types tests/ownerUserManagementAccessGate.test.mjs
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server.ts
-          git commit -m "fix: remove legacy Owner User Management access lock"
-          git push origin HEAD:avelixa-current-work
 
       - name: Theme system regression tests
         run: node --experimental-strip-types tests/theme.test.mjs
