@@ -20,7 +20,7 @@ async function startExpressApp() {
   return { server, baseUrl: `http://127.0.0.1:${address.port}` };
 }
 
-test('Vercel API entrypoint loads the bundled Express app and serves JSON', async (t) => {
+test('Vercel API entrypoint loads the generated Express bundle and serves JSON', async (t) => {
   process.env.VERCEL = '1';
   process.env.SUPABASE_URL = 'https://example.supabase.co';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.test-signature';
@@ -54,8 +54,9 @@ test('Vercel API entrypoint uses the generated JavaScript server bundle so Verce
   const wrapper = read('server.js');
   const config = read('vercel.json');
   const server = read('server.ts');
+  const packageJson = JSON.parse(read('package.json'));
 
-  assert.match(entrypoint, /import app from ['"]\.\.\/dist\/server\.js['"]/);
+  assert.match(entrypoint, /import app from ['"]\.\.\/server\.js['"]/);
   assert.match(entrypoint, /export default app/);
   assert.match(wrapper, /import app from ['"]\.\/server\.ts['"]/);
   assert.match(wrapper, /export default app/);
@@ -64,7 +65,8 @@ test('Vercel API entrypoint uses the generated JavaScript server bundle so Verce
   assert.match(config, /\(\?!api\//);
   assert.match(server, /export default app/);
   assert.match(server, /process\.env\.VERCEL !== ['"]1['"]/);
-  assert.ok(fs.existsSync(path.join(root, 'dist/server.js')));
+  assert.match(packageJson.scripts.build, /--outfile=server\.js/);
+  assert.ok(fs.existsSync(path.join(root, 'server.js')));
 });
 
 test('Express API responds with JSON and does not fall through to the SPA', async (t) => {
