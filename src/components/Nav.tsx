@@ -61,7 +61,7 @@ export default function Nav() {
 
         <button
           onClick={() => setOpen(!open)}
-          className="md:hidden ml-auto shrink-0 p-2 text-white"
+          className="md:hidden ml-auto shrink-0 relative z-[70] p-2 text-white"
           aria-label="Menu"
           aria-expanded={open}
           aria-controls="avelixa-mobile-navigation"
