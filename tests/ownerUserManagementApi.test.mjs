@@ -49,13 +49,16 @@ test('Vercel API entrypoint loads the existing Express app and serves JSON', asy
   });
 });
 
-test('Vercel API entrypoint exposes the existing Express app and routes every /api path to it', () => {
+test('Vercel API entrypoint uses a tracked JavaScript server wrapper so Vercel does not emit a TypeScript-extension build error', () => {
   const entrypoint = read('api/index.ts');
+  const wrapper = read('server.js');
   const config = read('vercel.json');
   const server = read('server.ts');
 
-  assert.match(entrypoint, /import app from ['"]\.\.\/server\.ts['"]/);
+  assert.match(entrypoint, /import app from ['"]\.\.\/server\.js['"]/);
   assert.match(entrypoint, /export default app/);
+  assert.match(wrapper, /import app from ['"]\.\/server\.ts['"]/);
+  assert.match(wrapper, /export default app/);
   assert.match(config, /"source": "\/api\/:path\*"/);
   assert.match(config, /"destination": "\/api\/index"/);
   assert.match(config, /\(\?!api\//);
