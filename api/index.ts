@@ -18,17 +18,15 @@ globalThis.fetch = (async (input, init = {}) => {
   });
 }) as typeof globalThis.fetch;
 
-const serverModule = await import("./server.cjs");
+import serverModule from './server.cjs';
 
 const app =
-  typeof serverModule.default === "function"
-    ? serverModule.default
-    : (serverModule as { default?: { default?: unknown } }).default?.default;
+  typeof serverModule === 'function'
+    ? serverModule
+    : (serverModule as { default?: unknown }).default;
 
-if (typeof app !== "function") {
-  throw new Error(
-    "The bundled Express server did not export an application function."
-  );
+if (typeof app !== 'function') {
+  throw new Error('The bundled Express server did not export an application function.');
 }
 
 export default app;
