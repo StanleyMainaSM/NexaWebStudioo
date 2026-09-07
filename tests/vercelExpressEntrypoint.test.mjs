@@ -13,7 +13,8 @@ test('Vercel API entrypoint resolves the generated CommonJS server bundle and se
   const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   const generatedServer = fs.readFileSync('api/server.cjs', 'utf8');
 
-  assert.match(entrypoint, /from ['"]\.\/server\.cjs['"]/);
+  assert.match(entrypoint, /await import\(["']\.\/server\.cjs["']\)/);
+  assert.match(entrypoint, /globalThis\.fetch = \(async/);
   assert.match(packageJson.scripts.build, /--format=cjs/);
   assert.match(packageJson.scripts.build, /--outfile=api\/server\.cjs/);
   assert.match(packageJson.scripts.start, /node api\/server\.cjs/);
