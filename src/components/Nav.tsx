@@ -47,14 +47,14 @@ export default function Nav() {
           ))}
         </div>
 
-        <div className="hidden xl:flex items-center gap-3 xl:gap-5 shrink-0 whitespace-nowrap">
-          <Link to="/studio" className="text-accent-400 hover:text-white transition-colors uppercase tracking-widest text-sm font-bold flex items-center gap-2">
+        <div className="hidden md:flex items-center gap-3 xl:gap-5 shrink-0 whitespace-nowrap">
+          <Link to="/studio" className="hidden xl:flex text-accent-400 hover:text-white transition-colors uppercase tracking-widest text-sm font-bold items-center gap-2">
             <Sparkles className="w-4 h-4" />Create a Website
           </Link>
           <Link to="/login" className="text-white hover:text-accent-400 transition-colors uppercase tracking-widest text-sm font-medium flex items-center gap-2">
-            <LogIn className="w-4 h-4" />Portal
+            <LogIn className="w-4 h-4" />Portal Login
           </Link>
-          <a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 xl:px-5 py-2 bg-zinc-100 text-black rounded-full hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-medium">
+          <a href={whatsapp} target="_blank" rel="noreferrer" className="hidden xl:inline-flex items-center gap-2 px-4 xl:px-5 py-2 bg-zinc-100 text-black rounded-full hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-medium">
             <MessageCircle className="w-4 h-4" />Start a Project
           </a>
         </div>
