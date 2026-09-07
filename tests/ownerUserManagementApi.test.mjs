@@ -51,22 +51,23 @@ test('Vercel API entrypoint loads the generated Express bundle and serves JSON',
 
 test('Vercel API entrypoint uses the generated JavaScript server bundle so Vercel does not emit a TypeScript-extension build error', () => {
   const entrypoint = read('api/index.ts');
-  const wrapper = read('server.js');
   const config = read('vercel.json');
-  const server = read('server.ts');
+  const serverSource = read('server.ts');
+  const generatedServer = read('server.js');
   const packageJson = JSON.parse(read('package.json'));
 
   assert.match(entrypoint, /import app from ['"]\.\.\/server\.js['"]/);
   assert.match(entrypoint, /export default app/);
-  assert.match(wrapper, /import app from ['"]\.\/server\.ts['"]/);
-  assert.match(wrapper, /export default app/);
   assert.match(config, /"source": "\/api\/:path\*"/);
   assert.match(config, /"destination": "\/api\/index"/);
   assert.match(config, /\(\?!api\//);
-  assert.match(server, /export default app/);
-  assert.match(server, /process\.env\.VERCEL !== ['"]1['"]/);
+  assert.match(serverSource, /export default app/);
+  assert.match(serverSource, /process\.env\.VERCEL !== ['"]1['"]/);
   assert.match(packageJson.scripts.build, /--outfile=server\.js/);
-  assert.ok(fs.existsSync(path.join(root, 'server.js')));
+  assert.match(generatedServer, /server\.ts/);
+  assert.match(generatedServer, /app\.get\("\/api\/health"/);
+  assert.match(generatedServer, /app\.get\("\/api\/owner\/users"/);
+  assert.ok(fs.statSync(path.join(root, 'server.js')).size > 10000);
 });
 
 test('Express API responds with JSON and does not fall through to the SPA', async (t) => {
