@@ -131,3 +131,5 @@ test('User Management exposes no password, hash, access token, or browser-stored
   assert.doesNotMatch(source, /access_token\s*[:=].*res\./i);
   assert.doesNotMatch(source, /refresh_token\s*[:=].*res\./i);
 });
+
+// Regression contract intentionally triggers the Owner User Management workflow after the server gate fix.
