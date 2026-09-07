@@ -22,7 +22,8 @@ test('Vercel Owner API entrypoint loads the generated CommonJS server bundle', a
   const packageJson = JSON.parse(read('package.json'));
   const generatedServer = read('api/server.cjs');
 
-  assert.match(entrypoint, /await import\(["']\.\/server\.cjs["']\)/);
+  assert.match(entrypoint, /import serverModule from ['"]\.\/server\.cjs['"]/);
+  assert.match(entrypoint, /Bearer sb_secret_/);
   assert.match(packageJson.scripts.build, /--format=cjs/);
   assert.match(packageJson.scripts.build, /--outfile=api\/server\.cjs/);
   assert.match(generatedServer, /api\/health/);
