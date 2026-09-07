@@ -18,14 +18,14 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
       - name: Owner User Management regression tests
-        run: node --test tests/ownerMemberLifecycle.test.mjs tests/ownerUserManagementApi.test.mjs tests/ownerUserManagementCompletion.test.mjs tests/ownerUserManagementAccessGate.test.mjs
+        run: node --experimental-strip-types --test tests/ownerMemberLifecycle.test.mjs tests/ownerUserManagementApi.test.mjs tests/ownerUserManagementCompletion.test.mjs tests/ownerUserManagementAccessGate.test.mjs
 
       - name: Typecheck
         run: npx tsc -b
