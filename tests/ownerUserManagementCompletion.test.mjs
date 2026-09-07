@@ -14,12 +14,17 @@ function routeBlock(source, method, route) {
   return source.slice(match.index, next > match.index ? next : source.length);
 }
 
-test('Owner server management path forwards bearer authentication and verifies Owner', () => {
+test('Owner server management path forwards bearer authentication and verifies Owner without the legacy portal-access lock', () => {
   const source = read('server.ts');
   assert.match(source, /req\.path\.startsWith\("\/api\/owner\/users"\)/);
   assert.match(source, /getAuthenticatedUser\(req\)/);
-  assert.match(source, /hasOwnerPortalAccess\(token\)/);
+  assert.match(source, /supabaseAdmin\.auth\.getUser\(token\)/);
   assert.match(source, /\.eq\("role", "owner"\)/);
+  assert.match(source, /\.from\("profiles"\)/);
+  assert.match(source, /\.select\("is_active"\)/);
+  assert.doesNotMatch(source, /hasOwnerPortalAccess/);
+  assert.doesNotMatch(source, /has_portal_access/);
+  assert.doesNotMatch(source, /User Management access is locked/);
 });
 
 test('Owner role assignment is independent and duplicate-safe', () => {
