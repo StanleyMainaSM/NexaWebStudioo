@@ -17,6 +17,22 @@ const roles: AllowedRole[] = ['client', 'operator', 'connector', 'admin'];
 const OWNER_USER_MANAGEMENT_VERIFICATION_KEY = 'avelixa_owner_user_management_verified_user';
 const label = (role: string) => role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
+async function readOwnerApiResponse(response: Response) {
+  const contentType = response.headers.get('content-type') || '';
+  const body = await response.text();
+
+  if (!contentType.toLowerCase().includes('application/json')) {
+    const detail = body.replace(/\s+/g, ' ').trim().slice(0, 160);
+    throw new Error(`The server returned an unexpected response (${response.status}).${detail ? ` ${detail}` : ''}`);
+  }
+
+  try {
+    return JSON.parse(body) as { error?: string; message?: string };
+  } catch {
+    throw new Error(`The server returned an invalid JSON response (${response.status}).`);
+  }
+}
+
 export default function OwnerUserManagement() {
   const [verified, setVerified] = useState(false);
   const [password, setPassword] = useState('');
@@ -225,7 +241,7 @@ export default function OwnerUserManagement() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
-      const result = await response.json();
+      const result = await readOwnerApiResponse(response);
       if (!response.ok) throw new Error(result.error || 'Permanent account removal failed.');
       setUsers((current) => current.filter((item) => item.id !== user.id));
       setSuccess(result.message || `${user.full_name || user.email} was permanently removed.`);
@@ -347,7 +363,7 @@ export default function OwnerUserManagement() {
                 ) : (
                   <button key={role} onClick={() => void changeRole(user, role)} disabled={action === user.id} aria-label={`Add ${label(role)} role`} className="inline-flex items-center gap-2 rounded-xl border border-accent-500/20 bg-accent-500/10 px-3 py-2 text-sm text-accent-200 disabled:opacity-50">Add {label(role)}</button>
                 ))}
-                <button onClick={() => void handleDeleteUser(user)} disabled={action === user.id} className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300 disabled:opacity-50"><Trash2 className="w-4 h-4" />Permanent Remove</button>
+                <button onClick={() => void handleDeleteUser(user)} disabled={action === user.id} aria-label="Permanently remove user account" title="Permanently remove user account" className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300 disabled:opacity-50"><Trash2 className="w-4 h-4" />Permanent Remove</button>
               </div>
             </div>
           </div>
