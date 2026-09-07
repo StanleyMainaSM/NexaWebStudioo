@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import http from 'node:http';
 import test from 'node:test';
 
@@ -7,7 +8,10 @@ process.env.SUPABASE_URL = 'https://example.supabase.co';
 process.env.SUPABASE_SERVICE_ROLE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.test-signature';
 
-test('Vercel API entrypoint loads the existing Express app and serves JSON', async (t) => {
+test('Vercel API entrypoint resolves the production server bundle and serves JSON', async (t) => {
+  const entrypoint = fs.readFileSync('api/index.ts', 'utf8');
+  assert.match(entrypoint, /from ['"]\.\.\/dist\/server\.js['"]/);
+
   const { default: app } = await import('../api/index.ts');
   assert.equal(typeof app, 'function');
 
