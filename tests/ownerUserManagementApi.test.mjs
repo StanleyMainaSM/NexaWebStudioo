@@ -22,9 +22,9 @@ test('Vercel Owner API entrypoint loads the generated CommonJS server bundle', a
   const packageJson = JSON.parse(read('package.json'));
   const generatedServer = read('api/server.cjs');
 
-  assert.match(entrypoint, /from ['"]\.\/server\.cjs['"]/);
+  assert.match(entrypoint, /await import\(["']\.\/server\.cjs["']\)/);
   assert.match(packageJson.scripts.build, /--format=cjs/);
-  assert.match(packageJson.scripts.build, /--outfile=api\/server.cjs/);
+  assert.match(packageJson.scripts.build, /--outfile=api\/server\.cjs/);
   assert.match(generatedServer, /api\/health/);
   assert.doesNotMatch(generatedServer, /from ["']vite["']/);
 
@@ -51,6 +51,15 @@ test('Vercel Owner API entrypoint loads the generated CommonJS server bundle', a
   const unauthorized = await fetchWithEndpointTimeout(`${baseUrl}/api/owner/users`, 'GET /api/owner/users');
   assert.equal(unauthorized.status, 401);
   assert.match(unauthorized.headers.get('content-type') || '', /application\/json/);
+});
+
+test('Vercel entrypoint removes only a new Supabase secret key from Authorization fallback', () => {
+  const entrypoint = read('api/index.ts');
+
+  assert.match(entrypoint, /globalThis\.fetch = \(async/);
+  assert.match(entrypoint, /authorization\?\.startsWith\("Bearer sb_secret_"\)/);
+  assert.match(entrypoint, /headers\.delete\("authorization"\)/);
+  assert.match(entrypoint, /const nativeFetch = globalThis\.fetch\.bind\(globalThis\)/);
 });
 
 test('Owner User Management API surface and security contract remain present', () => {
