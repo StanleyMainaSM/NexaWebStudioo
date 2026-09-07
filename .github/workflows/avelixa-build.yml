@@ -81,6 +81,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Vercel Express entrypoint runtime regression test
+        run: node --experimental-strip-types tests/vercelExpressEntrypoint.test.mjs
+
       - name: Favicon and metadata regression tests
         run: node --experimental-strip-types tests/faviconMetadata.test.mjs
 
