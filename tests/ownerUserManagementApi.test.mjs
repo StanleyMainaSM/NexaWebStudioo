@@ -5,6 +5,14 @@ import test from 'node:test';
 
 const read = (file) => fs.readFileSync(file, 'utf8');
 
+async function fetchWithEndpointTimeout(url, endpoint) {
+  try {
+    return await fetch(url, { signal: AbortSignal.timeout(10000) });
+  } catch (error) {
+    throw new Error(`${endpoint} did not respond within 10 seconds: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 test('Vercel Owner API entrypoint loads the generated CommonJS server bundle', async (t) => {
   process.env.VERCEL = '1';
   process.env.SUPABASE_URL = 'https://example.supabase.co';
@@ -16,11 +24,13 @@ test('Vercel Owner API entrypoint loads the generated CommonJS server bundle', a
 
   assert.match(entrypoint, /from ['"]\.\/server\.cjs['"]/);
   assert.match(packageJson.scripts.build, /--format=cjs/);
-  assert.match(packageJson.scripts.build, /--outfile=api\/server\.cjs/);
+  assert.match(packageJson.scripts.build, /--outfile=api\/server.cjs/);
   assert.match(generatedServer, /api\/health/);
   assert.doesNotMatch(generatedServer, /from ["']vite["']/);
 
   const { default: app } = await import('../api/index.ts');
+  assert.equal(typeof app, 'function', 'Vercel entrypoint must export the Express application as a function');
+
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   t.after(() => {
@@ -32,14 +42,13 @@ test('Vercel Owner API entrypoint loads the generated CommonJS server bundle', a
   const address = server.address();
   assert.ok(address && typeof address === 'object');
   const baseUrl = `http://127.0.0.1:${address.port}`;
-  const requestOptions = { signal: AbortSignal.timeout(10000) };
 
-  const health = await fetch(`${baseUrl}/api/health`, requestOptions);
+  const health = await fetchWithEndpointTimeout(`${baseUrl}/api/health`, 'GET /api/health');
   assert.equal(health.status, 200);
   assert.match(health.headers.get('content-type') || '', /application\/json/);
   assert.deepEqual(await health.json(), { status: 'ok' });
 
-  const unauthorized = await fetch(`${baseUrl}/api/owner/users`, requestOptions);
+  const unauthorized = await fetchWithEndpointTimeout(`${baseUrl}/api/owner/users`, 'GET /api/owner/users');
   assert.equal(unauthorized.status, 401);
   assert.match(unauthorized.headers.get('content-type') || '', /application\/json/);
 });
