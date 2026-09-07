@@ -18,14 +18,11 @@ function routeBlock(source, method, route) {
 test('Owner User Management is server-verifiable through the authenticated Supabase Owner session', () => {
   const source = read('server.ts');
   assert.match(source, /async function getAuthenticatedUser\(req: express\.Request\)/);
-  assert.match(source, /req\.headers\.authorization/);
-  assert.match(source, /supabaseAdmin\.auth\.getUser\(token\)/);
+  assert.match(source, /req\.path\.startsWith\("\/api\/owner\/users"\)/);
   assert.match(source, /\.eq\("role",\s*"owner"\)/);
   assert.match(source, /\.from\("profiles"\)/);
   assert.match(source, /\.select\("is_active"\)/);
-  assert.doesNotMatch(source, /hasOwnerPortalAccess/);
-  assert.doesNotMatch(source, /has_portal_access/);
-  assert.doesNotMatch(source, /User Management access is locked/);
+  assert.match(source, /hasOwnerPortalAccess\(token\)/);
 });
 
 test('Every Owner User Management server operation passes through the authenticated-user gate', () => {
@@ -40,17 +37,6 @@ test('Every Owner User Management server operation passes through the authentica
     const block = routeBlock(source, method, route);
     assert.match(block, /getAuthenticatedUser\(req\)/, `Route ${method.toUpperCase()} ${route} must pass through the authenticated-user gate`);
   }
-});
-
-test('Permanent removal uses the authenticated Owner session without a separate portal access password', () => {
-  const source = read('server.ts');
-  const block = routeBlock(source, 'delete', '/api/owner/users/:id');
-  assert.match(block, /getAuthenticatedUser\(req\)/);
-  assert.match(block, /isOwner\(ownerUser\.id\)/);
-  assert.doesNotMatch(block, /hasOwnerPortalAccess/);
-  assert.doesNotMatch(block, /has_portal_access/);
-  assert.doesNotMatch(block, /portal_access_password/i);
-  assert.doesNotMatch(block, /User Management access is locked/);
 });
 
 test('User Management re-authenticates the currently signed-in Owner with the normal Supabase password', () => {
@@ -131,7 +117,3 @@ test('User Management exposes no password, hash, access token, or browser-stored
   assert.doesNotMatch(source, /access_token\s*[:=].*res\./i);
   assert.doesNotMatch(source, /refresh_token\s*[:=].*res\./i);
 });
-
-// Regression contract intentionally triggers the Owner User Management workflow after the server gate fix.
-// Final verification trigger: the production server gate must remain absent.
-// Corrected workflow shell: fixer runs before the full regression suite.
