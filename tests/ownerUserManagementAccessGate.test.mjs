@@ -15,17 +15,21 @@ function routeBlock(source, method, route) {
   return source.slice(match.index, next > match.index ? next : source.length);
 }
 
-test('Owner User Management is server-verifiable through the authenticated Supabase Owner session', () => {
+test('Owner User Management uses the authenticated Supabase Owner session without the legacy portal-access lock', () => {
   const source = read('server.ts');
   assert.match(source, /async function getAuthenticatedUser\(req: express\.Request\)/);
+  assert.match(source, /req\.headers\.authorization/);
+  assert.match(source, /supabaseAdmin\.auth\.getUser\(token\)/);
   assert.match(source, /req\.path\.startsWith\("\/api\/owner\/users"\)/);
   assert.match(source, /\.eq\("role",\s*"owner"\)/);
   assert.match(source, /\.from\("profiles"\)/);
   assert.match(source, /\.select\("is_active"\)/);
-  assert.match(source, /hasOwnerPortalAccess\(token\)/);
+  assert.doesNotMatch(source, /hasOwnerPortalAccess/);
+  assert.doesNotMatch(source, /has_portal_access/);
+  assert.doesNotMatch(source, /User Management access is locked\. Re-enter the Owner access password\./);
 });
 
-test('Every Owner User Management server operation passes through the authenticated-user gate', () => {
+test('All Owner User Management operations use the authenticated-user gate and retain Owner authorization', () => {
   const source = read('server.ts');
   for (const [method, route] of [
     ['get', '/api/owner/users'],
@@ -36,6 +40,38 @@ test('Every Owner User Management server operation passes through the authentica
   ]) {
     const block = routeBlock(source, method, route);
     assert.match(block, /getAuthenticatedUser\(req\)/, `Route ${method.toUpperCase()} ${route} must pass through the authenticated-user gate`);
+    assert.match(block, /isOwner\(ownerUser\.id\)/, `Route ${method.toUpperCase()} ${route} must retain server-side Owner authorization`);
+    assert.doesNotMatch(block, /hasOwnerPortalAccess|has_portal_access|portal_access_password|User Management access is locked/i);
+  }
+});
+
+test('Permanent removal uses the authenticated Owner session without a separate portal access password', () => {
+  const source = read('server.ts');
+  const block = routeBlock(source, 'delete', '/api/owner/users/:id');
+  assert.match(block, /getAuthenticatedUser\(req\)/);
+  assert.match(block, /isOwner\(ownerUser\.id\)/);
+  assert.match(block, /You cannot permanently remove your own Owner account/);
+  assert.match(block, /Another Owner account cannot be permanently removed/);
+  assert.doesNotMatch(block, /hasOwnerPortalAccess|has_portal_access|portal_access_password|User Management access is locked/i);
+});
+
+test('Unauthenticated and authenticated non-Owner requests remain rejected by the Owner User Management authorization path', () => {
+  const source = read('server.ts');
+  const getAuth = source.slice(source.indexOf('async function getAuthenticatedUser'));
+  assert.match(getAuth, /Missing authentication token/);
+  assert.match(getAuth, /Your session is invalid or has expired/);
+  for (const [method, route] of [
+    ['get', '/api/owner/users'],
+    ['post', '/api/owner/users'],
+    ['post', '/api/owner/users/:id/roles'],
+    ['delete', '/api/owner/users/:id/roles/:role'],
+    ['delete', '/api/owner/users/:id'],
+  ]) {
+    const block = routeBlock(source, method, route);
+    assert.match(block, /if \(!ownerUser\)/);
+    assert.match(block, /res\.status\(401\)\.json/);
+    assert.match(block, /isOwner\(ownerUser\.id\)/);
+    assert.match(block, /res\.status\(403\)\.json/);
   }
 });
 
