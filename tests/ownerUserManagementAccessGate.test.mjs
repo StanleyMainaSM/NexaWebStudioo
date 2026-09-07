@@ -1,4 +1,5 @@
 // Regression contract: Owner User Management must use the normal authenticated Owner session.
+// Temporary runner trigger; no production behavior is encoded here.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
