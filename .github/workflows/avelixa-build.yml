@@ -39,6 +39,11 @@ jobs:
           node --experimental-strip-types tests/mobileNavigationCollision.test.mjs
           node --experimental-strip-types tests/globalNavigationRegression.test.mjs
 
+      - name: Owner User Management API and deletion regression tests
+        run: |
+          node --experimental-strip-types tests/ownerUserManagementApi.test.mjs
+          node --experimental-strip-types tests/ownerUserManagementCompletion.test.mjs
+
       - name: Notification permission and push subscription regression tests
         run: node --experimental-strip-types tests/pushNotificationsPermission.test.mjs
 
