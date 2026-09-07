@@ -11,10 +11,11 @@ process.env.SUPABASE_SERVICE_ROLE_KEY =
 test('Vercel API entrypoint resolves the generated server bundle and serves JSON', async (t) => {
   const entrypoint = fs.readFileSync('api/index.ts', 'utf8');
   const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-  const generatedServer = fs.readFileSync('server.js', 'utf8');
+  const generatedServer = fs.readFileSync('api/server.js', 'utf8');
 
-  assert.match(entrypoint, /from ['"]\.\.\/server\.js['"]/);
-  assert.match(packageJson.scripts.build, /--alias:vite=\.\/server-vite-stub\.js/);
+  assert.match(entrypoint, /from ['"]\.\/server\.js['"]/);
+  assert.match(packageJson.scripts.build, /--outfile=api\/server\.js/);
+  assert.match(packageJson.scripts.start, /node api\/server\.js/);
   assert.doesNotMatch(generatedServer, /from ["']vite["']/);
   assert.match(generatedServer, /app\.get\("\/api\/health"/);
 
