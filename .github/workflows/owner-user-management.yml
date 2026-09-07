@@ -25,7 +25,7 @@ jobs:
         run: npm ci
 
       - name: Owner User Management regression tests
-        run: node --test tests/ownerMemberLifecycle.test.mjs tests/ownerUserManagementCompletion.test.mjs tests/ownerUserManagementAccessGate.test.mjs
+        run: node --test tests/ownerMemberLifecycle.test.mjs tests/ownerUserManagementApi.test.mjs tests/ownerUserManagementCompletion.test.mjs tests/ownerUserManagementAccessGate.test.mjs
 
       - name: Typecheck
         run: npx tsc -b
