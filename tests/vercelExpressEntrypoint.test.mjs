@@ -25,14 +25,14 @@ test('Vercel API entrypoint resolves the production server bundle and serves JSO
 
   const health = await fetch(`${baseUrl}/api/health`);
   assert.equal(health.status, 200);
-  assert.match(health.headers.get('content-type') || '', /application\\/json/);
+  assert.match(health.headers.get('content-type') || '', /application\/json/);
   assert.deepEqual(await health.json(), { status: 'ok' });
 
   const unauthorized = await fetch(`${baseUrl}/api/owner/users`);
   assert.equal(unauthorized.status, 401);
   assert.match(
     unauthorized.headers.get('content-type') || '',
-    /application\\/json/
+    /application\/json/
   );
   assert.deepEqual(await unauthorized.json(), {
     error: 'Missing authentication token.',
