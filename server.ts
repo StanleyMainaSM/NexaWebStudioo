@@ -1720,13 +1720,17 @@ async function startServer() {
   );
 }
 
-startServer().catch(
-  (error) => {
-    console.error(
-      "Failed to start server:",
-      error
-    );
+export default app;
 
-    process.exit(1);
-  }
-);
+if (process.env.VERCEL !== "1") {
+  startServer().catch(
+    (error) => {
+      console.error(
+        "Failed to start server:",
+        error
+      );
+
+      process.exit(1);
+    }
+  );
+}
