@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --alias:vite=./server-vite-stub.js --sourcemap --outfile=api/server.js",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --alias:vite=./server-vite-stub.js --sourcemap --outfile=api/server.js",
     "start": "node api/server.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
