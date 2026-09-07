@@ -25,19 +25,21 @@ test('Vercel Owner API entrypoint loads the generated CommonJS server bundle', a
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   t.after(() => {
     server.closeAllConnections();
+    server.closeIdleConnections();
     return new Promise((resolve) => server.close(resolve));
   });
 
   const address = server.address();
   assert.ok(address && typeof address === 'object');
   const baseUrl = `http://127.0.0.1:${address.port}`;
+  const requestOptions = { signal: AbortSignal.timeout(10000) };
 
-  const health = await fetch(`${baseUrl}/api/health`);
+  const health = await fetch(`${baseUrl}/api/health`, requestOptions);
   assert.equal(health.status, 200);
   assert.match(health.headers.get('content-type') || '', /application\/json/);
   assert.deepEqual(await health.json(), { status: 'ok' });
 
-  const unauthorized = await fetch(`${baseUrl}/api/owner/users`);
+  const unauthorized = await fetch(`${baseUrl}/api/owner/users`, requestOptions);
   assert.equal(unauthorized.status, 401);
   assert.match(unauthorized.headers.get('content-type') || '', /application\/json/);
 });
