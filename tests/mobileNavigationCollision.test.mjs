@@ -4,12 +4,21 @@ import path from 'node:path';
 import test from 'node:test';
 
 const root = process.cwd();
-const nav = () => fs.readFileSync(path.join(root, 'src/components/Nav.tsx'), 'utf8');
+const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
-test('Mobile header reserves the existing theme-toggle space so the menu button remains accessible', () => {
-  const source = nav();
-  assert.match(
-    source,
-    /className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 pr-20 md:pr-0 flex items-center gap-4"/
-  );
+test('Mobile header reserves the bounded theme-toggle hit area instead of relying on a fragile padding guess', () => {
+  const nav = read('src/components/Nav.tsx');
+  const css = read('src/index.css');
+
+  assert.match(nav, /px-4 sm:px-6 lg:px-8 xl:px-12 pr-28 md:pr-0 flex items-center gap-4/);
+  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.match(css, /\.theme-toggle \{ right: 0\.75rem; width: 5\.75rem; justify-content: center; padding-inline: 0\.5rem; \}/);
+
+  const mobileReserve = 112;
+  const themeWidth = 92;
+  const themeRightInset = 12;
+  const hamburgerRightEdge = 320 - 16 - mobileReserve;
+  const themeLeftEdge = 320 - themeRightInset - themeWidth;
+
+  assert.ok(hamburgerRightEdge <= themeLeftEdge);
 });
