@@ -27,7 +27,7 @@ async function readOwnerApiResponse(response: Response) {
   }
 
   try {
-    return JSON.parse(body) as { error?: string; message?: string };
+    return JSON.parse(body) as { error?: string; message?: string; userId?: string };
   } catch {
     throw new Error(`The server returned an invalid JSON response (${response.status}).`);
   }
@@ -173,7 +173,7 @@ export default function OwnerUserManagement() {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ fullName: fullName.trim(), email: email.trim(), role: primaryRole }),
       });
-      const result = await response.json();
+      const result = await readOwnerApiResponse(response);
       if (!response.ok) throw new Error(result.error || 'Failed to create user.');
 
       const createdUserId = result.userId as string | undefined;
@@ -184,7 +184,7 @@ export default function OwnerUserManagement() {
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ role }),
           });
-          const roleResult = await roleResponse.json();
+          const roleResult = await readOwnerApiResponse(roleResponse);
           if (!roleResponse.ok) throw new Error(roleResult.error || `Failed to add ${label(role)} role.`);
         }
       }
@@ -214,7 +214,7 @@ export default function OwnerUserManagement() {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         ...(remove ? {} : { body: JSON.stringify({ role }) }),
       });
-      const result = await response.json();
+      const result = await readOwnerApiResponse(response);
       if (!response.ok) throw new Error(result.error || 'Role update failed.');
       setSuccess(result.message || 'Role updated successfully.');
       await loadUsers();
