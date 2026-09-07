@@ -64,19 +64,6 @@ app.get("/api/health", (_req, res) => {
  * ============================================================
  */
 
-async function hasOwnerPortalAccess(token: string) {
-  const caller = createClient(supabaseUrl!, supabaseSecretKey!, {
-    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-  const { data, error } = await caller.rpc('has_portal_access', { p_portal: 'owner' });
-  if (error) {
-    console.error('Owner User Management access-gate verification error:', error);
-    return false;
-  }
-  return data === true;
-}
-
 async function getAuthenticatedUser(req: express.Request) {
   const authorization = req.headers.authorization;
 
@@ -129,9 +116,6 @@ async function getAuthenticatedUser(req: express.Request) {
       .maybeSingle();
     if (profileError) return { user: null, error: "Unable to verify the Owner account state." };
     if (profile?.is_active === false) return { user: null, error: "The Owner account is inactive." };
-    if (!(await hasOwnerPortalAccess(token))) {
-      return { user: null, error: "User Management access is locked. Re-enter the Owner access password." };
-    }
   }
 
   return {
