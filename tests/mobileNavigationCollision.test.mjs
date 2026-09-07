@@ -13,7 +13,7 @@ test('Mobile header keeps the three-line hamburger in the header while the theme
   assert.match(nav, /className="md:hidden ml-auto shrink-0 relative z-\[70\] p-2 text-white"/);
   assert.match(nav, /aria-label="Menu"/);
   assert.match(nav, /id="avelixa-mobile-navigation"/);
-  assert.match(toggle, /top-\[5\.5rem\] right-3/);
+  assert.match(toggle, /top-\[6\.5rem\] right-3/);
   assert.match(toggle, /md:top-4 md:right-4/);
   assert.match(toggle, /md:w-auto md:justify-start/);
 });
