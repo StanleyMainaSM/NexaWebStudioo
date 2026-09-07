@@ -65,8 +65,8 @@ test('Vercel API entrypoint uses a self-contained JavaScript server bundle besid
   assert.match(serverSource, /process\.env\.VERCEL !== ['"]1['"]/);
   assert.match(packageJson.scripts.build, /--outfile=api\/server\.js/);
   assert.match(packageJson.scripts.build, /--alias:vite=\.\/server-vite-stub\.js/);
-  assert.match(generatedServer, /app\.get\("\/api\/health"/);
-  assert.match(generatedServer, /app\.get\("\/api\/owner\/users"/);
+  assert.match(generatedServer, /app\.get\(\s*["']\/api\/health["']/);
+  assert.match(generatedServer, /app\.get\(\s*["']\/api\/owner\/users["']/);
   assert.doesNotMatch(generatedServer, /from ["']vite["']/);
   assert.doesNotMatch(generatedServer, /from ["']\.\/server-vite-stub\.js["']/);
   assert.ok(fs.statSync(path.join(root, 'api/server.js')).size > 10000);
