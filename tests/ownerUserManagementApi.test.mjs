@@ -49,7 +49,7 @@ test('Vercel API entrypoint loads the generated Express bundle and serves JSON',
   });
 });
 
-test('Vercel API entrypoint uses the generated JavaScript server bundle so Vercel does not emit a TypeScript-extension build error', () => {
+test('Vercel API entrypoint uses a self-contained JavaScript server bundle without Vite runtime resolution', () => {
   const entrypoint = read('api/index.ts');
   const config = read('vercel.json');
   const serverSource = read('server.ts');
@@ -61,12 +61,13 @@ test('Vercel API entrypoint uses the generated JavaScript server bundle so Verce
   assert.match(config, /"source": "\/api\/:path\*"/);
   assert.match(config, /"destination": "\/api\/index"/);
   assert.match(config, /\(\?!api\//);
-  assert.match(serverSource, /export default app/);
+  assert.match(serverSource, /from ["']vite["']/);
   assert.match(serverSource, /process\.env\.VERCEL !== ['"]1['"]/);
-  assert.match(packageJson.scripts.build, /--outfile=server\.js/);
-  assert.match(generatedServer, /server\.ts/);
+  assert.match(packageJson.scripts.build, /--alias:vite=\.\/server-vite-stub\.js/);
   assert.match(generatedServer, /app\.get\("\/api\/health"/);
   assert.match(generatedServer, /app\.get\("\/api\/owner\/users"/);
+  assert.doesNotMatch(generatedServer, /from ["']vite["']/);
+  assert.doesNotMatch(generatedServer, /from ["']\.\/server-vite-stub\.js["']/);
   assert.ok(fs.statSync(path.join(root, 'server.js')).size > 10000);
 });
 
