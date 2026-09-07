@@ -1,0 +1,68 @@
+name: Temporary Owner Access-Lock Fix Runner
+on:
+  push:
+    branches: [avelixa-owner-access-lock-fix-run]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Apply surgical fix and verify
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('server.ts')
+          s = p.read_text()
+          if 'async function hasOwnerPortalAccess' not in s:
+              raise SystemExit('Expected obsolete helper was not found')
+          start = s.index('async function hasOwnerPortalAccess')
+          end = s.index('async function getAuthenticatedUser', start)
+          s = s[:start] + s[end:]
+          block = '''  if (req.path.startsWith("/api/owner/users")) {
+    const { data: ownerRole, error: ownerRoleError } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .eq("role", "owner")
+      .maybeSingle();
+    if (ownerRoleError || !ownerRole) {
+      return { user: null, error: ownerRoleError ? "Unable to verify Owner permissions for User Management." : "Owner permission is required to manage users." };
+    }
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("is_active")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profileError) return { user: null, error: "Unable to verify the Owner account state." };
+    if (profile?.is_active === false) return { user: null, error: "The Owner account is inactive." };
+    if (!(await hasOwnerPortalAccess(token))) {
+      return { user: null, error: "User Management access is locked. Re-enter the Owner access password." };
+    }
+  }
+
+'''
+          if s.count(block) != 1:
+              raise SystemExit(f'Expected one legacy access-lock block, found {s.count(block)}')
+          p.write_text(s.replace(block, '', 1))
+          PY
+          git diff --check
+          node --test tests/ownerMemberLifecycle.test.mjs tests/ownerUserManagementCompletion.test.mjs tests/ownerUserManagementAccessGate.test.mjs
+          npm run typecheck
+          npm run build
+          test "$(git status --short | awk '{print $2}')" = "server.ts"
+          if git diff -- server.ts | grep -E '^\+.*(hasOwnerPortalAccess|has_portal_access|User Management access is locked)'; then exit 1; fi
+      - name: Commit server fix and remove runner
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add server.ts
+          git rm .github/workflows/owner-access-lock-temp.yml
+          git commit -m 'fix: remove obsolete Owner User Management access lock'
+          git push origin avelixa-owner-access-lock-fix-run
