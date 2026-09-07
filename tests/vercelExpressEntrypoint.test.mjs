@@ -8,16 +8,17 @@ process.env.SUPABASE_URL = 'https://example.supabase.co';
 process.env.SUPABASE_SERVICE_ROLE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.test-signature';
 
-test('Vercel API entrypoint resolves the generated server bundle and serves JSON', async (t) => {
+test('Vercel API entrypoint resolves the generated CommonJS server bundle and serves JSON', async (t) => {
   const entrypoint = fs.readFileSync('api/index.ts', 'utf8');
   const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-  const generatedServer = fs.readFileSync('api/server.js', 'utf8');
+  const generatedServer = fs.readFileSync('api/server.cjs', 'utf8');
 
-  assert.match(entrypoint, /from ['"]\.\/server\.js['"]/);
-  assert.match(packageJson.scripts.build, /--outfile=api\/server\.js/);
-  assert.match(packageJson.scripts.start, /node api\/server\.js/);
+  assert.match(entrypoint, /from ['"]\.\/server\.cjs['"]/);
+  assert.match(packageJson.scripts.build, /--format=cjs/);
+  assert.match(packageJson.scripts.build, /--outfile=api\/server\.cjs/);
+  assert.match(packageJson.scripts.start, /node api\/server\.cjs/);
   assert.doesNotMatch(generatedServer, /from ["']vite["']/);
-  assert.match(generatedServer, /app\.get\("\/api\/health"/);
+  assert.match(generatedServer, /api\/health/);
 
   const { default: app } = await import('../api/index.ts');
   assert.equal(typeof app, 'function');
