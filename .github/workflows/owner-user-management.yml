@@ -8,9 +8,6 @@ on:
       - avelixa-current-work
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   owner-user-management:
     runs-on: ubuntu-latest
@@ -27,47 +24,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Apply surgical Owner User Management authentication fix
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path("server.ts")
-          source = path.read_text()
-          if "async function hasOwnerPortalAccess" not in source:
-              print("Owner User Management access-lock fix is already applied.")
-              raise SystemExit(0)
-          helper_start = source.index("async function hasOwnerPortalAccess")
-          helper_end = source.index("async function getAuthenticatedUser", helper_start)
-          source = source[:helper_start] + source[helper_end:]
-          legacy_block = '''  if (req.path.startsWith("/api/owner/users")) {
-    const { data: ownerRole, error: ownerRoleError } = await supabaseAdmin
-      .from("user_roles")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .eq("role", "owner")
-      .maybeSingle();
-    if (ownerRoleError || !ownerRole) {
-      return { user: null, error: ownerRoleError ? "Unable to verify Owner permissions for User Management." : "Owner permission is required to manage users." };
-    }
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("is_active")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (profileError) return { user: null, error: "Unable to verify the Owner account state." };
-    if (profile?.is_active === false) return { user: null, error: "The Owner account is inactive." };
-    if (!(await hasOwnerPortalAccess(token))) {
-      return { user: null, error: "User Management access is locked. Re-enter the Owner access password." };
-    }
-  }
-
-'''
-          if source.count(legacy_block) != 1:
-              raise SystemExit(f"Expected exactly one obsolete access-lock block, found {source.count(legacy_block)}")
-          source = source.replace(legacy_block, "", 1)
-          path.write_text(source)
-          PY
-
       - name: Owner User Management regression tests
         run: node --test tests/ownerMemberLifecycle.test.mjs tests/ownerUserManagementCompletion.test.mjs tests/ownerUserManagementAccessGate.test.mjs
 
@@ -76,17 +32,3 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Verify surgical diff and commit server fix
-        run: |
-          git diff --check
-          test "$(git status --short | awk '{print $2}')" = "server.ts"
-          if git diff -- server.ts | grep -E '^\\+.*(hasOwnerPortalAccess|has_portal_access|User Management access is locked)'; then
-            echo "Obsolete access-lock code remains in added server code."
-            exit 1
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server.ts
-          git commit -m "fix: remove obsolete Owner User Management access lock"
-          git push origin avelixa-current-work
