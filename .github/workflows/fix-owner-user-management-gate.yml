@@ -1,7 +1,9 @@
 name: Targeted Owner User Management Gate Fix
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - avelixa-current-work
 
 permissions:
   contents: write
@@ -43,6 +45,9 @@ jobs:
             }
 '''
 
+          if helper not in source and gate not in source:
+              print("Obsolete Owner User Management access gate is already absent; nothing to change.")
+              raise SystemExit(0)
           if source.count(helper) != 1:
               raise SystemExit(f"Expected exactly one obsolete access helper, found {source.count(helper)}")
           if source.count(gate) != 1:
@@ -58,6 +63,10 @@ jobs:
       - name: Commit targeted server fix
         shell: bash
         run: |
+          if git diff --quiet -- server.ts; then
+            echo "No server.ts change required."
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add server.ts
