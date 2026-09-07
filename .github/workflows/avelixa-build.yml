@@ -33,6 +33,9 @@ jobs:
       - name: Theme system regression tests
         run: node --experimental-strip-types tests/theme.test.mjs
 
+      - name: Owner User Management session-only access regression test
+        run: node --experimental-strip-types tests/ownerUserManagementCompletion.test.mjs
+
       - name: Stage 8 header responsive regression tests
         run: |
           node --experimental-strip-types tests/navResponsive.test.mjs
