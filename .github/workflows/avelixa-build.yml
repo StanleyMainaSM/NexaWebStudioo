@@ -25,8 +25,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Apply targeted Owner User Management gate fix when present
-        shell: python
+        shell: bash
         run: |
+          python - <<'PY'
           from pathlib import Path
 
           path = Path("server.ts")
@@ -58,6 +59,7 @@ jobs:
               if "hasOwnerPortalAccess" in source or "User Management access is locked" in source:
                   raise SystemExit("Obsolete Owner User Management access gate remains")
               path.write_text(source, encoding="utf-8")
+          PY
 
       - name: Persist targeted Owner User Management gate fix
         shell: bash
