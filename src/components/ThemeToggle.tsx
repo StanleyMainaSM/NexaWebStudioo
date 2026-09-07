@@ -9,7 +9,7 @@ export default function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      className="theme-toggle"
+      className="theme-toggle top-[5rem] right-3 w-[5.75rem] justify-center px-2 md:top-4 md:right-4 md:w-auto md:justify-start md:px-3.5"
       aria-label={`Switch to ${nextTheme} theme`}
       title={`Switch to ${nextTheme} theme`}
     >
