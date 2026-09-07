@@ -8,9 +8,6 @@ on:
       - avelixa-current-work
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   owner-user-management:
     runs-on: ubuntu-latest
@@ -18,73 +15,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Remove obsolete portal access gate
-        id: fix
-        continue-on-error: true
-        shell: python
-        run: |
-          from pathlib import Path
-
-          path = Path("server.ts")
-          source = path.read_text(encoding="utf-8")
-          helper = '''async function hasOwnerPortalAccess(token: string) {
-            const caller = createClient(supabaseUrl!, supabaseSecretKey!, {
-              auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-              global: { headers: { Authorization: `Bearer ${token}` } },
-            });
-            const { data, error } = await caller.rpc('has_portal_access', { p_portal: 'owner' });
-            if (error) {
-              console.error('Owner User Management access-gate verification error:', error);
-              return false;
-            }
-            return data === true;
-          }
-
-          '''
-          gate = '''    if (!(await hasOwnerPortalAccess(token))) {
-              return { user: null, error: "User Management access is locked. Re-enter the Owner access password." };
-            }
-'''
-          if helper not in source and gate not in source:
-              print("Targeted server fix already applied; continuing with verification.")
-          else:
-              if source.count(helper) != 1 or source.count(gate) != 1:
-                  raise SystemExit("Expected exactly one obsolete Owner User Management access gate")
-              path.write_text(source.replace(helper, "", 1).replace(gate, "", 1), encoding="utf-8")
-              if "hasOwnerPortalAccess" in path.read_text(encoding="utf-8") or "User Management access is locked" in path.read_text(encoding="utf-8"):
-                  raise SystemExit("Obsolete Owner User Management access gate remains")
-              raise SystemExit(10)
-
-      - name: Commit targeted server fix when required
-        if: steps.fix.outcome == 'failure'
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server.ts
-          git diff --cached --check
-          git commit -m "fix: remove obsolete owner user management access lock"
-          git push origin avelixa-current-work
-
       - name: Setup Node
-        if: steps.fix.outcome == 'success'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
       - name: Install dependencies
-        if: steps.fix.outcome == 'success'
         run: npm ci
 
       - name: Owner User Management regression tests
-        if: steps.fix.outcome == 'success'
         run: node --test tests/ownerMemberLifecycle.test.mjs tests/ownerUserManagementCompletion.test.mjs tests/ownerUserManagementAccessGate.test.mjs
 
       - name: Typecheck
-        if: steps.fix.outcome == 'success'
         run: npx tsc -b
 
       - name: Build
-        if: steps.fix.outcome == 'success'
         run: npm run build
