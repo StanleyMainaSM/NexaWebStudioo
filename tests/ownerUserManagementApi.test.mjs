@@ -54,8 +54,8 @@ test('Owner role-management routes and UI use the structured API response contra
   const server = read('server.ts');
   const ui = read('src/pages/portal/OwnerUserManagement.tsx');
 
-  assert.match(server, /app\.post\(["']\/api\/owner\/users\/:id\/roles["']/);
-  assert.match(server, /app\.delete\(["']\/api\/owner\/users\/:id\/roles\/:role["']/);
+  assert.match(server, /app\.post\(\s*["']\/api\/owner\/users\/:id\/roles["']/);
+  assert.match(server, /app\.delete\(\s*["']\/api\/owner\/users\/:id\/roles\/:role["']/);
   assert.match(server, /status\(401\)\.json/);
   assert.match(server, /status\(403\)\.json/);
   assert.match(server, /isOwner\(ownerUser\.id\)/);
@@ -67,7 +67,7 @@ test('Permanent-removal route keeps server-side authorization and structured JSO
   const server = read('server.ts');
   const ui = read('src/pages/portal/OwnerUserManagement.tsx');
 
-  assert.match(server, /app\.delete\(["']\/api\/owner\/users\/:id["']/);
+  assert.match(server, /app\.delete\(\s*["']\/api\/owner\/users\/:id["']/);
   assert.match(server, /isOwner\(ownerUser\.id\)/);
   assert.match(server, /status\(401\)\.json/);
   assert.match(server, /status\(403\)\.json/);
