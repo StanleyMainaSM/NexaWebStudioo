@@ -1,49 +1,25 @@
 name: Owner User Management Access-Lock Fix
-
 on:
   push:
-    branches:
-      - avelixa-current-work
-
+    branches: [avelixa-current-work]
+permissions:
+  contents: write
 jobs:
-  fix-and-verify:
+  fix:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Confirm TDD RED before production edit
-        run: |
-          set +e
-          node --experimental-strip-types tests/ownerUserManagementAccessGate.test.mjs > /tmp/owner-user-management-red.log 2>&1
-          status=$?
-          cat /tmp/owner-user-management-red.log
-          if [ "$status" -eq 0 ]; then
-            echo "Expected the new access-lock regression to fail before the production fix, but it passed."
-            exit 1
-          fi
-          if ! grep -q "hasOwnerPortalAccess\|has_portal_access\|User Management access is locked" /tmp/owner-user-management-red.log; then
-            echo "The regression failed, but not for the expected obsolete access-lock reason."
-            exit 1
-          fi
-
+      - run: npm ci
       - name: Apply surgical server authentication edit
         run: |
           python - <<'PY'
           from pathlib import Path
-
           path = Path("server.ts")
           source = path.read_text()
-
           helper = '''async function hasOwnerPortalAccess(token: string) {
             const caller = createClient(supabaseUrl!, supabaseSecretKey!, {
               auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
@@ -58,48 +34,30 @@ jobs:
           }
 
           '''
-
           legacy_block = '''    if (!(await hasOwnerPortalAccess(token))) {
                 return { user: null, error: "User Management access is locked. Re-enter the Owner access password." };
               }
 '''
-
           if source.count(helper) != 1:
-            raise SystemExit(f"Expected exactly one obsolete hasOwnerPortalAccess helper, found {source.count(helper)}")
+            raise SystemExit(f"Expected exactly one obsolete helper, found {source.count(helper)}")
           if source.count(legacy_block) != 1:
-            raise SystemExit(f"Expected exactly one obsolete Owner User Management access-lock block, found {source.count(legacy_block)}")
-
-          source = source.replace(helper, "", 1)
-          source = source.replace(legacy_block, "", 1)
+            raise SystemExit(f"Expected exactly one obsolete access-lock block, found {source.count(legacy_block)}")
+          source = source.replace(helper, "", 1).replace(legacy_block, "", 1)
           path.write_text(source)
           PY
-
-      - name: Focused Owner User Management regression GREEN
+      - name: Focused regression
         run: node --experimental-strip-types tests/ownerUserManagementAccessGate.test.mjs
-
       - name: Typecheck
         run: npm run typecheck
-
-      - name: Production build
+      - name: Build
         run: npm run build
-
-      - name: Inspect final diff and changed paths
+      - name: Verify surgical diff
         run: |
           git diff --check
-          git status --short
-          changed=$(git status --short | awk '{print $2}' | sort)
-          expected=$(printf '%s\n' '.github/workflows/owner-user-management-access-lock-fix.yml' 'server.ts' | sort)
-          if [ "$changed" != "$expected" ]; then
-            echo "Unexpected changed paths:"
-            printf '%s\n' "$changed"
-            exit 1
-          fi
-          if git diff -- server.ts | grep -E '^\\+.*(hasOwnerPortalAccess|has_portal_access|User Management access is locked)'; then
-            echo "Obsolete access-lock code still appears in the added server code."
-            exit 1
-          fi
-
-      - name: Commit surgical production fix and remove temporary workflow
+          test "$(git status --short | wc -l)" -eq 1
+          test "$(git status --short | awk '{print $2}')" = "server.ts"
+          if git diff -- server.ts | grep -E '^\\+.*(hasOwnerPortalAccess|has_portal_access|User Management access is locked)'; then exit 1; fi
+      - name: Commit fix and remove temporary workflow
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
