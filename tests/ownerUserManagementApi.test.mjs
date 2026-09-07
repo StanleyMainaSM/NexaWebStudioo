@@ -20,13 +20,15 @@ async function startExpressApp() {
   return { server, baseUrl: `http://127.0.0.1:${address.port}` };
 }
 
-test('Vercel API entrypoint exposes the existing Express app and SPA rewrite excludes /api', () => {
+test('Vercel API entrypoint exposes the existing Express app and routes every /api path to it', () => {
   const entrypoint = read('api/index.ts');
   const config = read('vercel.json');
   const server = read('server.ts');
 
   assert.match(entrypoint, /import app from ['"]\.\.\/server['"]/);
   assert.match(entrypoint, /export default app/);
+  assert.match(config, /"source": "\/api\/:path\*"/);
+  assert.match(config, /"destination": "\/api\/index"/);
   assert.match(config, /\(\?!api\//);
   assert.match(server, /export default app/);
   assert.match(server, /process\.env\.VERCEL !== ['"]1['"]/);
@@ -46,6 +48,19 @@ test('Express API responds with JSON and does not fall through to the SPA', asyn
   assert.match(unauthorized.headers.get('content-type') || '', /application\/json/);
   const body = await unauthorized.json();
   assert.equal(body.error, 'Missing authentication token.');
+});
+
+test('Owner role-management routes and UI use the structured API response contract', () => {
+  const server = read('server.ts');
+  const ui = read('src/pages/portal/OwnerUserManagement.tsx');
+
+  assert.match(server, /app\.post\(["']\/api\/owner\/users\/:id\/roles["']/);
+  assert.match(server, /app\.delete\(["']\/api\/owner\/users\/:id\/roles\/:role["']/);
+  assert.match(server, /status\(401\)\.json/);
+  assert.match(server, /status\(403\)\.json/);
+  assert.match(server, /isOwner\(ownerUser\.id\)/);
+  assert.match(ui, /const result = await readOwnerApiResponse\(response\);/);
+  assert.doesNotMatch(ui, /const result = await response\.json\(\);[\s\S]{0,300}Role update failed/);
 });
 
 test('Permanent-removal route keeps server-side authorization and structured JSON error contracts', () => {
