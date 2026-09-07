@@ -76,25 +76,25 @@ test('Unauthenticated and authenticated non-Owner requests remain rejected by th
   }
 });
 
-test('User Management re-authenticates the currently signed-in Owner with the normal Supabase password', () => {
+test('User Management uses the currently authenticated Owner session without a second password gate', () => {
   const source = read('src/pages/portal/OwnerUserManagement.tsx');
-  assert.match(source, /supabase\.auth\.signInWithPassword/);
-  assert.match(source, /email:\s*user\.email/);
-  assert.match(source, /password/);
+  assert.match(source, /supabase\.auth\.getSession\(\)/);
+  assert.match(source, /session\.access_token/);
+  assert.doesNotMatch(source, /supabase\.auth\.signInWithPassword/);
   assert.doesNotMatch(source, /verifyPortalPassword\('owner'/);
   assert.doesNotMatch(source, /hasPortalAccess\('owner'/);
   assert.doesNotMatch(source, /Owner User Management access password/);
   assert.doesNotMatch(source, /clearPortalAccess\('owner'/);
 });
 
-test('Verification is bound to the currently signed-in user and cleared on sign-out', () => {
+test('Owner User Management clears local state on sign-out while relying on the live Supabase session for authorization', () => {
   const source = read('src/pages/portal/OwnerUserManagement.tsx');
-  assert.match(source, /sessionStorage\.setItem\(OWNER_USER_MANAGEMENT_VERIFICATION_KEY, user\.id\)/);
-  assert.match(source, /sessionStorage\.getItem\(OWNER_USER_MANAGEMENT_VERIFICATION_KEY\)/);
-  assert.match(source, /sessionStorage\.removeItem\(OWNER_USER_MANAGEMENT_VERIFICATION_KEY\)/);
   assert.match(source, /onAuthStateChange/);
   assert.match(source, /SIGNED_OUT/);
-  assert.match(source, /setVerified\(false\)/);
+  assert.match(source, /setUsers\(\[\]\)/);
+  assert.doesNotMatch(source, /OWNER_USER_MANAGEMENT_VERIFICATION_KEY/);
+  assert.doesNotMatch(source, /sessionStorage\.setItem/);
+  assert.doesNotMatch(source, /setVerified/);
 });
 
 test('Owner User Management does not store plaintext passwords or credential hashes', () => {
