@@ -23,7 +23,10 @@ test('Vercel Owner API entrypoint loads the generated CommonJS server bundle', a
   const { default: app } = await import('../api/index.ts');
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  t.after(() => server.close());
+  t.after(() => {
+    server.closeAllConnections();
+    return new Promise((resolve) => server.close(resolve));
+  });
 
   const address = server.address();
   assert.ok(address && typeof address === 'object');
