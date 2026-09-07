@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --external:tty --external:util --external:stream --external:events --external:buffer --external:path --external:fs --external:url --external:os --external:http --external:https --external:zlib --external:net --external:tls --external:crypto --external:assert --external:querystring --external:string_decoder --external:child_process --external:module --external:process --alias:vite=./server-vite-stub.js --sourcemap --outfile=api/server.js",
-    "start": "node api/server.js",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --external:tty --external:util --external:stream --external:events --external:buffer --external:path --external:fs --external:url --external:os --external:http --external:https --external:zlib --external:net --external:tls --external:crypto --external:assert --external:querystring --external:string_decoder --external:child_process --external:module --external:process --alias:vite=./server-vite-stub.js --sourcemap --outfile=api/server.cjs",
+    "start": "node api/server.cjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "test:connector-leads": "node --experimental-strip-types tests/connectorLeadGeneration.test.mjs",
