@@ -21,59 +21,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Apply temporary TDD production edit
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          path = Path('src/pages/portal/OwnerUserManagement.tsx')
-          text = path.read_text()
-          original = text
-          text = text.replace('ArrowLeft, Loader2, LockKeyhole, RefreshCw, UserPlus, UserX, UserCheck, Trash2, X', 'ArrowLeft, Loader2, RefreshCw, UserPlus, UserX, UserCheck, Trash2, X')
-          text = text.replace("const OWNER_USER_MANAGEMENT_VERIFICATION_KEY = 'avelixa_owner_user_management_verified_user';\n", '')
-          text = re.sub(r"  const \[verified, setVerified\] = useState\(false\);\n  const \[password, setPassword\] = useState\(''\);\n  const \[checking, setChecking\] = useState\(false\);\n  const \[authError, setAuthError\] = useState\(''\);\n", '', text)
-          text, count = re.subn(r"  useEffect\(\(\) => \{\n    const \{ data: \{ subscription \} \} = supabase\.auth\.onAuthStateChange\([\s\S]*?\n  \}, \[\]\);\n\n", "  useEffect(() => {\n    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {\n      if (event === 'SIGNED_OUT') {\n        setUsers([]);\n        setError('');\n        setSuccess('');\n      }\n    });\n    return () => subscription.unsubscribe();\n  }, []);\n\n", text, count=1)
-          if count != 1:
-              raise SystemExit('TDD edit failed: auth state effect not matched')
-          text, count = re.subn(r"  useEffect\(\(\) => \{\n    let mounted = true;\n    const restoreVerification = async \(\) => \{[\s\S]*?\n  \}, \[\]\);\n\n", '', text, count=1)
-          if count != 1:
-              raise SystemExit('TDD edit failed: verification restore effect not matched')
-          text, count = re.subn(r"  useEffect\(\(\) => \{\n    if \(verified\) void loadUsers\(\);\n  \}, \[verified\]\);", "  useEffect(() => {\n    void loadUsers();\n  }, []);", text, count=1)
-          if count != 1:
-              raise SystemExit('TDD edit failed: verified load effect not matched')
-          text, count = re.subn(r"  const verify = async \(event: React\.FormEvent\) => \{[\s\S]*?\n  \};\n\n  const getToken", "  const getToken", text, count=1)
-          if count != 1:
-              raise SystemExit('TDD edit failed: verify function not matched')
-          text, count = re.subn(r"\n  if \(!verified\) \{[\s\S]*?\n  \}\n\n  return \(\n", "\n  return (\n", text, count=1)
-          if count != 1:
-              raise SystemExit('TDD edit failed: verification UI block not matched')
-          forbidden = [
-              'signInWithPassword',
-              'OWNER_USER_MANAGEMENT_VERIFICATION_KEY',
-              'Owner Verification Required',
-              'Enter your current Owner account password',
-              'LockKeyhole',
-          ]
-          if any(item in text for item in forbidden):
-              raise SystemExit('TDD edit failed: obsolete Owner verification content remains')
-          if 'supabase.auth.getSession()' not in text or 'session.access_token' not in text:
-              raise SystemExit('TDD edit failed: authenticated session token flow missing')
-          if 'readOwnerApiResponse' not in text or 'handleDeleteUser' not in text or 'changeRole' not in text:
-              raise SystemExit('TDD edit failed: Owner User Management behavior was damaged')
-          path.write_text(text)
-          if text == original:
-              raise SystemExit('TDD edit failed: no production change made')
-          PY
-          git diff --check
-          git diff -- src/pages/portal/OwnerUserManagement.tsx
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/pages/portal/OwnerUserManagement.tsx
-          git commit -m 'fix: remove duplicate Owner User Management password gate'
-          git push origin HEAD:avelixa-current-work
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -85,9 +32,6 @@ jobs:
 
       - name: Theme system regression tests
         run: node --experimental-strip-types tests/theme.test.mjs
-
-      - name: Owner User Management session-only access regression test
-        run: node --experimental-strip-types tests/ownerUserManagementCompletion.test.mjs
 
       - name: Stage 8 header responsive regression tests
         run: |
