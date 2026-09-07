@@ -158,6 +158,11 @@
 [data-theme='light'] .border-ink-800 { border-color: rgb(var(--avelixa-border) / 0.8) !important; }
 [data-theme='light'] .text-ink-600 { color: rgb(var(--avelixa-text-secondary)) !important; }
 
+/* On phone widths the fixed theme control has a bounded hit area and the existing mobile header reserves that exact space. */
+@media (max-width: 767px) {
+  .theme-toggle { right: 0.75rem; width: 5.75rem; justify-content: center; padding-inline: 0.5rem; }
+}
+
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-track { background: rgb(var(--avelixa-page)); }
 ::-webkit-scrollbar-thumb { background: rgb(var(--avelixa-border-strong)); border-radius: 8px; }
