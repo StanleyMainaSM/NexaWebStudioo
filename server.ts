@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
-import { createClient } from "@Supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import "dotenv/config";
 
 const __filename = fileURLToPath(import.meta.url);
