@@ -26,12 +26,14 @@ test('Portal navigation keeps the existing hamburger menu and role-filtered item
   assert.match(source, /onClick=\{mobile \? \(\) => setSidebarOpen\(false\) : undefined\}/);
 });
 
-test('Owner User Management restores an explicit authorized back route without changing its auth flow', () => {
+test('Owner User Management restores an explicit authorized back route while using the existing authenticated session flow', () => {
   const source = read('src/pages/portal/OwnerUserManagement.tsx');
   assert.match(source, /to="\/portal\/owner"/);
   assert.match(source, /Back to Owner Dashboard/);
   assert.match(source, /ArrowLeft/);
-  assert.match(source, /signInWithPassword/);
+  assert.match(source, /supabase\.auth\.getSession\(\)/);
+  assert.match(source, /session\.access_token/);
+  assert.doesNotMatch(source, /signInWithPassword/);
 });
 
 test('Settings restores a workspace-aware back route without changing authentication', () => {
