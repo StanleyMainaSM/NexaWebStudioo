@@ -27,6 +27,16 @@ test('Owner server management path forwards bearer authentication and verifies O
   assert.doesNotMatch(source, /User Management access is locked/);
 });
 
+test('Owner User Management uses the existing authenticated Owner session without a second password gate', () => {
+  const ui = read('src/pages/portal/OwnerUserManagement.tsx');
+  assert.match(ui, /supabase\.auth\.getSession\(\)/);
+  assert.match(ui, /session\.access_token/);
+  assert.doesNotMatch(ui, /signInWithPassword/);
+  assert.doesNotMatch(ui, /OWNER_USER_MANAGEMENT_VERIFICATION_KEY/);
+  assert.doesNotMatch(ui, /Owner Verification Required/);
+  assert.doesNotMatch(ui, /Enter your current Owner account password/);
+});
+
 test('Owner role assignment is independent and duplicate-safe', () => {
   const source = read('server.ts');
   const block = routeBlock(source, 'post', '/api/owner/users/:id/roles');
