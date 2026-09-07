@@ -49,26 +49,27 @@ test('Vercel API entrypoint loads the generated Express bundle and serves JSON',
   });
 });
 
-test('Vercel API entrypoint uses a self-contained JavaScript server bundle without Vite runtime resolution', () => {
+test('Vercel API entrypoint uses a self-contained JavaScript server bundle beside the function', () => {
   const entrypoint = read('api/index.ts');
   const config = read('vercel.json');
   const serverSource = read('server.ts');
-  const generatedServer = read('server.js');
+  const generatedServer = read('api/server.js');
   const packageJson = JSON.parse(read('package.json'));
 
-  assert.match(entrypoint, /import app from ['"]\.\.\/server\.js['"]/);
+  assert.match(entrypoint, /import app from ['"]\.\/server\.js['"]/);
   assert.match(entrypoint, /export default app/);
   assert.match(config, /"source": "\/api\/:path\*"/);
   assert.match(config, /"destination": "\/api\/index"/);
   assert.match(config, /\(\?!api\//);
   assert.match(serverSource, /from ["']vite["']/);
   assert.match(serverSource, /process\.env\.VERCEL !== ['"]1['"]/);
+  assert.match(packageJson.scripts.build, /--outfile=api\/server\.js/);
   assert.match(packageJson.scripts.build, /--alias:vite=\.\/server-vite-stub\.js/);
   assert.match(generatedServer, /app\.get\("\/api\/health"/);
   assert.match(generatedServer, /app\.get\("\/api\/owner\/users"/);
   assert.doesNotMatch(generatedServer, /from ["']vite["']/);
   assert.doesNotMatch(generatedServer, /from ["']\.\/server-vite-stub\.js["']/);
-  assert.ok(fs.statSync(path.join(root, 'server.js')).size > 10000);
+  assert.ok(fs.statSync(path.join(root, 'api/server.js')).size > 10000);
 });
 
 test('Express API responds with JSON and does not fall through to the SPA', async (t) => {
