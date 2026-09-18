@@ -40,6 +40,7 @@ declare
   v_county text:=nullif(btrim(new.raw_user_meta_data->>'county'),'');
   v_town text:=nullif(btrim(new.raw_user_meta_data->>'town'),'');
   v_referral text:=nullif(btrim(new.raw_user_meta_data->>'referring_connector'),'');
+  v_client_referral text:=nullif(btrim(new.raw_user_meta_data->>'client_referral_avl_id'),'');
   v_referrer uuid;
 begin
   if v_type='connector' then
@@ -68,7 +69,7 @@ begin
   values(new.id,v_email,v_name,(
     select cp.user_id from public.connector_profiles cp
     join public.user_roles ur on ur.user_id=cp.user_id and ur.role='connector'
-    where lower(cp.avl_id)=lower(v_referral) and coalesce(cp.is_active,false)=true limit 1
+    where lower(cp.avl_id)=lower(v_client_referral) and coalesce(cp.is_active,false)=true limit 1
   ));
   insert into public.user_roles(user_id,role) values(new.id,'client') on conflict(user_id,role) do nothing;
   return new;
