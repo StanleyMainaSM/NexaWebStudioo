@@ -8,7 +8,6 @@ const listeners = new Set<() => void>();
 function setState(updater: (current: AppState) => Partial<AppState>) { state = { ...state, ...updater(state) };  listeners.forEach((listener) => listener()); }
 
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener); };
-const getSnapshot = () => state;
 export function useAppStore(): AppState;
 export function useAppStore<T>(selector: (state: AppState) => T): T;
 export function useAppStore<T>(selector?: (state: AppState) => T) { return useSyncExternalStore(subscribe, () => selector ? selector(state) : state, () => selector ? selector(state) : state); }
