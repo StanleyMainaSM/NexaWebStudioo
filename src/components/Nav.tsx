@@ -48,7 +48,7 @@ export default function Nav() {
         </div>
 
         <div className="hidden md:flex items-center gap-3 xl:gap-5 shrink-0 whitespace-nowrap">
-          <Link to="/studio" className="hidden xl:flex text-accent-400 hover:text-white transition-colors uppercase tracking-widest text-sm font-bold items-center gap-2">
+          <Link to="/create" className="hidden xl:flex text-accent-400 hover:text-white transition-colors uppercase tracking-widest text-sm font-bold items-center gap-2">
             <Sparkles className="w-4 h-4" />Create a Website
           </Link>
           <Link to="/login" className="text-white hover:text-accent-400 transition-colors uppercase tracking-widest text-sm font-medium flex items-center gap-2">
@@ -77,7 +77,7 @@ export default function Nav() {
               {l.label}
             </Link>
           ))}
-          <Link to="/studio" className="mt-2 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-accent-500 text-white hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-bold">
+          <Link to="/create" className="mt-2 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-accent-500 text-white hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-bold">
             <Sparkles className="w-4 h-4" />Create a Website
           </Link>
           <Link to="/login" className="px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest text-accent-400 bg-accent-400/10">
