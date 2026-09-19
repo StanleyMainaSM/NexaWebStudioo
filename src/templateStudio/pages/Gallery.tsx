@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { Search, Filter, LayoutTemplate, Heart, Play, Palette, Layout } from 'lucide-react';
+import { Search, LayoutTemplate, Heart, Play, Palette, Layout } from 'lucide-react';
 import { Template } from '../types';
 import { TemplateRenderer } from '../components/template-engine/TemplateRenderer';
 
