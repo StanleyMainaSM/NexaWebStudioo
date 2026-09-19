@@ -24,7 +24,7 @@ test('portal Template Studio entry point targets the integrated Template Studio 
 
   assert.match(portal, /\{ name: 'Template Studio', path: '\/portal\/template-studio'/);
   assert.doesNotMatch(portal, /\{ name: 'Template Studio', path: '\/portal\/creation-studio'/);
-  assert.match(app, /path="\/template-studio\/\*"/);
+  assert.match(app, /path="template-studio\/\*"/);
   assert.match(app, /requiredRoles=\{creationRoles\}/);
   assert.match(app, /accessGate="creation"/);
   assert.match(app, /requiresConnectorTerms/);
