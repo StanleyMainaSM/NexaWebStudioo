@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAppStore } from '../../store';
 import { Settings2, Type, Palette, Layout, AlignLeft, ChevronDown, ChevronRight } from 'lucide-react';
-import { Theme, Section } from '../../types';
+import type { Theme } from '../../types';
 
 export default function EditorSidebar() {
   const { currentTemplate, updateTemplateTheme, updateSectionContent } = useAppStore();
