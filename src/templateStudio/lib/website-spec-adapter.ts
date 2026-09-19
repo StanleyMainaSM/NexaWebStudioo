@@ -101,7 +101,7 @@ export function adaptTemplateStudioTemplateToWebsiteSpecification(
   websiteType: string,
   attributionEnabled = true,
 ): WebsiteSpecification {
-  const businessName = ${source.industry || 'Business'} Business;
+  const businessName = `${source.industry || 'Business'} Business`;
   const business: BusinessInformation = {
     businessName,
     industry: source.industry,
