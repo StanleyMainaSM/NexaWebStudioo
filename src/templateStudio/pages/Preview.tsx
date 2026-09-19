@@ -9,7 +9,7 @@ type Viewport = 'desktop' | 'tablet' | 'mobile';
 
 export default function Preview() {
   const navigate = useNavigate();
-  const { currentTemplate, toggleFavorite, favorites } = useAppStore();
+  const { currentTemplate, toggleFavorite, favorites, creationProjectId } = useAppStore();
   const [viewport, setViewport] = useState<Viewport>('desktop');
   const [isExporting, setIsExporting] = useState(false);
 
@@ -23,7 +23,7 @@ export default function Preview() {
           <h2 className="text-2xl font-bold text-slate-900 mb-2">No template selected</h2>
           <p className="text-slate-500 mb-6">You haven't generated or selected a template to preview yet.</p>
           <button 
-            onClick={() => navigate('/wizard')} 
+            onClick={() => navigate('../wizard')} 
             className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-slate-900 text-white font-medium hover:bg-slate-800 transition-colors"
           >
             Create New Template <Wand2 className="h-4 w-4" />
@@ -89,6 +89,7 @@ export default function Preview() {
           >
             <Heart className={`h-4 w-4 ${isFavorite ? 'fill-red-600' : ''}`} /> {isFavorite ? 'Saved' : 'Save'}
           </button>
+          {creationProjectId && <button onClick={() => navigate('/portal/creation-studio/' + creationProjectId)} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">Open Avelixa Editor</button>}
           <button onClick={handleExport} disabled={isExporting} className="flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2 text-sm font-bold text-white transition-all hover:bg-brand-700 hover:shadow-lg hover:shadow-brand-500/20 disabled:opacity-50">
             {isExporting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Export JSON
