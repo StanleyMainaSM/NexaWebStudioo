@@ -29,6 +29,7 @@ test('portal Template Studio entry point targets the integrated Template Studio 
   assert.match(app, /accessGate="creation"/);
   assert.match(app, /requiresConnectorTerms/);
   assert.match(app, /<TemplateStudioApp \/>/);
+  assert.match(portal, /roles: \['client', 'connector', 'operator', 'admin', 'owner'\]/);
 });
 
 test('Template Studio nested route tree contains the public and authenticated wizard/preview destinations', () => {
