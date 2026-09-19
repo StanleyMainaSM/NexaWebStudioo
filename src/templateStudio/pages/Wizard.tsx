@@ -7,7 +7,8 @@ import { Loader2, ArrowRight, ArrowLeft, Wand2, Check } from 'lucide-react';
 import { TemplateIndustry, TemplateStyle, TemplateColor } from '../types';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
-import { generateWebsiteOutputFromSpecification, generateWebsiteSpecification } from '../../lib/websiteCreation/generator';
+import { generateWebsiteOutputFromSpecification } from '../../lib/websiteCreation/generator';
+import { adaptTemplateStudioTemplateToWebsiteSpecification, selectAvelixaTemplateForTemplateStudio } from '../lib/website-spec-adapter';
 import type { WebsiteTemplate } from '../../lib/websiteCreation/types';
 
 const industries = [
@@ -89,35 +90,45 @@ export default function Wizard() {
         const normalizedRoles = roles.map((role) => role.toLowerCase());
         const clientId = normalizedRoles.includes('client') && !normalizedRoles.includes('connector') ? user.id : null;
         const connectorId = normalizedRoles.includes('connector') && !normalizedRoles.includes('client') ? user.id : null;
+
         const templateResult = await supabase.from('website_templates')
           .select('id,slug,name,description,categories,visual_style,sections,typography,color_direction,layout,preview,is_active,is_protected')
-          .eq('is_active', true).order('name');
+          .eq('is_active', true)
+          .order('name');
         if (templateResult.error) throw templateResult.error;
+
         const available = (templateResult.data || []) as unknown as WebsiteTemplate[];
-        const industryValue = String(finalIndustry || 'SaaS').toLowerCase();
-        const styleValue = String(finalStyle || 'Modern').toLowerCase();
-        const match = available.find((item) => item.visual_style.toLowerCase().includes(styleValue) && item.categories.some((category) => category.toLowerCase().includes(industryValue)))
-          || available.find((item) => item.categories.some((category) => category.toLowerCase().includes(industryValue)))
-          || available[0];
-        if (!match) throw new Error('No active Avelixa website templates are currently available.');
+        const match = selectAvelixaTemplateForTemplateStudio(template, available);
+        const specification = adaptTemplateStudioTemplateToWebsiteSpecification(
+          template,
+          match,
+          finalType || 'Business Website',
+          true,
+        );
 
         const projectResult = await supabase.rpc('create_creation_project', {
           p_type: 'website',
-          p_title: (finalIndustry || 'Website') + ' Website',
+          p_title: specification.business.businessName + ' Website',
           p_client_id: clientId,
           p_connector_id: connectorId,
           p_lead_id: null,
           p_business_id: null,
           p_project_id: null,
-          p_business_info: { businessName: '', industry: finalIndustry || '', businessDescription: '', websiteType: finalType || 'Business Website', specialRequirements: '' },
-          p_requested_sections: [],
+          p_business_info: specification.business,
+          p_requested_sections: specification.sections,
         });
         if (projectResult.error) throw projectResult.error;
+
         const projectId = String(projectResult.data);
-        const business = { businessName: '', industry: finalIndustry || '', businessDescription: '', websiteType: finalType || 'Business Website', services: [], products: [], targetAudience: '', location: '', phone: '', email: '', whatsapp: '', socialLinks: {}, logoUrl: '', brandColors: {}, imagery: [], websiteType: finalType || 'Business Website', specialRequirements: '' };
-        const spec = generateWebsiteSpecification(business, match, [], true);
-        const output = generateWebsiteOutputFromSpecification(spec, match, projectId, new Date().toISOString(), null);
+        const output = generateWebsiteOutputFromSpecification(
+          specification,
+          match,
+          projectId,
+          new Date().toISOString(),
+          null,
+        );
         if (!output.ok) throw new Error(output.errors.join(' '));
+
         const consume = await supabase.rpc('consume_creation_generation', {
           p_creation_project_id: projectId,
           p_template_id: match.id,
@@ -128,6 +139,7 @@ export default function Wizard() {
           p_generated_at: output.output.generatedAt,
         });
         if (consume.error) throw consume.error;
+
         setCreationProjectId(projectId);
       }
 
