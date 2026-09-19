@@ -1,6 +1,6 @@
 import type { Template, Section } from '../types';
 import type { BusinessInformation, WebsiteSectionId, WebsiteSpecification, WebsiteTemplate } from '../../lib/websiteCreation/types';
-import { generateWebsiteFromSpecification } from '../../lib/websiteCreation/generator';
+import { generateWebsiteFromSpecification } from '../../lib/websiteCreation/generator.ts';
 
 const styleAliases: Record<string, string[]> = {
   'creative-bold': ['bold', 'futuristic', 'creative', 'playful'],
