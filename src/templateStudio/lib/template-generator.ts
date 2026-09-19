@@ -10,7 +10,7 @@ export const generateTemplate = async (
   industry: string,
   style: string,
   color: string,
-  pages: string[]
+  _pages: string[]
 ): Promise<Template> => {
   // Simulate AI latency
   await new Promise(resolve => setTimeout(resolve, 2000));
