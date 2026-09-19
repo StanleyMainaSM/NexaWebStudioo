@@ -1,4 +1,3 @@
-import React from 'react';
 import { Template } from '../../types';
 import { 
   HeroSection, 
