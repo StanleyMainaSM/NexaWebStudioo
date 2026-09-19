@@ -29,7 +29,7 @@ function getExplicitWorkspace(pathname: string): WorkspaceKey | null {
 const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/portal', icon: LayoutDashboard, roles: ['client'] },
   { name: 'Projects', path: '/portal/projects', icon: FolderKanban, roles: ['client', 'connector', 'operator', 'admin', 'owner'] },
-  { name: 'Template Studio', path: '/portal/template-studio', icon: Sparkles, roles: ['client', 'connector', 'operator', 'admin', 'owner'] },
+  { name: 'Template Studio', path: '/portal/template-studio', icon: Sparkles, roles: ['client', 'connector', 'operator'] },
   { name: 'Invoices', path: '/portal/invoices', icon: ReceiptText, roles: ['client', 'admin', 'owner'] },
   { name: 'Documents', path: '/portal/documents', icon: FileText, roles: ['client', 'operator', 'admin', 'owner'] },
   { name: 'Messages', path: '/portal/messages', icon: MessageSquare, roles: ['client', 'connector', 'operator', 'admin', 'owner'] },
