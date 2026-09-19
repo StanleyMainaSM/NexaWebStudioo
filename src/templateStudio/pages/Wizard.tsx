@@ -87,7 +87,7 @@ export default function Wizard() {
       
       addTemplate(template);
       setCurrentTemplate(template);
-      navigate(`/preview`);
+      navigate('../preview');
     } catch (e) {
       console.error(e);
       // fallback

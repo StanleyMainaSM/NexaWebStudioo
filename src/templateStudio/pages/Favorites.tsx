@@ -20,7 +20,7 @@ export default function Favorites() {
           <Heart className="mx-auto h-16 w-16 text-slate-300 mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 mb-2">No favorites yet</h2>
           <p className="text-slate-500 mb-8 max-w-md mx-auto">Templates you save will appear here for easy access later.</p>
-          <button onClick={() => navigate('/gallery')} className="inline-flex h-12 items-center justify-center rounded-full bg-brand-600 px-8 font-bold text-white transition-all hover:bg-brand-700 hover:scale-105 shadow-lg shadow-brand-500/20">
+          <button onClick={() => navigate('../gallery')} className="inline-flex h-12 items-center justify-center rounded-full bg-brand-600 px-8 font-bold text-white transition-all hover:bg-brand-700 hover:scale-105 shadow-lg shadow-brand-500/20">
             Browse Gallery
           </button>
         </div>
@@ -41,7 +41,7 @@ export default function Favorites() {
                 style={{ backgroundColor: template.theme.background }}
                 onClick={() => {
                   setCurrentTemplate(template);
-                  navigate('/preview');
+                  navigate('../preview');
                 }}
               >
                 {/* Simulated UI content */}

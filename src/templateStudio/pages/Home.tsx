@@ -31,13 +31,13 @@ export default function Home() {
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Link
-                  to="/wizard"
+                  to="wizard"
                   className="inline-flex h-14 items-center justify-center rounded-full bg-brand-600 px-8 text-base font-medium text-white shadow-lg shadow-brand-500/30 transition-all hover:bg-brand-700 hover:scale-105 w-full sm:w-auto"
                 >
                   Create Template <Wand2 className="ml-2 h-5 w-5" />
                 </Link>
                 <Link
-                  to="/gallery"
+                  to="gallery"
                   className="inline-flex h-14 items-center justify-center rounded-full bg-white px-8 text-base font-medium text-slate-700 shadow-sm border border-slate-200 transition-all hover:bg-slate-50 hover:scale-105 w-full sm:w-auto"
                 >
                   Explore Templates <ArrowRight className="ml-2 h-5 w-5" />
@@ -56,7 +56,7 @@ export default function Home() {
               <h2 className="text-3xl font-bold text-slate-900 mb-4">Template Showcase</h2>
               <p className="text-lg text-slate-600">Discover what our AI can build for you.</p>
             </div>
-            <Link to="/gallery" className="text-brand-600 font-medium hover:text-brand-700 flex items-center gap-1 mt-4 md:mt-0">
+            <Link to="gallery" className="text-brand-600 font-medium hover:text-brand-700 flex items-center gap-1 mt-4 md:mt-0">
               View all templates <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -190,13 +190,13 @@ export default function Home() {
           <p className="text-xl text-brand-200 mb-10 leading-relaxed">Stop writing boilerplate. Start generating premium experiences tailored to your exact needs.</p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link
-              to="/wizard"
+              to="wizard"
               className="inline-flex h-14 items-center justify-center rounded-full bg-white px-8 text-base font-bold text-brand-950 transition-transform hover:scale-105"
             >
               Start Generating Now
             </Link>
             <Link
-              to="/gallery"
+              to="gallery"
               className="inline-flex h-14 items-center justify-center rounded-full bg-brand-900 border border-brand-800 px-8 text-base font-bold text-white transition-all hover:bg-brand-800 hover:scale-105"
             >
               View Gallery
