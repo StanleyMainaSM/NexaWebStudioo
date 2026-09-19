@@ -2,11 +2,11 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import FloatingWhatsApp from '../components/FloatingWhatsApp';
-import Home from './templateStudio/pages/Home';
-import Wizard from './templateStudio/pages/Wizard';
-import Gallery from './templateStudio/pages/Gallery';
-import Preview from './templateStudio/pages/Preview';
-import Favorites from './templateStudio/pages/Favorites';
+import Home from '../templateStudio/pages/Home';
+import Wizard from '../templateStudio/pages/Wizard';
+import Gallery from '../templateStudio/pages/Gallery';
+import Preview from '../templateStudio/pages/Preview';
+import Favorites from '../templateStudio/pages/Favorites';
 import './templateStudio.css';
 
 export default function TemplateStudioApp({ publicShell = false }: { publicShell?: boolean }) {
