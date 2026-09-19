@@ -1,4 +1,4 @@
-import { Template, Theme, Section } from '../types';
+import { Template, Section } from '../types';
 import { generateId } from './utils';
 import { getTheme } from './color-generator';
 import { industryContentMap } from './content-generator';
