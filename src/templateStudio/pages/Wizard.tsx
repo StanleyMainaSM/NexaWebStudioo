@@ -5,6 +5,10 @@ import { generateTemplate } from '../lib/template-generator';
 import { useAppStore } from '../store';
 import { Loader2, ArrowRight, ArrowLeft, Wand2, Check } from 'lucide-react';
 import { TemplateIndustry, TemplateStyle, TemplateColor } from '../types';
+import { useAuth } from '../../lib/auth';
+import { supabase } from '../../lib/supabase';
+import { generateWebsiteOutputFromSpecification, generateWebsiteSpecification } from '../../lib/websiteCreation/generator';
+import type { WebsiteTemplate } from '../../lib/websiteCreation/types';
 
 const industries = [
   'Restaurant', 'Hotel', 'Real Estate', 'Construction', 'Law', 'Finance', 'Accounting', 
@@ -39,7 +43,8 @@ const generationStates = [
 
 export default function Wizard() {
   const navigate = useNavigate();
-  const { setCurrentTemplate, addTemplate } = useAppStore();
+  const { setCurrentTemplate, addTemplate, setCreationProjectId } = useAppStore();
+  const { user, roles } = useAuth();
   
   const [step, setStep] = useState(1);
   const [industry, setIndustry] = useState<TemplateIndustry | ''>('');
@@ -76,21 +81,61 @@ export default function Wizard() {
     const finalType = websiteType === 'Custom' && customType ? customType : websiteType;
     const finalStyle = style === 'Auto' || style === 'AI Choose' ? 'Modern' : style;
     const finalColor = color === 'Auto' || color === 'AI chooses' ? 'Auto' : color;
-    
+
     try {
-      const template = await generateTemplate(
-        finalIndustry || 'SaaS', 
-        finalStyle, 
-        finalColor,
-        ['Home'] // Hardcoded for now, could add pages step
-      );
-      
+      const template = await generateTemplate(finalIndustry || 'SaaS', finalStyle, finalColor, ['Home']);
+
+      if (user?.id) {
+        const normalizedRoles = roles.map((role) => role.toLowerCase());
+        const clientId = normalizedRoles.includes('client') && !normalizedRoles.includes('connector') ? user.id : null;
+        const connectorId = normalizedRoles.includes('connector') && !normalizedRoles.includes('client') ? user.id : null;
+        const templateResult = await supabase.from('website_templates')
+          .select('id,slug,name,description,categories,visual_style,sections,typography,color_direction,layout,preview,is_active,is_protected')
+          .eq('is_active', true).order('name');
+        if (templateResult.error) throw templateResult.error;
+        const available = (templateResult.data || []) as unknown as WebsiteTemplate[];
+        const industryValue = String(finalIndustry || 'SaaS').toLowerCase();
+        const styleValue = String(finalStyle || 'Modern').toLowerCase();
+        const match = available.find((item) => item.visual_style.toLowerCase().includes(styleValue) && item.categories.some((category) => category.toLowerCase().includes(industryValue)))
+          || available.find((item) => item.categories.some((category) => category.toLowerCase().includes(industryValue)))
+          || available[0];
+        if (!match) throw new Error('No active Avelixa website templates are currently available.');
+
+        const projectResult = await supabase.rpc('create_creation_project', {
+          p_type: 'website',
+          p_title: (finalIndustry || 'Website') + ' Website',
+          p_client_id: clientId,
+          p_connector_id: connectorId,
+          p_lead_id: null,
+          p_business_id: null,
+          p_project_id: null,
+          p_business_info: { businessName: '', industry: finalIndustry || '', businessDescription: '', websiteType: finalType || 'Business Website', specialRequirements: '' },
+          p_requested_sections: [],
+        });
+        if (projectResult.error) throw projectResult.error;
+        const projectId = String(projectResult.data);
+        const business = { businessName: '', industry: finalIndustry || '', businessDescription: '', websiteType: finalType || 'Business Website', services: [], products: [], targetAudience: '', location: '', phone: '', email: '', whatsapp: '', socialLinks: {}, logoUrl: '', brandColors: {}, imagery: [], websiteType: finalType || 'Business Website', specialRequirements: '' };
+        const spec = generateWebsiteSpecification(business, match, [], true);
+        const output = generateWebsiteOutputFromSpecification(spec, match, projectId, new Date().toISOString(), null);
+        if (!output.ok) throw new Error(output.errors.join(' '));
+        const consume = await supabase.rpc('consume_creation_generation', {
+          p_creation_project_id: projectId,
+          p_template_id: match.id,
+          p_requested_sections: output.output.specification.sections,
+          p_specification: output.output.specification,
+          p_output_identity: output.output.id,
+          p_output_version: output.output.outputVersion,
+          p_generated_at: output.output.generatedAt,
+        });
+        if (consume.error) throw consume.error;
+        setCreationProjectId(projectId);
+      }
+
       addTemplate(template);
       setCurrentTemplate(template);
       navigate('../preview');
     } catch (e) {
       console.error(e);
-      // fallback
     } finally {
       setIsGenerating(false);
     }
