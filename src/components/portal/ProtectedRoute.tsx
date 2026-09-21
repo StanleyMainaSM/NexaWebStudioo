@@ -25,6 +25,7 @@ export default function ProtectedRoute({
   const [memberActive, setMemberActive] = useState(false);
   const [connectorAccessLoading, setConnectorAccessLoading] = useState(requiresConnectorTerms);
   const [connectorAccessAllowed, setConnectorAccessAllowed] = useState(!requiresConnectorTerms);
+  const [connectorAccessRetryKey, setConnectorAccessRetryKey] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -37,7 +38,11 @@ export default function ProtectedRoute({
     const checkMemberAccess = async () => {
       setMemberAccessLoading(true);
       try {
-        const { data, error } = await supabase.from('profiles').select('is_active').eq('id', user.id).maybeSingle();
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('is_active')
+          .eq('id', user.id)
+          .maybeSingle();
         if (error) throw error;
         if (mounted) setMemberActive(data?.is_active !== false);
       } catch (error) {
@@ -47,6 +52,7 @@ export default function ProtectedRoute({
         if (mounted) setMemberAccessLoading(false);
       }
     };
+
     void checkMemberAccess();
     return () => { mounted = false; };
   }, [user?.id]);
@@ -59,30 +65,50 @@ export default function ProtectedRoute({
     }
 
     let mounted = true;
+    let retryTimer: number | null = null;
+
     const checkConnectorAccess = async () => {
       setConnectorAccessLoading(true);
+
       try {
         const { data, error } = await supabase
           .from('connector_profiles')
           .select('is_active, terms_accepted_at, terms_version')
           .eq('user_id', user.id)
           .maybeSingle();
+
         if (error) throw error;
         if (!mounted) return;
-        setConnectorAccessAllowed(Boolean(data?.is_active && data?.terms_accepted_at && data?.terms_version));
+
+        setConnectorAccessAllowed(
+          Boolean(data?.is_active && data?.terms_accepted_at && data?.terms_version)
+        );
+        setConnectorAccessLoading(false);
       } catch (error) {
-        console.error('Connector access check failed:', error);
-        if (mounted) setConnectorAccessAllowed(false);
-      } finally {
-        if (mounted) setConnectorAccessLoading(false);
+        console.error('Connector access check failed; retrying without redirecting:', error);
+        if (!mounted) return;
+
+        setConnectorAccessAllowed(false);
+        retryTimer = window.setTimeout(() => {
+          if (mounted) setConnectorAccessRetryKey((current) => current + 1);
+        }, 1000);
       }
     };
+
     void checkConnectorAccess();
-    return () => { mounted = false; };
-  }, [requiresConnectorTerms, user?.id, memberActive]);
+
+    return () => {
+      mounted = false;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+    };
+  }, [requiresConnectorTerms, user?.id, memberActive, connectorAccessRetryKey]);
 
   if (loading || rolesLoading || memberAccessLoading || connectorAccessLoading) {
-    return <div className="min-h-screen bg-ink-950 flex items-center justify-center"><Loader2 className="w-8 h-8 text-accent-400 animate-spin" /> </div>;
+    return (
+      <div className="min-h-screen bg-ink-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-accent-400 animate-spin" />
+      </div>
+    );
   }
 
   if (!user) {
@@ -94,11 +120,17 @@ export default function ProtectedRoute({
   }
 
   const normalizedUserRoles = roles.map((role) => String(role).trim().toLowerCase()).filter(Boolean);
-  const normalizedRequiredRoles = (requiredRoles ?? []).map((role) => String(role).trim().toLowerCase()).filter(Boolean);
-  const hasRequiredRole = normalizedRequiredRoles.length === 0 || normalizedRequiredRoles.some((role) => normalizedUserRoles.includes(role));
+  const normalizedRequiredRoles = (requiredRoles ?? [])
+    .map((role) => String(role).trim().toLowerCase())
+    .filter(Boolean);
+  const hasRequiredRole =
+    normalizedRequiredRoles.length === 0 ||
+    normalizedRequiredRoles.some((role) => normalizedUserRoles.includes(role));
 
   if (!hasRequiredRole) return <Navigate to="/portal" replace />;
-  if (requiresConnectorTerms && !connectorAccessAllowed) return <Navigate to="/portal/connector/terms" replace />;
+  if (requiresConnectorTerms && !connectorAccessAllowed) {
+    return <Navigate to="/portal/connector/terms" replace />;
+  }
 
   const content = children ? <>{children}</> : <Outlet />;
 
