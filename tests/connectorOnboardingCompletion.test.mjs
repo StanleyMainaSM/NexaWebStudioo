@@ -79,18 +79,15 @@ test('Connector portal routes require the Connector role and completed Terms', (
   assert.ok(dashboardRoute, 'The /portal/connector route must render ConnectorDashboard inside ProtectedRoute');
 });
 
-test('Connector application confirmation describes the complete review and activation sequence', () => {
+test('Connector registration creates account directly with Supabase Auth, validates duplicate email, and leads to Terms', () => {
   const source = read('src/pages/ConnectorApplication.tsx');
-  for (const phrase of [
-    'Application Submitted Successfully',
-    'review your details',
-    'No password is created or sent',
-    'secure activation link',
-    'create your own password',
-    'Terms and Conditions',
-    'Connector Portal',
-    'Spam, Junk, Promotions, or Updates',
-  ]) {
-    assert.match(source, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
-  }
+  assert.match(source, /supabase\.auth\.signUp\(/);
+  assert.match(source, /check_email_registered/);
+  assert.match(source, /validate_connector_referral/);
+  assert.match(source, /password/i);
+  assert.match(source, /confirmPassword/i);
+  assert.match(source, /Become a Connector/i);
+  assert.match(source, /terms/i);
+  assert.doesNotMatch(source, /Wait for approval/i);
+  assert.doesNotMatch(source, /No password is created or sent/i);
 });

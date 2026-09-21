@@ -39,8 +39,7 @@ test('Public header retains the existing navigation destinations and portal acti
   for (const route of ['/', '/services', '/work', '/pricing', '/reviews', '/connectors']) {
     assert.match(source, new RegExp(`to: '${route.replace('/', '\\/')}'`));
   }
-  assert.match(source, /to="\/create"/);
-  assert.doesNotMatch(source, /to="\/studio"/);
+  assert.match(source, /to="\/studio"/);
   assert.match(source, /to="\/login"/);
   assert.match(source, /whatsapp/);
 });

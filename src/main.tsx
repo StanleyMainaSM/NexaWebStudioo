@@ -3,8 +3,6 @@ import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 
 import App from './App.tsx';
-import ThemeToggle from './components/ThemeToggle';
-import { ThemeProvider } from './lib/theme';
 import './index.css';
 
 registerSW({
@@ -38,9 +36,6 @@ createRoot(
   document.getElementById('root')!
 ).render(
   <StrictMode>
-    <ThemeProvider>
-      <App />
-      <ThemeToggle />
-    </ThemeProvider>
+    <App />
   </StrictMode>
 );

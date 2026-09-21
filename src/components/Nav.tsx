@@ -33,7 +33,7 @@ export default function Nav() {
 
   return (
     <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ${scrolled ? 'h-20 bg-ink-950/80 backdrop-blur-xl border-b border-ink-800/50 flex items-center shrink-0' : 'h-20 flex items-center border-b border-transparent shrink-0'}`}>
-      <nav className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 pr-28 md:pr-0 flex items-center gap-4">
+      <nav className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 flex items-center gap-4">
         <Link to="/" className="flex items-center gap-3 shrink-0 whitespace-nowrap">
           <img src="/logo.avif" alt="Avelixa" className="w-10 h-10 object-contain shrink-0" />
           <span className="text-xl font-medium tracking-tight text-white">Avelixa</span>
@@ -48,7 +48,7 @@ export default function Nav() {
         </div>
 
         <div className="hidden md:flex items-center gap-3 xl:gap-5 shrink-0 whitespace-nowrap">
-          <Link to="/create" className="hidden xl:flex text-accent-400 hover:text-white transition-colors uppercase tracking-widest text-sm font-bold items-center gap-2">
+          <Link to="/studio" className="hidden xl:flex text-accent-400 hover:text-white transition-colors uppercase tracking-widest text-sm font-bold items-center gap-2">
             <Sparkles className="w-4 h-4" />Create a Website
           </Link>
           <Link to="/login" className="text-white hover:text-accent-400 transition-colors uppercase tracking-widest text-sm font-medium flex items-center gap-2">
@@ -77,7 +77,7 @@ export default function Nav() {
               {l.label}
             </Link>
           ))}
-          <Link to="/create" className="mt-2 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-accent-500 text-white hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-bold">
+          <Link to="/studio" className="mt-2 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-accent-500 text-white hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-bold">
             <Sparkles className="w-4 h-4" />Create a Website
           </Link>
           <Link to="/login" className="px-4 py-3 rounded-lg transition-colors text-sm font-medium uppercase tracking-widest text-accent-400 bg-accent-400/10">

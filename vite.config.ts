@@ -1,9 +1,23 @@
-﻿import { defineConfig } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const REVOKED_ANON_KEY = 'sb_publishable_Qh8k6f0pMdQfwNb4_nhWIA_rn1XVwkg';
+const PRODUCTION_ANON_KEY = 'sb_publishable_HtIrApOSgOzN-Y2QBUR0Gw_t4i0510w';
+
+if (!process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY === REVOKED_ANON_KEY) {
+  process.env.VITE_SUPABASE_ANON_KEY = PRODUCTION_ANON_KEY;
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(
+      (!process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY === REVOKED_ANON_KEY)
+        ? PRODUCTION_ANON_KEY
+        : process.env.VITE_SUPABASE_ANON_KEY
+    ),
+  },
   plugins: [
     react(),
 
@@ -57,7 +71,7 @@ export default defineConfig({
       },
 
       devOptions: {
-        enabled: true,
+        enabled: false,
         type: 'module',
       },
     }),

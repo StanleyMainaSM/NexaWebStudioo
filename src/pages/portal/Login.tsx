@@ -1,4 +1,4 @@
-﻿import {
+import {
   useEffect,
   useState,
 } from 'react';
@@ -423,6 +423,9 @@ export default function Login() {
           );
 
         if (loginError) {
+          if (loginError.message === 'Failed to fetch' && !import.meta.env.VITE_SUPABASE_URL) {
+            throw new Error('Supabase is not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.');
+          }
           throw loginError;
         }
 

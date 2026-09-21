@@ -7,7 +7,10 @@ const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
 test('owner role mutation uses a real database conflict target and permanent deletion has separate Owner controls', () => {
-  const sql = read('supabase/migrations/20260903092000_harden_connector_onboarding_and_owner_roles.sql');
+  const migrationPath = fs.existsSync(path.join(root, 'supabase/migrations/20260903092000_harden_connector_onboarding_and_owner_roles.sql'))
+    ? 'supabase/migrations/20260903092000_harden_connector_onboarding_and_owner_roles.sql'
+    : 'supabase/migrations/20260903092001_harden_connector_onboarding_and_owner_roles.sql';
+  const sql = read(migrationPath);
   const server = read('server.ts');
   assert.match(sql, /create unique index if not exists user_roles_user_id_role_unique/i);
   assert.match(sql, /on public\.user_roles \(user_id, role\)/i);

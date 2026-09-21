@@ -5,43 +5,59 @@ import { createServer as createViteServer } from "vite";
 import { createClient } from "@supabase/supabase-js";
 import "dotenv/config";
 
+const REVOKED_ANON_KEYS = new Set([
+  'sb_publishable_Qh8k6f0pMdQfwNb4_nhWIA_rn1XVwkg',
+]);
+const PRODUCTION_ANON_KEY = 'sb_publishable_HtIrApOSgOzN-Y2QBUR0Gw_t4i0510w';
+
+if (!process.env.VITE_SUPABASE_ANON_KEY || REVOKED_ANON_KEYS.has(process.env.VITE_SUPABASE_ANON_KEY.trim())) {
+  process.env.VITE_SUPABASE_ANON_KEY = PRODUCTION_ANON_KEY;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const supabaseUrl =
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-
-const supabaseSecretKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl) {
-  throw new Error(
-    "Missing SUPABASE_URL. Add SUPABASE_URL to the server .env file."
-  );
-}
-
-if (!supabaseSecretKey) {
-  throw new Error(
-    "Missing SUPABASE_SERVICE_ROLE_KEY. Add the Supabase server secret/service-role key to the server .env file."
-  );
-}
-
-/*
- * SERVER-ONLY SUPABASE CLIENT.
- *
- * This key must NEVER be exposed to the browser.
- */
-const supabaseAdmin = createClient(
-  supabaseUrl,
-  supabaseSecretKey,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false,
-    },
+let _supabaseAdmin: any = null;
+const supabaseAdmin = new Proxy({}, {
+  get: (target, prop) => {
+    if (!_supabaseAdmin) {
+      let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+      if (supabaseUrl) {
+        supabaseUrl = supabaseUrl.replace(/\/rest\/v1\/?$/, '');
+      }
+      const supabaseSecretKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !supabaseSecretKey) {
+        if (prop === 'auth') {
+          return new Proxy({}, {
+            get: (_, p) => {
+              if (p === 'admin') {
+                return new Proxy({}, { get: () => () => Promise.resolve({ data: null, error: { message: "Supabase not configured" }}) });
+              }
+              return () => Promise.resolve({ data: null, error: { message: "Supabase not configured" }});
+            }
+          });
+        }
+        if (prop === 'from') {
+          const chain: any = () => new Proxy({}, {
+            get: (_, p) => {
+              if (p === 'then') return undefined;
+              if (['select', 'insert', 'update', 'delete', 'upsert', 'eq', 'in', 'single', 'maybeSingle', 'order', 'limit'].includes(p as string)) {
+                return chain;
+              }
+              return () => Promise.resolve({ data: null, error: { message: "Supabase not configured" }});
+            }
+          });
+          return chain;
+        }
+        return undefined;
+      }
+      _supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
+        auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+      });
+    }
+    return _supabaseAdmin[prop];
   }
-);
+});
 
 const app = express();
 const PORT = 3000;
@@ -1683,7 +1699,7 @@ async function startServer() {
       )
     );
 
-    app.get("/{*splat}", (_req, res) => {
+    app.get("*all", (_req, res) => {
       res.sendFile(
         path.join(
           distPath,

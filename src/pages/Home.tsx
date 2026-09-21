@@ -79,13 +79,6 @@ export default function Home() {
               >
                 Explore Services
               </Link>
-
-              <Link
-                to="/create"
-                className="inline-flex items-center gap-2 px-7 py-4 rounded-full bg-accent-500 text-white hover:bg-accent-400 transition-colors uppercase tracking-widest text-sm font-semibold"
-              >
-                Create a Website
-              </Link>
             </div>
 
             <div className="mt-10 grid sm:grid-cols-2 gap-3 max-w-xl">
