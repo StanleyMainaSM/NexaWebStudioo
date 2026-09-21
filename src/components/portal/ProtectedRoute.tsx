@@ -13,6 +13,9 @@ interface ProtectedRouteProps {
   accessGate?: 'creation' | 'none';
 }
 
+const CONNECTOR_TERMS_CHECK_ATTEMPTS = 3;
+const CONNECTOR_TERMS_RETRY_DELAY_MS = 500;
+
 export default function ProtectedRoute({
   children,
   requiredRoles,
@@ -25,7 +28,7 @@ export default function ProtectedRoute({
   const [memberActive, setMemberActive] = useState(false);
   const [connectorAccessLoading, setConnectorAccessLoading] = useState(requiresConnectorTerms);
   const [connectorAccessAllowed, setConnectorAccessAllowed] = useState(!requiresConnectorTerms);
-  const [connectorAccessRetryKey, setConnectorAccessRetryKey] = useState(0);
+  const [connectorAccessCheckKey, setConnectorAccessCheckKey] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -67,41 +70,80 @@ export default function ProtectedRoute({
     let mounted = true;
     let retryTimer: number | null = null;
 
-    const checkConnectorAccess = async () => {
+    const checkConnectorTerms = async () => {
       setConnectorAccessLoading(true);
 
-      try {
-        const { data, error } = await supabase
-          .from('connector_profiles')
-          .select('is_active, terms_accepted_at, terms_version')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (error) throw error;
+      for (let attempt = 1; attempt <= CONNECTOR_TERMS_CHECK_ATTEMPTS; attempt += 1) {
         if (!mounted) return;
 
-        setConnectorAccessAllowed(
-          Boolean(data?.is_active && data?.terms_accepted_at && data?.terms_version)
-        );
-        setConnectorAccessLoading(false);
-      } catch (error) {
-        console.error('Connector access check failed; retrying without redirecting:', error);
-        if (!mounted) return;
+        try {
+          const { data, error } = await supabase
+            .from('connector_profiles')
+            .select('is_active, terms_accepted_at, terms_version')
+            .eq('user_id', user.id)
+            .maybeSingle();
 
-        setConnectorAccessAllowed(false);
-        retryTimer = window.setTimeout(() => {
-          if (mounted) setConnectorAccessRetryKey((current) => current + 1);
-        }, 1000);
+          if (error) throw error;
+
+          const accepted = Boolean(
+            data?.is_active &&
+            data?.terms_accepted_at &&
+            data?.terms_version
+          );
+
+          if (accepted) {
+            if (mounted) {
+              setConnectorAccessAllowed(true);
+              setConnectorAccessLoading(false);
+            }
+            return;
+          }
+
+          // A newly authenticated Supabase session can briefly settle before
+          // the first authenticated table read is consistent. Confirm a
+          // missing acceptance more than once before redirecting.
+          if (attempt < CONNECTOR_TERMS_CHECK_ATTEMPTS) {
+            await new Promise<void>((resolve) => {
+              retryTimer = window.setTimeout(resolve, CONNECTOR_TERMS_RETRY_DELAY_MS);
+            });
+            continue;
+          }
+
+          if (mounted) {
+            setConnectorAccessAllowed(false);
+            setConnectorAccessLoading(false);
+          }
+          return;
+        } catch (error) {
+          console.error('Connector terms check failed:', error);
+
+          if (attempt < CONNECTOR_TERMS_CHECK_ATTEMPTS) {
+            await new Promise<void>((resolve) => {
+              retryTimer = window.setTimeout(resolve, CONNECTOR_TERMS_RETRY_DELAY_MS);
+            });
+            continue;
+          }
+
+          // Do not redirect to Terms merely because a database/auth check
+          // failed. Keep the route in a loading state and retry shortly.
+          if (mounted) {
+            setConnectorAccessLoading(true);
+            retryTimer = window.setTimeout(() => {
+              if (mounted) setConnectorAccessCheckKey((current) => current + 1);
+            }, 1000);
+          }
+          return;
+        }
       }
     };
 
-    void checkConnectorAccess();
+    void checkConnectorTerms();
 
     return () => {
       mounted = false;
       if (retryTimer !== null) window.clearTimeout(retryTimer);
     };
-  }, [requiresConnectorTerms, user?.id, memberActive, connectorAccessRetryKey]);
+  }, [requiresConnectorTerms, user?.id, memberActive, connectorAccessCheckKey]);
 
   if (loading || rolesLoading || memberAccessLoading || connectorAccessLoading) {
     return (
