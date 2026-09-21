@@ -76,10 +76,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') window.sessionStorage.setItem(WORKSPACE_STORAGE_KEY, workspace);
   };
 
-  const fetchRoles = useCallback(async () => {
+  const fetchRoles = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true;
     const requestId = ++rolesRequestRef.current;
     if (!mountedRef.current) return;
-    setRolesLoading(true);
+    if (!silent) setRolesLoading(true);
     try {
       const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
@@ -105,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error loading user roles/profile:', error);
       if (mountedRef.current && requestId === rolesRequestRef.current) { setRoles([]); setProfile(null); }
     } finally {
-      if (mountedRef.current && requestId === rolesRequestRef.current) setRolesLoading(false);
+      if (!silent && mountedRef.current && requestId === rolesRequestRef.current) setRolesLoading(false);
     }
   }, []);
 
@@ -164,7 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user?.id) return;
     let alive = true;
-    const refresh = () => { if (alive) void fetchRoles(); };
+    const refresh = () => { if (alive) void fetchRoles({ silent: true }); };
     const channel = supabase
       .channel(`avelixa-user-roles-${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles', filter: `user_id=eq.${user.id}` }, refresh)
