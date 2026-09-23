@@ -87,9 +87,8 @@ export default function PortalLayout() {
       if (mounted) setUnreadMessages(count || 0);
     };
     void refresh();
-    const channel = supabase.channel(`avelixa-notification-badge-${user.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => void refresh()).subscribe();
     const timer = window.setInterval(() => void refresh(), 5000);
-    return () => { mounted = false; window.clearInterval(timer); void supabase.removeChannel(channel); };
+    return () => { mounted = false; window.clearInterval(timer); };
   }, [user?.id]);
 
   function switchWorkspace(workspace: typeof currentWorkspace) {
