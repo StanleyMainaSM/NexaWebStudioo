@@ -59,7 +59,7 @@ export default function CallOverlayV2({call,onClose}:{call:ActiveCall;onClose:()
     if(!alive)return;
     try { await supabase.realtime.setAuth(); } catch(e) { if(alive){ console.error('Avelixa Realtime auth bootstrap failed:', e); setError(errorText(e)); setStatus('failed'); } return; }
     if(!alive)return;
-    realtime=supabase.channel('call-session')
+    realtime=supabase.channel(`call:${call.id}`, { config: { private: true } })
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'call_signals',filter:`call_id=eq.${call.id}`},({new:row}:any)=>void process(row as StoredSignal))
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'call_sessions',filter:`id=eq.${call.id}`},({new:row}:any)=>{
         if(!alive)return;
