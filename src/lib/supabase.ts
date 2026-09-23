@@ -8,7 +8,15 @@ const supabaseAnonKey =
   (import.meta.env.VITE_SUPABASE_ANON_KEY as string) ||
   'placeholder';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  realtime: {
+    logger: (kind, message, data) => {
+      if (kind === 'error' || kind === 'transport') {
+        console.error('[Avelixa Realtime]', kind, message, data);
+      }
+    },
+  },
+});
 
 export interface Review {
   id: string;
