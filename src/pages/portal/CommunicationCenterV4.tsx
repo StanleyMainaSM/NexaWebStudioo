@@ -22,7 +22,8 @@ export default function CommunicationCenterV4(){
  useEffect(()=>{if(!user)return;let alive=true;(async()=>{try{await Promise.all([loadConvos(),refreshContacts()])}catch(e){if(alive)setError(er(e))}finally{if(alive)setLoading(false)}})();return()=>{alive=false}},[user?.id,management]);
  useEffect(()=>{if(!user)return;let alive=true;const setup=async()=>{if(!alive)return;try{await supabase.realtime.setAuth();}catch(e){console.error('[Avelixa Realtime] auth bootstrap failed',e);if(alive)setError(er(e));return;}if(!alive)return;const ch=supabase.channel('communication-user')
 
-  .on('postgres_changes',{event:'INSERT',schema:'public',table:'direct_messages'},({new:m}:any)=>setMessages(v=>v.map(x=>x.id===m.id?{...x,...m}:x)))
+  .on('postgres_changes',{event:'INSERT',schema:'public',table:'direct_messages'},({new:m}:any)=>{if(m.sender_id===user.id)return;if(m.conversation_id===selectedId){setMessages(v=>v.some(x=>x.id===m.id)?v:[...v,{...m,kind:'direct'}]);void markRead(m.conversation_id);}else{void loadConvos()}})
+  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'direct_messages'},({new:m}:any)=>setMessages(v=>v.map(x=>x.id===m.id?{...x,...m}:x)))
   .on('postgres_changes',{event:'INSERT',schema:'public',table:'admin_messages'},({new:m}:any)=>{if(m.sender_id===user.id)return;if(m.conversation_id===selectedId)setMessages(v=>v.some(x=>x.id===m.id)?v:[...v,{...m,kind:'admin'}]);else void loadConvos()})
   .on('postgres_changes',{event:'UPDATE',schema:'public',table:'admin_messages'},({new:m}:any)=>setMessages(v=>v.map(x=>x.id===m.id?{...x,...m}:x)))
   .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles'},({new:p}:any)=>{setContacts(v=>v.map(x=>x.user_id===p.id?{...x,full_name:p.full_name??null,email:p.email??null,avatar_url:p.avatar_url??null}:x));})
