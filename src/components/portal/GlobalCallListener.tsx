@@ -51,6 +51,7 @@ export default function GlobalCallListener() {
       const user = auth.user;
       if (!user || !alive) return;
 
+      try { await supabase.realtime.setAuth(); } catch { return; }
       channel = supabase
         .channel(`user_calls:${user.id}`, { config: { private: true } })
         .on('broadcast', { event: 'incoming_call' }, ({ payload }) => {
@@ -69,7 +70,7 @@ export default function GlobalCallListener() {
             setCall(null);
           }
         })
-        .subscribe();
+        .subscribe((status, err) => { if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.error('Avelixa incoming-call Realtime error:', err); });
     };
 
     void init();
