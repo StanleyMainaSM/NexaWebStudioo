@@ -82,12 +82,15 @@ export default function GlobalCallListener() {
           }
         })
         .subscribe((status, err) => { if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.error('Avelixa incoming-call Realtime error:', err); });
+      void poll();
+      pollTimer = window.setInterval(() => void poll(), 1200);
     };
 
     void init();
     return () => {
       alive = false;
       activeId.current = null;
+      if (pollTimer !== null) window.clearInterval(pollTimer);
       if (channel) void supabase.removeChannel(channel);
     };
   }, []);
