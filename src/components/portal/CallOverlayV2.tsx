@@ -78,7 +78,6 @@ export default function CallOverlayV2({call,onClose}:{call:ActiveCall;onClose:()
       ]);
       for(const row of (signals||[]) as StoredSignal[]){
         if(processedSignals.current.has(row.id))continue;
-        processedSignals.current.add(row.id);
         void process(row);
       }
       if(!incoming&&session?.status==='accepted'&&!pc.current&&!ended.current){
