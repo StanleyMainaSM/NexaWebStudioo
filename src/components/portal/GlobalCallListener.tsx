@@ -51,14 +51,8 @@ export default function GlobalCallListener() {
       const user = auth.user;
       if (!user || !alive) return;
 
-      try { await supabase.realtime.setAuth(); } catch { return; }
       channel = supabase
-        .channel(`user_calls:${user.id}`, { config: { private: true } })
-        .on('broadcast', { event: 'incoming_call' }, ({ payload }) => {
-          if (payload?.call_id && payload?.callee_id === user.id) {
-            void open({ ...payload, id: payload.call_id } as IncomingRow, user.id);
-          }
-        })
+        .channel('incoming-calls')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'call_sessions', filter: `callee_id=eq.${user.id}` }, ({ new: inserted }: any) => {
           void open(inserted as IncomingRow, user.id);
         })
