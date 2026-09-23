@@ -64,3 +64,12 @@ to authenticated
 using (
   (select realtime.topic()) = 'user_messages:' || (select auth.uid())::text
 );
+
+create policy communication_realtime_user_messages_insert
+on realtime.messages
+for insert
+to authenticated
+with check (
+  (select realtime.topic()) = 'user_messages:' || (select auth.uid())::text
+  and extension = 'broadcast'
+);
