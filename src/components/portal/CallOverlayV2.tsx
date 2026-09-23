@@ -23,7 +23,9 @@ export default function CallOverlayV2({call,onClose}:{call:ActiveCall;onClose:()
  const decline=async()=>{if(ended.current)return;ended.current=true;try{}catch{}await updateStatus('declined');cleanup();onClose()};
  useEffect(()=>{mounted.current=true;let alive=true;
   const process=async(row:StoredSignal)=>{
-    if(!alive||ended.current||row.sender_id===(incoming?call.calleeId:call.callerId))return;
+    if(!alive||ended.current||processedSignals.current.has(row.id))return;
+    processedSignals.current.add(row.id);
+    if(row.sender_id===(incoming?call.calleeId:call.callerId))return;
     const payload=row.payload as SignalPayload;
     try{
       if(payload.kind==='ice'){
