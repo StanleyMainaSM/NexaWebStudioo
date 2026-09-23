@@ -51,6 +51,8 @@ export default function GlobalCallListener() {
       const user = auth.user;
       if (!user || !alive) return;
 
+      try { await supabase.realtime.setAuth(); } catch (error) { console.error('Avelixa Realtime auth bootstrap failed:', error); return; }
+
       channel = supabase
         .channel('incoming-calls')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'call_sessions', filter: `callee_id=eq.${user.id}` }, ({ new: inserted }: any) => {
