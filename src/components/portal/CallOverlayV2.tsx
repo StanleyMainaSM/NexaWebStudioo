@@ -52,8 +52,8 @@ export default function CallOverlayV2({call,onClose}:{call:ActiveCall;onClose:()
       }
     }catch(e){console.error('Avelixa call signaling error:',e);setError(errorText(e));setStatus('failed')}
   };
-  let realtime: ReturnType<typeof supabase.channel>;
-  let statusChannel: ReturnType<typeof supabase.channel>;
+  let realtime: ReturnType<typeof supabase.channel> | null = null;
+  let statusChannel: ReturnType<typeof supabase.channel> | null = null;
   const startRealtime=async()=>{
     try { await supabase.realtime.setAuth(); } catch(e){ if(alive){setError(errorText(e));setStatus('failed');} return; }
     if(!alive)return;
@@ -67,7 +67,6 @@ export default function CallOverlayV2({call,onClose}:{call:ActiveCall;onClose:()
       if(!incoming&&row.status==='accepted'&&!pc.current){accepted.current=true;setStatus('connecting');void startPeer(true)}
       if(['declined','ended','failed'].includes(row.status)){ended.current=true;setStatus(row.status as CallStatus);cleanup();window.setTimeout(()=>{if(mounted.current)onClose()},150)}
     }).subscribe((status)=>{if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){setError('The call status connection could not be established.');setStatus('failed')}});
-    void supabase.from('call_signals').select('id,sender_id,kind,payload').eq('call_id',call.id).order('created_at',{ascending:true}).then(({data})=>{if(alive)for(const row of (data||[]) as StoredSignal[])void process(row)});
     void supabase.from('call_signals').select('id,sender_id,kind,payload').eq('call_id',call.id).order('created_at',{ascending:true}).then(({data})=>{if(alive)for(const row of (data||[]) as StoredSignal[])void process(row)});
   };
   void startRealtime();
