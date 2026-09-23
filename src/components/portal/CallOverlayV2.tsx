@@ -52,11 +52,12 @@ export default function CallOverlayV2({call,onClose}:{call:ActiveCall;onClose:()
       }
     }catch(e){console.error('Avelixa call signaling error:',e);setError(errorText(e));setStatus('failed')}
   };
-  const realtime=supabase.channel(`call-signals-${call.id}`)
+  void supabase.realtime.setAuth().catch(e=>setError(errorText(e)));
+  const realtime=supabase.channel(`call-signals-${call.id}`, { config: { private: true } })
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'call_signals',filter:`call_id=eq.${call.id}`},({new:row}:any)=>void process(row as StoredSignal))
     .subscribe((status)=>{if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){setError('The call signaling connection could not be established.');setStatus('failed')}});
   channel.current=realtime;
-  const statusChannel=supabase.channel(`call-status-${call.id}`)
+  const statusChannel=supabase.channel(`call-status-${call.id}`, { config: { private: true } })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'call_sessions',filter:`id=eq.${call.id}`},({new:row}:any)=>{
       if(!alive)return;
       if(!incoming&&row.status==='accepted'&&!pc.current){accepted.current=true;setStatus('connecting');void startPeer(true)}
