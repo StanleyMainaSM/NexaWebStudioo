@@ -28,6 +28,7 @@ export default function GlobalCallListener() {
   useEffect(() => {
     let alive = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let pollTimer: number | null = null;
 
     const open = async (row: IncomingRow, userId: string) => {
       if (!alive || !isFreshRingingCall(row) || row.callee_id !== userId || activeId.current === row.id) return;
@@ -52,6 +53,20 @@ export default function GlobalCallListener() {
       if (!user || !alive) return;
 
       try { await supabase.realtime.setAuth(); } catch (error) { console.error('Avelixa Realtime auth bootstrap failed:', error); return; }
+
+      const poll = async () => {
+        if (!alive) return;
+        const { data, error } = await supabase
+          .from('call_sessions')
+          .select('id,caller_id,callee_id,call_type,status,created_at,direct_conversation_id,admin_conversation_id')
+          .eq('callee_id', user.id)
+          .eq('status', 'ringing')
+          .order('created_at', { ascending: false })
+          .limit(3);
+        if (!error) {
+          for (const row of (data || []) as IncomingRow[]) void open(row, user.id);
+        }
+      };
 
       channel = supabase
         .channel('incoming-calls')
