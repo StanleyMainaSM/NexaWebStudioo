@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth';
 import CallOverlayV2, { ActiveCall } from './CallOverlayV2';
 
 type IncomingRow = {
@@ -22,6 +23,7 @@ const isFreshRingingCall = (row: IncomingRow) => {
 };
 
 export default function GlobalCallListener() {
+  const { user } = useAuth();
   const [call, setCall] = useState<ActiveCall | null>(null);
   const activeId = useRef<string | null>(null);
 
@@ -47,38 +49,41 @@ export default function GlobalCallListener() {
     };
 
     const init = async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      const user = auth.user;
-      if (!user || !alive) return;
+      if (!user?.id) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!alive || !session?.access_token) return;
+        await supabase.realtime.setAuth(session.access_token);
+        if (!alive) return;
 
-      try { await supabase.realtime.setAuth(); } catch (error) { console.error('Avelixa Realtime auth bootstrap failed:', error); return; }
-
-      channel = supabase
-        .channel(`user_calls:${user.id}`, { config: { private: true } })
-        .on('broadcast', { event: 'incoming_call' }, ({ payload }: any) => {
-          const row = payload?.call_session as IncomingRow | undefined;
-          if (row) void open(row, user.id);
-        })
-        .subscribe(async (status, err) => {
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.error('Avelixa incoming-call Realtime error:', err);
-            return;
-          }
-          if (status === 'SUBSCRIBED' && alive) {
-            // One-shot catch-up closes the narrow race where a ringing call is
-            // inserted immediately before the browser finishes subscribing.
-            const { data, error } = await supabase
-              .from('call_sessions')
-              .select('id,caller_id,callee_id,call_type,status,created_at,direct_conversation_id,admin_conversation_id')
-              .eq('callee_id', user.id)
-              .eq('status', 'ringing')
-              .gte('created_at', new Date(Date.now() - 30000).toISOString())
-              .order('created_at', { ascending: false })
-              .limit(3);
-            if (error) console.error('Avelixa incoming-call catch-up failed:', error);
-            else for (const row of (data || []) as IncomingRow[]) void open(row, user.id);
-          }
-        });
+        channel = supabase
+          .channel(`user_calls:${user.id}`, { config: { private: true } })
+          .on('broadcast', { event: 'incoming_call' }, ({ payload }: any) => {
+            const row = payload?.call_session as IncomingRow | undefined;
+            if (row) void open(row, user.id);
+          })
+          .subscribe(async (status, err) => {
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              console.error('Avelixa incoming-call Realtime error:', err);
+              return;
+            }
+            if (status === 'SUBSCRIBED' && alive) {
+              console.info('[Avelixa Realtime] incoming-call channel subscribed', `user_calls:${user.id}`);
+              const { data, error } = await supabase
+                .from('call_sessions')
+                .select('id,caller_id,callee_id,call_type,status,created_at,direct_conversation_id,admin_conversation_id')
+                .eq('callee_id', user.id)
+                .eq('status', 'ringing')
+                .gte('created_at', new Date(Date.now() - 30000).toISOString())
+                .order('created_at', { ascending: false })
+                .limit(3);
+              if (error) console.error('Avelixa incoming-call catch-up failed:', error);
+              else for (const row of (data || []) as IncomingRow[]) void open(row, user.id);
+            }
+          });
+      } catch (error) {
+        console.error('Avelixa incoming-call Realtime setup failed:', error);
+      }
     };
 
     void init();
@@ -87,7 +92,8 @@ export default function GlobalCallListener() {
       activeId.current = null;
       if (channel) void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user?.id]);
+
 
   if (!call) return null;
   return <CallOverlayV2 call={call} onClose={() => { activeId.current = null; setCall(null); }} />;
