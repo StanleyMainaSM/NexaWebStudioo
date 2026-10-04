@@ -14,28 +14,53 @@ export default function CommunicationCenterV4(){
  const {user,roles}=useAuth(); const management=roles.some(r=>['owner','admin'].includes(String(r).toLowerCase()));
  const [convos,setConvos]=useState<Conversation[]>([]),[contacts,setContacts]=useState<Person[]>([]),[selectedId,setSelectedId]=useState<string|null>(null),[messages,setMessages]=useState<Message[]>([]),[calls,setCalls]=useState<CallEvent[]>([]),[unread,setUnread]=useState<Record<string,number>>({});
  const [query,setQuery]=useState(''),[chatSearch,setChatSearch]=useState(''),[newOpen,setNewOpen]=useState(false),[contactName,setContactName]=useState(''),[email,setEmail]=useState(''),[found,setFound]=useState<Person|null>(null),[lookupBusy,setLookupBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState(''),[text,setText]=useState(''),[menu,setMenu]=useState(false),[blocked,setBlocked]=useState(false),[muted,setMuted]=useState(false),[wallpaper,setWallpaper]=useState('default'),[activeCall,setActiveCall]=useState<ActiveCall|null>(null),[incoming,setIncoming]=useState<CallEvent|null>(null),[loading,setLoading]=useState(true),[sending,setSending]=useState(false),[renameOpen,setRenameOpen]=useState(false),[renameValue,setRenameValue]=useState('');
- const threadRef=useRef<HTMLDivElement>(null),nearBottom=useRef(true),firstLoad=useRef(true); const selected=convos.find(c=>c.id===selectedId)||null; const selectedPerson=selected?contacts.find(p=>p.user_id===selected.otherUserId)||null:null; const displaySelected=selected?nm(selected.otherName,selected.otherEmail,selectedPerson?.contact_name):'';
+ const threadRef=useRef<HTMLDivElement>(null),nearBottom=useRef(true),firstLoad=useRef(true); const selectedIdRef=useRef<string|null>(null); const incomingRef=useRef<CallEvent|null>(null); const selected=convos.find(c=>c.id===selectedId)||null; selectedIdRef.current=selectedId; incomingRef.current=incoming; const selectedPerson=selected?contacts.find(p=>p.user_id===selected.otherUserId)||null:null; const displaySelected=selected?nm(selected.otherName,selected.otherEmail,selectedPerson?.contact_name):'';
  const refreshContacts=async()=>{if(!user)return;const {data:rows,error:e}=await supabase.from('user_contacts').select('contact_user_id,contact_name').eq('user_id',user.id);if(e)throw e;const ids=(rows||[]).map(r=>r.contact_user_id);if(!ids.length){setContacts([]);return}const [{data:ps},{data:prs}]=await Promise.all([supabase.from('profiles').select('id,full_name,email,avatar_url').in('id',ids),supabase.from('user_presence').select('user_id,is_online,last_seen_at').in('user_id',ids)]);const pm=new Map((ps||[]).map(p=>[p.id,p])),sm=new Map((prs||[]).map(p=>[p.user_id,p]));setContacts((rows||[]).map(r=>{const p=pm.get(r.contact_user_id),s=sm.get(r.contact_user_id);return {user_id:r.contact_user_id,full_name:p?.full_name||null,email:p?.email||null,avatar_url:p?.avatar_url||null,contact_name:r.contact_name||null,is_online:!!s?.is_online,last_seen_at:s?.last_seen_at||null}}))};
  const refreshUnread=async(cs:Conversation[])=>{if(!user)return;const ids=cs.filter(c=>c.kind==='direct').map(c=>c.id);if(!ids.length){setUnread({});return}const {data}=await supabase.from('direct_messages').select('conversation_id').in('conversation_id',ids).neq('sender_id',user.id).is('read_at',null);const counts:Record<string,number>={};(data||[]).forEach((r:any)=>counts[r.conversation_id]=(counts[r.conversation_id]||0)+1);setUnread(counts)};
  const loadConvos=async()=>{if(!user)return;const {data,error:e}=await supabase.rpc('list_direct_conversations');if(e)throw e;const direct=((data||[]) as any[]).map(r=>({kind:'direct' as const,id:r.conversation_id,otherUserId:r.other_user_id,otherName:nm(r.other_full_name,r.other_email),otherEmail:r.other_email,otherRole:r.other_role,updated_at:r.updated_at}));let admin:Conversation[]=[];if(!management){const {data:cid}=await supabase.rpc('get_or_create_admin_portal_conversation');if(cid){const {data:r}=await supabase.from('admin_conversations').select('id,user_id,admin_id,updated_at').eq('id',cid).maybeSingle();if(r)admin=[{kind:'admin',id:r.id,otherUserId:r.admin_id,otherName:'Avelixa Admin',otherEmail:null,otherRole:'admin',updated_at:r.updated_at}]}}const cs=[...direct,...admin].sort((a,b)=>+new Date(b.updated_at)-+new Date(a.updated_at));setConvos(cs);await refreshUnread(cs)};
  const markRead=async(id:string)=>{if(!user)return;const {data}=await supabase.from('direct_messages').select('id').eq('conversation_id',id).neq('sender_id',user.id).is('read_at',null);const ids=(data||[]).map((r:any)=>r.id);setUnread(v=>({...v,[id]:0}));if(ids.length){const now=new Date().toISOString();await supabase.from('direct_messages').update({read_at:now}).in('id',ids);setMessages(v=>v.map(m=>ids.includes(m.id)?{...m,read_at:now}:m))}};
  useEffect(()=>{if(!user)return;let alive=true;(async()=>{try{await supabase.rpc('communication_set_presence',{p_online:true});await Promise.all([loadConvos(),refreshContacts()])}catch(e){if(alive)setError(er(e))}finally{if(alive)setLoading(false)}})();const heartbeat=window.setInterval(()=>void supabase.rpc('communication_set_presence',{p_online:true}),25000);const off=()=>{void supabase.rpc('communication_set_presence',{p_online:false})};window.addEventListener('beforeunload',off);return()=>{alive=false;window.clearInterval(heartbeat);window.removeEventListener('beforeunload',off);off()}},[user?.id,management]);
- useEffect(()=>{if(!user)return;let alive=true;const setup=async()=>{if(!alive)return;try{await supabase.realtime.setAuth();}catch(e){console.error('[Avelixa Realtime] auth bootstrap failed',e);if(alive)setError(er(e));return;}if(!alive)return;const ch=supabase.channel(`user_messages:${user.id}`, { config: { private: true } })
-
-  .on('postgres_changes',{event:'INSERT',schema:'public',table:'direct_messages'},({new:m}:any)=>{if(m.sender_id===user.id)return;if(m.conversation_id===selectedId){setMessages(v=>v.some(x=>x.id===m.id)?v:[...v,{...m,kind:'direct'}]);void markRead(m.conversation_id);}else{void loadConvos()}})
-  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'direct_messages'},({new:m}:any)=>setMessages(v=>v.map(x=>x.id===m.id?{...x,...m}:x)))
-  .on('postgres_changes',{event:'INSERT',schema:'public',table:'admin_messages'},({new:m}:any)=>{if(m.sender_id===user.id)return;if(m.conversation_id===selectedId)setMessages(v=>v.some(x=>x.id===m.id)?v:[...v,{...m,kind:'admin'}]);else void loadConvos()})
-  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'admin_messages'},({new:m}:any)=>setMessages(v=>v.map(x=>x.id===m.id?{...x,...m}:x)))
-  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles'},({new:p}:any)=>{setContacts(v=>v.map(x=>x.user_id===p.id?{...x,full_name:p.full_name??null,email:p.email??null,avatar_url:p.avatar_url??null}:x));})
-  .on('postgres_changes',{event:'INSERT',schema:'public',table:'call_sessions'},({new:c}:any)=>{const cid=c.direct_conversation_id||c.admin_conversation_id;if(cid===selectedId)setCalls(v=>v.some(x=>x.id===c.id)?v:[...v,{...c,conversation_id:cid}]);if(c.callee_id===user.id&&c.status==='ringing')setIncoming({...c,conversation_id:cid,directConversationId:c.direct_conversation_id||null} as CallEvent)})
-  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'call_sessions'},({new:c}:any)=>{const cid=c.direct_conversation_id||c.admin_conversation_id;if(cid===selectedId)setCalls(v=>v.map(x=>x.id===c.id?{...x,...c}:x));if(incoming?.id===c.id&&c.status!=='ringing')setIncoming(null)})
-  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'user_presence'},({new:p}:any)=>setContacts(v=>v.map(x=>x.user_id===p.user_id?{...x,is_online:!!p.is_online,last_seen_at:p.last_seen_at||null}:x)))
-  .subscribe((status,err)=>{if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){console.error('[Avelixa Realtime] communication-user',status,err);setError(err?.message||`Realtime messaging connection could not be established (${status}).`);}});
- return()=>{alive=false;void supabase.removeChannel(ch)};};void setup();return()=>{alive=false}},[user?.id,selectedId,incoming?.id]);
- useEffect(()=>{if(!user||!selected||selected.kind!=='direct')return;let alive=true;let timer:number|null=null;
-  const sync=async()=>{if(!alive)return;const {data,error:e}=await supabase.from('direct_messages').select('*').eq('conversation_id',selected.id).order('created_at',{ascending:true});if(!e&&alive){setMessages(prev=>{const incomingRows=((data||[]) as any[]).map(x=>({...x,kind:'direct' as const}));const map=new Map(incomingRows.map(x=>[x.id,x]));return Array.from(map.values()).sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at));});await markRead(selected.id);}};
-  void sync();timer=window.setInterval(()=>void sync(),1200);return()=>{alive=false;if(timer!==null)window.clearInterval(timer)};
- },[user?.id,selectedId,selected?.kind]);
+ useEffect(()=>{if(!user)return;let alive=true;
+  const setup=async()=>{
+    if(!alive)return;
+    try{await supabase.realtime.setAuth();}catch(e){console.error('[Avelixa Realtime] auth bootstrap failed',e);if(alive)setError(er(e));return;}
+    if(!alive)return;
+    const ch=supabase.channel(`user_messages:${user.id}`,{config:{private:true}})
+      .on('broadcast',{event:'direct_message'},({payload}:any)=>{
+        const m=payload?.message;
+        if(!m||m.sender_id===user.id||!alive)return;
+        if(m.conversation_id===selectedIdRef.current){
+          setMessages(v=>v.some(x=>x.id===m.id)?v:[...v,{...m,kind:'direct'}]);
+          void markRead(m.conversation_id);
+        }else void loadConvos();
+      })
+      .on('broadcast',{event:'call_session'},({payload}:any)=>{
+        const c=payload?.call_session;
+        if(!c||!alive)return;
+        const cid=c.direct_conversation_id||c.admin_conversation_id;
+        if(cid===selectedIdRef.current)setCalls(v=>v.some(x=>x.id===c.id)?v:v.concat({...c,conversation_id:cid}));
+      })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'admin_messages'},({new:m}:any)=>{
+        if(m.sender_id===user.id)return;
+        if(m.conversation_id===selectedIdRef.current)setMessages(v=>v.some(x=>x.id===m.id)?v:[...v,{...m,kind:'admin'}]);else void loadConvos();
+      })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles'},({new:p}:any)=>{
+        setContacts(v=>v.map(x=>x.user_id===p.id?{...x,full_name:p.full_name??null,email:p.email??null,avatar_url:p.avatar_url??null}:x));
+      })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'user_presence'},({new:p}:any)=>{
+        setContacts(v=>v.map(x=>x.user_id===p.user_id?{...x,is_online:!!p.is_online,last_seen_at:p.last_seen_at||null}:x));
+      })
+      .subscribe((status,err)=>{
+        if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
+          console.error('[Avelixa Realtime] user communication channel',status,err);
+          if(alive)setError(err?.message||`Realtime communication connection could not be established (${status}).`);
+        }
+      });
+    return()=>{alive=false;void supabase.removeChannel(ch)};
+  };
+  void setup();
+  return()=>{alive=false};
+ },[user?.id,management]);
  useEffect(()=>{if(!selected||!user)return;let alive=true;firstLoad.current=true;(async()=>{try{const [{data:m,error:me},{data:c,error:ce},{data:p},{data:b}]=await Promise.all([selected.kind==='direct'?supabase.from('direct_messages').select('*').eq('conversation_id',selected.id).order('created_at',{ascending:true}):supabase.from('admin_messages').select('*').eq('conversation_id',selected.id).order('created_at',{ascending:true}),supabase.from('call_sessions').select('id,call_type,status,caller_id,callee_id,created_at,duration_seconds').or(`direct_conversation_id.eq.${selected.id},admin_conversation_id.eq.${selected.id}`).order('created_at',{ascending:true}),selected.kind==='direct'?supabase.from('conversation_preferences').select('muted,wallpaper').eq('user_id',user.id).eq('conversation_id',selected.id).maybeSingle():Promise.resolve({data:null} as any),selected.kind==='direct'?supabase.from('user_blocks').select('id').eq('blocker_id',user.id).eq('blocked_id',selected.otherUserId).maybeSingle():Promise.resolve({data:null} as any)]);if(me||ce)throw me||ce;if(!alive)return;setMessages(((m||[]) as any[]).map(x=>({...x,kind:selected.kind})));setCalls(((c||[]) as any[]).map(x=>({...x,conversation_id:selected.id})));setMuted(!!p?.muted);setWallpaper(p?.wallpaper||'default');setBlocked(!!b);await markRead(selected.id)}catch(e){if(alive)setError(er(e))}})();return()=>{alive=false}},[selectedId,user?.id]);
  useEffect(()=>{const el=threadRef.current;if(!el)return;const onScroll=()=>{nearBottom.current=el.scrollHeight-el.scrollTop-el.clientHeight<160};el.addEventListener('scroll',onScroll,{passive:true});if(firstLoad.current){requestAnimationFrame(()=>{el.scrollTop=el.scrollHeight;firstLoad.current=false;nearBottom.current=true})}return()=>el.removeEventListener('scroll',onScroll)},[selectedId,timelineKey(messages,calls,chatSearch)]);
  const timeline=useMemo(()=>[...messages.filter(m=>!chatSearch||m.content.toLowerCase().includes(chatSearch.toLowerCase())).map(m=>({kind:'message' as const,at:m.created_at,item:m})),...calls.map(c=>({kind:'call' as const,at:c.created_at,item:c}))].sort((a,b)=>+new Date(a.at)-+new Date(b.at)),[messages,calls,chatSearch]);
