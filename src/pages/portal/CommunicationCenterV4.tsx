@@ -38,7 +38,7 @@ export default function CommunicationCenterV4(){
         const c=payload?.call_session;
         if(!c||!alive)return;
         const cid=c.direct_conversation_id||c.admin_conversation_id;
-        if(cid===selectedIdRef.current)setCalls(v=>v.some(x=>x.id===c.id)?v:v.concat({...c,conversation_id:cid}));
+        if(cid===selectedIdRef.current)setCalls(v=>v.some(x=>x.id===c.id)?v.map(x=>x.id===c.id?{...x,...c,conversation_id:cid}:x):v.concat({...c,conversation_id:cid}));
       })
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'admin_messages'},({new:m}:any)=>{
         if(m.sender_id===user.id)return;
