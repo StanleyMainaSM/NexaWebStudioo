@@ -28,7 +28,6 @@ export default function GlobalCallListener() {
   useEffect(() => {
     let alive = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
-    let pollTimer: number | null = null;
 
     const open = async (row: IncomingRow, userId: string) => {
       if (!alive || !isFreshRingingCall(row) || row.callee_id !== userId || activeId.current === row.id) return;
@@ -54,43 +53,23 @@ export default function GlobalCallListener() {
 
       try { await supabase.realtime.setAuth(); } catch (error) { console.error('Avelixa Realtime auth bootstrap failed:', error); return; }
 
-      const poll = async () => {
-        if (!alive) return;
-        const { data, error } = await supabase
-          .from('call_sessions')
-          .select('id,caller_id,callee_id,call_type,status,created_at,direct_conversation_id,admin_conversation_id')
-          .eq('callee_id', user.id)
-          .eq('status', 'ringing')
-          .order('created_at', { ascending: false })
-          .limit(3);
-        if (!error) {
-          for (const row of (data || []) as IncomingRow[]) void open(row, user.id);
-        }
-      };
-
       channel = supabase
-        .channel('incoming-calls')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'call_sessions', filter: `callee_id=eq.${user.id}` }, ({ new: inserted }: any) => {
-          void open(inserted as IncomingRow, user.id);
+        .channel(`user_calls:${user.id}`, { config: { private: true } })
+        .on('broadcast', { event: 'incoming_call' }, ({ payload }: any) => {
+          const row = payload?.call_session as IncomingRow | undefined;
+          if (row) void open(row, user.id);
         })
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'call_sessions', filter: `callee_id=eq.${user.id}` }, ({ new: updated }: any) => {
-          // Accepting a call changes ringing -> accepted. That is NOT the end of the call;
-          // the overlay must remain mounted so WebRTC offer/answer negotiation can complete.
-          if (updated.id === activeId.current && ['declined', 'ended', 'failed'].includes(updated.status)) {
-            activeId.current = null;
-            setCall(null);
+        .subscribe((status, err) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.error('Avelixa incoming-call Realtime error:', err);
           }
-        })
-        .subscribe((status, err) => { if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.error('Avelixa incoming-call Realtime error:', err); });
-      void poll();
-      pollTimer = window.setInterval(() => void poll(), 1200);
+        });
     };
 
     void init();
     return () => {
       alive = false;
       activeId.current = null;
-      if (pollTimer !== null) window.clearInterval(pollTimer);
       if (channel) void supabase.removeChannel(channel);
     };
   }, []);
