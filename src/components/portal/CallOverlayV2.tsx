@@ -57,7 +57,7 @@ export default function CallOverlayV2({call,onClose}:{call:ActiveCall;onClose:()
   let realtime: ReturnType<typeof supabase.channel> | null = null;
   const startRealtime=async()=>{
     if(!alive)return;
-    try{await supabase.realtime.setAuth();}catch(e){if(alive){console.error('Avelixa Realtime auth bootstrap failed:',e);setError(errorText(e));setStatus('failed');}return;}
+    try{const {data:{session}}=await supabase.auth.getSession();if(!session?.access_token)throw new Error('Authenticated Realtime session is unavailable.');await supabase.realtime.setAuth(session.access_token);}catch(e){if(alive){console.error('Avelixa Realtime auth bootstrap failed:',e);setError(errorText(e));setStatus('failed');}return;}
     if(!alive)return;
     realtime=supabase.channel(`call:${call.id}`,{config:{private:true}})
       .on('broadcast',{event:'call_signal'},({payload}:any)=>{
@@ -73,6 +73,7 @@ export default function CallOverlayV2({call,onClose}:{call:ActiveCall;onClose:()
         }
       })
       .subscribe((status,err)=>{
+        if(status==='SUBSCRIBED')console.info('[Avelixa Realtime] call channel subscribed',`call:${call.id}`);
         if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
           console.error('Avelixa call Realtime error:',err);
           setError(errorText(err)||'The call realtime connection could not be established.');
