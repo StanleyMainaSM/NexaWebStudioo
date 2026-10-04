@@ -40,9 +40,12 @@ export default function CommunicationCenterV4(){
         const cid=c.direct_conversation_id||c.admin_conversation_id;
         if(cid===selectedIdRef.current)setCalls(v=>v.some(x=>x.id===c.id)?v:v.concat({...c,conversation_id:cid}));
       })
-      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'admin_messages'},({new:m}:any)=>{
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'admin_messages'},({new:m}:any)=>{
         if(m.sender_id===user.id)return;
         if(m.conversation_id===selectedIdRef.current)setMessages(v=>v.some(x=>x.id===m.id)?v:[...v,{...m,kind:'admin'}]);else void loadConvos();
+      })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'admin_messages'},({new:m}:any)=>{
+        if(m.conversation_id===selectedIdRef.current)setMessages(v=>v.map(x=>x.id===m.id?{...x,...m}:x));
       })
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles'},({new:p}:any)=>{
         setContacts(v=>v.map(x=>x.user_id===p.id?{...x,full_name:p.full_name??null,email:p.email??null,avatar_url:p.avatar_url??null}:x));
