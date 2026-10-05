@@ -20,6 +20,9 @@ export function getIceServers(): RTCIceServer[] {
   const turnUsername = getClientEnv('VITE_TURN_USERNAME');
   const turnCredential = getClientEnv('VITE_TURN_CREDENTIAL');
 
+  // STUN is sufficient for many networks, but TURN is required when peers cannot
+  // establish a direct UDP path (for example, restrictive/symmetric NAT).
+
   if (turnUrl && turnUsername && turnCredential) {
     servers.push({
       urls: turnUrl,
