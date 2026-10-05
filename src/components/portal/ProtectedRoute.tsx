@@ -13,6 +13,9 @@ interface ProtectedRouteProps {
   accessGate?: 'creation' | 'none';
 }
 
+const CONNECTOR_TERMS_CHECK_ATTEMPTS = 3;
+const CONNECTOR_TERMS_RETRY_DELAY_MS = 500;
+
 export default function ProtectedRoute({
   children,
   requiredRoles,
@@ -25,6 +28,7 @@ export default function ProtectedRoute({
   const [memberActive, setMemberActive] = useState(false);
   const [connectorAccessLoading, setConnectorAccessLoading] = useState(requiresConnectorTerms);
   const [connectorAccessAllowed, setConnectorAccessAllowed] = useState(!requiresConnectorTerms);
+  const [connectorAccessCheckKey, setConnectorAccessCheckKey] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -37,7 +41,11 @@ export default function ProtectedRoute({
     const checkMemberAccess = async () => {
       setMemberAccessLoading(true);
       try {
-        const { data, error } = await supabase.from('profiles').select('is_active').eq('id', user.id).maybeSingle();
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('is_active')
+          .eq('id', user.id)
+          .maybeSingle();
         if (error) throw error;
         if (mounted) setMemberActive(data?.is_active !== false);
       } catch (error) {
@@ -47,6 +55,7 @@ export default function ProtectedRoute({
         if (mounted) setMemberAccessLoading(false);
       }
     };
+
     void checkMemberAccess();
     return () => { mounted = false; };
   }, [user?.id]);
@@ -59,30 +68,89 @@ export default function ProtectedRoute({
     }
 
     let mounted = true;
-    const checkConnectorAccess = async () => {
+    let retryTimer: number | null = null;
+
+    const checkConnectorTerms = async () => {
       setConnectorAccessLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('connector_profiles')
-          .select('is_active, terms_accepted_at, terms_version')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        if (error) throw error;
+
+      for (let attempt = 1; attempt <= CONNECTOR_TERMS_CHECK_ATTEMPTS; attempt += 1) {
         if (!mounted) return;
-        setConnectorAccessAllowed(Boolean(data?.is_active && data?.terms_accepted_at && data?.terms_version));
-      } catch (error) {
-        console.error('Connector access check failed:', error);
-        if (mounted) setConnectorAccessAllowed(false);
-      } finally {
-        if (mounted) setConnectorAccessLoading(false);
+
+        try {
+          const { data, error } = await supabase
+            .from('connector_profiles')
+            .select('is_active, terms_accepted_at, terms_version')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (error) throw error;
+
+          const accepted = Boolean(
+            data?.is_active &&
+            data?.terms_accepted_at &&
+            data?.terms_version
+          );
+
+          if (accepted) {
+            if (mounted) {
+              setConnectorAccessAllowed(true);
+              setConnectorAccessLoading(false);
+            }
+            return;
+          }
+
+          // A newly authenticated Supabase session can briefly settle before
+          // the first authenticated table read is consistent. Confirm a
+          // missing acceptance more than once before redirecting.
+          if (attempt < CONNECTOR_TERMS_CHECK_ATTEMPTS) {
+            await new Promise<void>((resolve) => {
+              retryTimer = window.setTimeout(resolve, CONNECTOR_TERMS_RETRY_DELAY_MS);
+            });
+            continue;
+          }
+
+          if (mounted) {
+            setConnectorAccessAllowed(false);
+            setConnectorAccessLoading(false);
+          }
+          return;
+        } catch (error) {
+          console.error('Connector terms check failed:', error);
+
+          if (attempt < CONNECTOR_TERMS_CHECK_ATTEMPTS) {
+            await new Promise<void>((resolve) => {
+              retryTimer = window.setTimeout(resolve, CONNECTOR_TERMS_RETRY_DELAY_MS);
+            });
+            continue;
+          }
+
+          // Do not redirect to Terms merely because a database/auth check
+          // failed. Keep the route in a loading state and retry shortly.
+          if (mounted) {
+            setConnectorAccessLoading(true);
+            retryTimer = window.setTimeout(() => {
+              if (mounted) setConnectorAccessCheckKey((current) => current + 1);
+            }, 1000);
+          }
+          return;
+        }
       }
     };
-    void checkConnectorAccess();
-    return () => { mounted = false; };
-  }, [requiresConnectorTerms, user?.id, memberActive]);
+
+    void checkConnectorTerms();
+
+    return () => {
+      mounted = false;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+    };
+  }, [requiresConnectorTerms, user?.id, memberActive, connectorAccessCheckKey]);
 
   if (loading || rolesLoading || memberAccessLoading || connectorAccessLoading) {
-    return <div className="min-h-screen bg-ink-950 flex items-center justify-center"><Loader2 className="w-8 h-8 text-accent-400 animate-spin" /> </div>;
+    return (
+      <div className="min-h-screen bg-ink-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-accent-400 animate-spin" />
+      </div>
+    );
   }
 
   if (!user) {
@@ -94,11 +162,17 @@ export default function ProtectedRoute({
   }
 
   const normalizedUserRoles = roles.map((role) => String(role).trim().toLowerCase()).filter(Boolean);
-  const normalizedRequiredRoles = (requiredRoles ?? []).map((role) => String(role).trim().toLowerCase()).filter(Boolean);
-  const hasRequiredRole = normalizedRequiredRoles.length === 0 || normalizedRequiredRoles.some((role) => normalizedUserRoles.includes(role));
+  const normalizedRequiredRoles = (requiredRoles ?? [])
+    .map((role) => String(role).trim().toLowerCase())
+    .filter(Boolean);
+  const hasRequiredRole =
+    normalizedRequiredRoles.length === 0 ||
+    normalizedRequiredRoles.some((role) => normalizedUserRoles.includes(role));
 
   if (!hasRequiredRole) return <Navigate to="/portal" replace />;
-  if (requiresConnectorTerms && !connectorAccessAllowed) return <Navigate to="/portal/connector/terms" replace />;
+  if (requiresConnectorTerms && !connectorAccessAllowed) {
+    return <Navigate to="/portal/connector/terms" replace />;
+  }
 
   const content = children ? <>{children}</> : <Outlet />;
 

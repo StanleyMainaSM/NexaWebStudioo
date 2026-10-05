@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle2, FileText, Loader2, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -10,6 +10,39 @@ export default function ConnectorTerms() {
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkExistingAcceptance = async () => {
+      try {
+        const { data, error: profileError } = await supabase
+          .from('connector_profiles')
+          .select('is_active, terms_accepted_at, terms_version')
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id ?? '')
+          .maybeSingle();
+
+        if (profileError) throw profileError;
+
+        if (
+          mounted &&
+          data?.is_active &&
+          data.terms_accepted_at &&
+          data.terms_version
+        ) {
+          navigate('/portal/connector', { replace: true });
+        }
+      } catch (checkError) {
+        console.error('Connector terms acceptance check failed:', checkError);
+      }
+    };
+
+    void checkExistingAcceptance();
+
+    return () => {
+      mounted = false;
+    };
+  }, [navigate]);
 
   const handleAccept = async () => {
     if (!accepted) {

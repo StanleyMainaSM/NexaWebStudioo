@@ -492,6 +492,16 @@ export default function Login() {
           );
         }
 
+        // Always make the authenticated role the active workspace after login.
+        // This prevents a previous session's Client workspace from overriding a
+        // newly authenticated Connector/Admin/Owner destination.
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(
+            'avelixa.activeWorkspace',
+            primaryRole
+          );
+        }
+
         const destination =
           getPortalPathForRole(
             primaryRole

@@ -37,7 +37,7 @@
     "test:website-creation-saved-artifact": "node --experimental-strip-types tests/websiteCreationSavedArtifactFlow.test.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.57.4",
+    "@supabase/supabase-js": "^2.117.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "lucide-react": "^0.344.0",

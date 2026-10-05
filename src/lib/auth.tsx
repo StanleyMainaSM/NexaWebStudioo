@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { useGlobalCommunicationPresence } from './usePortalRealtime';
@@ -14,11 +14,12 @@ type AuthContextType = {
   setActiveWorkspace: (workspace: PortalWorkspace | null) => void;
   loading: boolean;
   rolesLoading: boolean;
+  refreshRoles: () => Promise<void>;
 };
 
 const WORKSPACE_STORAGE_KEY = 'avelixa.activeWorkspace';
 const WORKSPACES: PortalWorkspace[] = ['client', 'connector', 'operator', 'admin', 'owner'];
-const AuthContext = createContext<AuthContextType>({ user: null, roles: [], profile: null, activeWorkspace: null, setActiveWorkspace: () => undefined, loading: true, rolesLoading: true });
+const AuthContext = createContext<AuthContextType>({ user: null, roles: [], profile: null, activeWorkspace: null, setActiveWorkspace: () => undefined, loading: true, rolesLoading: true, refreshRoles: async () => undefined });
 
 function normalizeRoles(roleValues: unknown): string[] {
   if (!Array.isArray(roleValues)) return [];
@@ -75,10 +76,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') window.sessionStorage.setItem(WORKSPACE_STORAGE_KEY, workspace);
   };
 
-  const fetchRoles = async () => {
+  const fetchRoles = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true;
     const requestId = ++rolesRequestRef.current;
     if (!mountedRef.current) return;
-    setRolesLoading(true);
+    if (!silent) setRolesLoading(true);
     try {
       const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
@@ -104,9 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error loading user roles/profile:', error);
       if (mountedRef.current && requestId === rolesRequestRef.current) { setRoles([]); setProfile(null); }
     } finally {
-      if (mountedRef.current && requestId === rolesRequestRef.current) setRolesLoading(false);
+      if (!silent && mountedRef.current && requestId === rolesRequestRef.current) setRolesLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -145,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       rolesRequestRef.current += 1;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchRoles]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -156,7 +158,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { alive = false; void supabase.removeChannel(channel); };
   }, [user?.id]);
 
-  return <AuthContext.Provider value={{ user, roles, profile, activeWorkspace, setActiveWorkspace, loading, rolesLoading }}>{children}</AuthContext.Provider>;
+  // Role changes are made by Owner/Admin in a different session. Refresh the
+  // current user's roles periodically so newly added/removed workspaces become
+  // available without requiring a logout/login cycle. Realtime is used when
+  // enabled for user_roles, while the interval provides a reliable fallback.
+  useEffect(() => {
+    if (!user?.id) return;
+    let alive = true;
+    const refresh = () => { if (alive) void fetchRoles({ silent: true }); };
+    const channel = supabase
+      .channel(`avelixa-user-roles-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles', filter: `user_id=eq.${user.id}` }, refresh)
+      .subscribe();
+    const timer = window.setInterval(refresh, 5000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      void supabase.removeChannel(channel);
+    };
+  }, [user?.id, fetchRoles]);
+
+  return <AuthContext.Provider value={{ user, roles, profile, activeWorkspace, setActiveWorkspace, loading, rolesLoading, refreshRoles: fetchRoles }}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);
