@@ -23,7 +23,7 @@ assert.match(worker, /next_attempt_at: retryAt/,
   'provider failures must schedule bounded retry');
 assert.match(worker, /attempts < 5/,
   'push retries must be bounded');
-assert.match(worker, /existing\?\.status === "sent"/,
+assert.match(worker, /existing\?\.status === "accepted"/,
   'duplicate notification events must skip completed deliveries');
 assert.match(worker, /status: "processing"/,
   'delivery attempts must be claimed before provider dispatch');
