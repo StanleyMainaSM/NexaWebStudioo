@@ -101,10 +101,14 @@ begin
         select 1
         from public.push_deliveries d
         where d.notification_id = n.id
-          and d.status = 'failed'
           and d.attempts < 5
-          and d.next_attempt_at is not null
-          and d.next_attempt_at <= now()
+          and (
+            (d.status = 'failed'
+              and d.next_attempt_at is not null
+              and d.next_attempt_at <= now())
+            or (d.status = 'processing'
+              and d.updated_at <= now() - interval '5 minutes')
+          )
       )
       and exists (
         select 1
