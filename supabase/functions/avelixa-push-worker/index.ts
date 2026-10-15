@@ -76,13 +76,6 @@ Deno.serve(async (req) => {
     if (notificationError) throw notificationError;
     if (!notification?.user_id) return json({ ok: true, delivered: 0 });
 
-    const { data: prefs } = await supabase
-      .from("notification_preferences")
-      .select("push_notifications")
-      .eq("user_id", notification.user_id)
-      .maybeSingle();
-    if (prefs && prefs.push_notifications === false) return json({ ok: true, delivered: 0, skipped: "push_disabled" });
-
     const { data: subscriptions, error: subscriptionError } = await supabase
       .from("push_subscriptions")
       .select("id,endpoint,p256dh,auth,expiration_time")
