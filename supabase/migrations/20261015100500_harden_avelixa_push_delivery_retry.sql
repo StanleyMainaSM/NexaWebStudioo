@@ -6,14 +6,19 @@ alter table public.push_deliveries
   add column if not exists next_attempt_at timestamptz;
 
 alter table public.push_deliveries
+  add column if not exists provider_accepted_at timestamptz;
+
+alter table public.push_deliveries
   alter column attempts set default 0;
 
 alter table public.push_deliveries
   drop constraint if exists push_deliveries_status_check;
 
+update public.push_deliveries set status = 'accepted' where status = 'sent';
+
 alter table public.push_deliveries
   add constraint push_deliveries_status_check
-  check (status = any (array['pending'::text, 'processing'::text, 'sent'::text, 'failed'::text]));
+  check (status = any (array['pending'::text, 'processing'::text, 'accepted'::text, 'failed'::text]));
 
 create index if not exists push_deliveries_retry_due_idx
   on public.push_deliveries (next_attempt_at)
