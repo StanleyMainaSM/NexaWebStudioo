@@ -131,7 +131,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.119.0
 
       - name: Start local Supabase
         # The SQL migration suite needs Postgres, not every optional Supabase container.
