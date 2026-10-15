@@ -11,6 +11,7 @@ on:
     branches:
       - avelixa-current-work
       - GPT-current-work
+      - avelixa-push-cors-local-fix
   pull_request:
     branches:
       - avelixa-current-work
