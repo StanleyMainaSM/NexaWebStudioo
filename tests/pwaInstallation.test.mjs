@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+const root = process.cwd();
+const read = (path) => readFileSync(resolve(root, path), 'utf8');
+const manifest = JSON.parse(read('public/manifest.webmanifest'));
+const vite = read('vite.config.ts'); const index = read('index.html');
+const installService = read('src/lib/pwaInstall.ts'); const installUi = read('src/components/PwaInstallPrompt.tsx'); const main = read('src/main.tsx');
+const packageJson = JSON.parse(read('package.json'));
+assert.equal(manifest.name, 'Avelixa'); assert.equal(manifest.short_name, 'Avelixa');
+assert.equal(manifest.start_url, '/login'); assert.equal(manifest.scope, '/'); assert.equal(manifest.display, 'standalone');
+for (const [size, purpose] of [['192x192','any'],['192x192','maskable'],['512x512','any'],['512x512','maskable']]) assert.ok(manifest.icons.some((icon) => icon.sizes === size && icon.purpose === purpose), `manifest supports ${size} ${purpose}`);
+for (const icon of manifest.icons) { const iconPath=resolve(root,'public',icon.src.replace(/^\//,'')); assert.ok(existsSync(iconPath),`icon exists: ${icon.src}`); const bytes=readFileSync(iconPath); assert.deepEqual([...bytes.subarray(0,8)],[137,80,78,71,13,10,26,10],`${icon.src} is PNG`); assert.equal(bytes.readUInt32BE(16),Number(icon.sizes.split('x')[0])); assert.equal(bytes.readUInt32BE(20),Number(icon.sizes.split('x')[1])); }
+assert.match(vite,/manifest:\s*false/); assert.doesNotMatch(vite,/start_url:\s*['"]\/portal\/login['"]/);
+assert.equal([...index.matchAll(/<link\s+rel=["']manifest["']/gi)].length,1); assert.match(index,/href=["']\/manifest\.webmanifest["']/i);
+assert.match(installService,/window\.addEventListener\('beforeinstallprompt', onBeforeInstallPrompt\)/); assert.match(installService,/window\.addEventListener\('appinstalled', onAppInstalled\)/); assert.match(installService,/event\.preventDefault\(\)/); assert.match(installService,/deferredPrompt = null;[\s\S]*?promptEvent\.prompt\(\)/); assert.match(installService,/subscribePwaInstall/);
+assert.match(installUi,/Add to Home Screen/); assert.match(installUi,/Microsoft Edge/); assert.match(installUi,/Chrome/); assert.match(installUi,/notification permission/i); assert.match(main,/<PwaInstallPrompt\s*\/>/); assert.equal(packageJson.scripts['test:pwa-installation'],'node --experimental-strip-types tests/pwaInstallation.test.mjs');
+const fakeWindow=new EventTarget(); Object.defineProperty(fakeWindow,'matchMedia',{value:()=>({matches:false})}); Object.defineProperty(globalThis,'window',{configurable:true,value:fakeWindow}); Object.defineProperty(globalThis,'navigator',{configurable:true,value:{userAgent:'Chrome/130.0',maxTouchPoints:0}});
+const api=await import('../src/lib/pwaInstall.ts'); assert.deepEqual(api.getPwaInstallSnapshot(),{promptAvailable:false,installed:false}); let promptCalls=0;
+class MockInstallEvent extends Event { platforms=['web']; userChoice=Promise.resolve({outcome:'dismissed',platform:'web'}); async prompt(){promptCalls+=1;} }
+const event=new MockInstallEvent('beforeinstallprompt',{cancelable:true}); fakeWindow.dispatchEvent(event); assert.equal(event.defaultPrevented,true); assert.equal(api.getPwaInstallSnapshot().promptAvailable,true); const choice=api.promptPwaInstall(); assert.equal(api.getPwaInstallSnapshot().promptAvailable,false); assert.equal(await choice,'dismissed'); assert.equal(promptCalls,1); fakeWindow.dispatchEvent(new Event('appinstalled')); assert.deepEqual(api.getPwaInstallSnapshot(),{promptAvailable:false,installed:true});
+const dist=resolve(root,'dist'); if(existsSync(dist)){const built=resolve(dist,'manifest.webmanifest');assert.ok(existsSync(built));assert.deepEqual(JSON.parse(readFileSync(built,'utf8')),manifest);for(const icon of ['pwa-192x192.png','pwa-512x512.png'])assert.ok(existsSync(resolve(dist,icon)));}
+console.log('PWA installation contract passed.');

@@ -34,7 +34,8 @@
     "test:website-creation-artifact": "node --experimental-strip-types tests/websiteCreationArtifact.test.mjs",
     "test:website-creation-publishing": "node --experimental-strip-types tests/websiteCreationPublishing.test.mjs",
     "test:website-creation-public-delivery": "node --experimental-strip-types tests/websiteCreationPublicDelivery.test.mjs",
-    "test:website-creation-saved-artifact": "node --experimental-strip-types tests/websiteCreationSavedArtifactFlow.test.mjs"
+    "test:website-creation-saved-artifact": "node --experimental-strip-types tests/websiteCreationSavedArtifactFlow.test.mjs",
+    "test:pwa-installation": "node --experimental-strip-types tests/pwaInstallation.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",
