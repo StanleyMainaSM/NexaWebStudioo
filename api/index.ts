@@ -1,6 +1,6 @@
 const nativeFetch = globalThis.fetch.bind(globalThis);
 
-globalThis.fetch = (async (input, init = {}) => {
+globalThis.fetch = (async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const headers = new Headers(
     init.headers ??
       (input instanceof Request ? input.headers : undefined)

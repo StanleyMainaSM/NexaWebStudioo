@@ -177,9 +177,12 @@ export async function subscribeToAvelixaPushNotifications(): Promise<PushSubscri
 
   if (!subscription) {
     const publicKey = await getVapidPublicKey();
+    const publicKeyBytes = urlBase64ToUint8Array(publicKey);
+    const applicationServerKey = new ArrayBuffer(publicKeyBytes.byteLength);
+    new Uint8Array(applicationServerKey).set(publicKeyBytes);
     subscription = await activeRegistration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
+      applicationServerKey,
     });
   }
 

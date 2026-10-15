@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Sparkles,
   ArrowRight,
@@ -11,7 +11,6 @@ import {
   UserPlus,
   Eye,
   EyeOff,
-  LockKeyhole,
   CheckCircle2,
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
