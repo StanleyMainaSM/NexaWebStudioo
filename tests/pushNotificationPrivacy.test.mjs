@@ -69,7 +69,7 @@ assert.match(baseline, /enable row level security/i,
   'push tables must keep RLS enabled');
 assert.match(baseline, /grant execute on function public\.get_push_worker_secret\(\) to service_role/i,
   'the webhook secret getter must not be callable by browser roles');
-assert.match(migration, /if exists \([\s\S]*user_id <> current_user_id[\s\S]*raise exception 'This device subscription belongs to another account'/,
+assert.match(migration, /if exists \([\s\S]*user_id <> current_user_id[\s\S]*raise exception 'This device subscription belongs to another account/,
   'subscription registration must reject cross-account endpoints instead of deleting another user’s row');
 assert.doesNotMatch(migration, /delete from public\.push_subscriptions[\s\S]*user_id <> current_user_id/,
   'authenticated subscription registration must never delete another account’s subscription');
