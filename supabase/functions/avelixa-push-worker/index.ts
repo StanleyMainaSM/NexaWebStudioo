@@ -137,6 +137,16 @@ Deno.serve(async (req) => {
       .eq("user_id", notification.user_id);
     if (subscriptionError) throw subscriptionError;
     if (!subscriptions?.length) {
+      const { error: orphanCleanupError } = await supabase.from("push_deliveries").update({
+        status: "failed",
+        next_attempt_at: null,
+        last_error: "Subscription was removed or expired",
+        updated_at: new Date().toISOString(),
+      }).eq("notification_id", notification.id)
+        .is("subscription_id", null)
+        .in("status", ["pending", "processing"]);
+      if (orphanCleanupError) throw orphanCleanupError;
+
       if (dispatchClaimed && dispatchId) {
         const { error } = await supabase.from("push_dispatch_queue").update({
           status: "processed",
@@ -280,6 +290,16 @@ Deno.serve(async (req) => {
         }).eq("id", deliveryId);
       }
     }
+    const { error: orphanCleanupError } = await supabase.from("push_deliveries").update({
+      status: "failed",
+      next_attempt_at: null,
+      last_error: "Subscription was removed or expired",
+      updated_at: new Date().toISOString(),
+    }).eq("notification_id", notification.id)
+      .is("subscription_id", null)
+      .in("status", ["pending", "processing"]);
+    if (orphanCleanupError) throw orphanCleanupError;
+
     if (dispatchClaimed && dispatchId) {
       const { error: dispatchUpdateError } = await supabase.from("push_dispatch_queue").update({
         status: "processed",
