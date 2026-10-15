@@ -253,14 +253,19 @@ Deno.serve(async (req) => {
       } catch (sendError) {
         const statusCode = Number((sendError as { statusCode?: number })?.statusCode || 0);
         if (statusCode === 404 || statusCode === 410) {
-          await supabase.from("push_deliveries").update({
+          const { error: expiredDeliveryError } = await supabase.from("push_deliveries").update({
             status: "failed",
             attempts,
             next_attempt_at: null,
             last_error: `Push provider returned HTTP ${statusCode}; subscription expired`,
             updated_at: new Date().toISOString(),
           }).eq("id", deliveryId);
-          await supabase.from("push_subscriptions").delete().eq("id", subscription.id);
+          if (expiredDeliveryError) throw expiredDeliveryError;
+          const { error: expiredSubscriptionError } = await supabase
+            .from("push_subscriptions")
+            .delete()
+            .eq("id", subscription.id);
+          if (expiredSubscriptionError) throw expiredSubscriptionError;
           continue;
         }
         const retryAt = attempts < 5
