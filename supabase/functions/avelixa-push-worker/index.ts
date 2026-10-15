@@ -223,8 +223,8 @@ Deno.serve(async (req) => {
             ? notification.link
             : "/portal");
       const payload = JSON.stringify({
-        title: isMessage ? "Avelixa" : (notification.title || "Avelixa"),
-        body: isMessage ? "You have a new message on Avelixa." : (notification.content || "You have a new Avelixa notification."),
+        title: "Avelixa",
+        body: isMessage ? "You have a new message on Avelixa." : "You have a new notification on Avelixa.",
         url: safeUrl,
         notificationId: notification.id,
         type: notification.notification_type || "general",
