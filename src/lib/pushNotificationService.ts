@@ -226,22 +226,32 @@ export async function unsubscribeFromAvelixaPushNotifications(): Promise<void> {
   }
 
   const endpoint = subscription.endpoint;
-  await subscription.unsubscribe();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError) {
+    throw new Error(`Unable to identify the signed-in Avelixa account: ${userError.message}`);
+  }
+  if (!user) {
+    throw new Error('Sign in before removing this device subscription.');
+  }
 
+  // Remove only this signed-in user's row. The database RLS policy remains
+  // the authority for ownership; never issue an endpoint-only delete.
   const { error: subscriptionError } = await supabase
     .from('push_subscriptions')
     .delete()
+    .eq('user_id', user.id)
     .eq('endpoint', endpoint);
 
   if (subscriptionError) {
-    console.error('Unable to remove Avelixa push subscription:', subscriptionError);
+    throw new Error(`Unable to remove Avelixa push subscription: ${subscriptionError.message}`);
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  await subscription.unsubscribe();
 
-  if (user) {
+  {
     const { error: preferenceError } = await supabase
       .from('notification_preferences')
       .upsert(
@@ -255,6 +265,7 @@ export async function unsubscribeFromAvelixaPushNotifications(): Promise<void> {
 
     if (preferenceError) {
       console.error('Unable to update Avelixa notification preferences:', preferenceError);
+      throw new Error(`The device was unsubscribed, but the notification preference could not be saved: ${preferenceError.message}`);
     }
   }
 }
