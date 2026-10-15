@@ -55,8 +55,8 @@ assert.match(
 );
 assert.match(
   canonical,
-  /from\('push_subscriptions'\)/,
-  'the real push subscription must be persisted through the existing push_subscriptions table',
+  /rpc\(['"]register_push_subscription['"]/,
+  'the real push subscription must be persisted through an authenticated owner-derived RPC',
 );
 assert.match(
   canonical,
