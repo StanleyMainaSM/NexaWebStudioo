@@ -48,6 +48,9 @@ async function ensureVapidKeys(secret: string) {
 }
 
 Deno.serve(async (req) => {
+  let dispatchId: string | null = null;
+  let dispatchClaimed = false;
+  let dispatchAttempts = 0;
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
@@ -74,14 +77,77 @@ Deno.serve(async (req) => {
       .eq("id", notificationId)
       .maybeSingle();
     if (notificationError) throw notificationError;
-    if (!notification?.user_id) return json({ ok: true, delivered: 0 });
+    if (!notification) return json({ ok: true, acceptedByProvider: 0, skipped: "notification_missing" });
+
+    const { data: dispatch, error: dispatchLookupError } = await supabase
+      .from("push_dispatch_queue")
+      .select("id,status,attempts,next_attempt_at,updated_at")
+      .eq("notification_id", notification.id)
+      .maybeSingle();
+    if (dispatchLookupError) throw dispatchLookupError;
+
+    if (!notification.user_id) {
+      await supabase.from("push_dispatch_queue").update({
+        status: "processed",
+        next_attempt_at: null,
+        updated_at: new Date().toISOString(),
+      }).eq("notification_id", notification.id);
+      return json({ ok: true, acceptedByProvider: 0, skipped: "no_recipient" });
+    }
+
+    if (dispatch && dispatch.status !== "processed" && dispatch.status !== "failed") {
+      const due = dispatch.status === "pending"
+        ? (!dispatch.next_attempt_at || new Date(dispatch.next_attempt_at).getTime() <= Date.now())
+        : dispatch.status === "processing" &&
+          Date.now() - new Date(dispatch.updated_at).getTime() >= 5 * 60_000;
+      if (!due) return json({ ok: true, acceptedByProvider: 0, skipped: "dispatch_not_due" });
+      if (Number(dispatch.attempts || 0) >= 5) {
+        await supabase.from("push_dispatch_queue").update({
+          status: "failed",
+          next_attempt_at: null,
+          last_error: "Push dispatch retry limit reached",
+          updated_at: new Date().toISOString(),
+        }).eq("id", dispatch.id);
+        return json({ ok: true, acceptedByProvider: 0, skipped: "dispatch_retry_limit" });
+      }
+      dispatchAttempts = Number(dispatch.attempts || 0) + 1;
+      const { data: claimed, error: claimError } = await supabase
+        .from("push_dispatch_queue")
+        .update({
+          status: "processing",
+          attempts: dispatchAttempts,
+          next_attempt_at: null,
+          last_error: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", dispatch.id)
+        .eq("status", dispatch.status)
+        .eq("updated_at", dispatch.updated_at)
+        .select("id")
+        .maybeSingle();
+      if (claimError) throw claimError;
+      if (!claimed?.id) return json({ ok: true, acceptedByProvider: 0, skipped: "dispatch_already_claimed" });
+      dispatchId = claimed.id;
+      dispatchClaimed = true;
+    }
 
     const { data: subscriptions, error: subscriptionError } = await supabase
       .from("push_subscriptions")
       .select("id,endpoint,p256dh,auth,expiration_time")
       .eq("user_id", notification.user_id);
     if (subscriptionError) throw subscriptionError;
-    if (!subscriptions?.length) return json({ ok: true, delivered: 0, skipped: "no_subscription" });
+    if (!subscriptions?.length) {
+      if (dispatchClaimed && dispatchId) {
+        const { error } = await supabase.from("push_dispatch_queue").update({
+          status: "processed",
+          next_attempt_at: null,
+          last_error: null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", dispatchId);
+        if (error) throw error;
+      }
+      return json({ ok: true, acceptedByProvider: 0, skipped: "no_subscription" });
+    }
 
     const vapid = await ensureVapidKeys(secret);
     webpush.setVapidDetails("mailto:admin@avelixa.co.ke", vapid.publicKey, vapid.privateKey);
@@ -97,6 +163,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (lookupError) throw lookupError;
 
+      if (!existing && !dispatchClaimed) continue;
       if (existing?.status === "accepted") continue;
       if (existing && Number(existing.attempts || 0) >= 5 && existing.status === "failed") continue;
       if (existing?.next_attempt_at && new Date(existing.next_attempt_at).getTime() > Date.now()) continue;
@@ -201,9 +268,29 @@ Deno.serve(async (req) => {
         }).eq("id", deliveryId);
       }
     }
+    if (dispatchClaimed && dispatchId) {
+      const { error: dispatchUpdateError } = await supabase.from("push_dispatch_queue").update({
+        status: "processed",
+        next_attempt_at: null,
+        last_error: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", dispatchId);
+      if (dispatchUpdateError) throw dispatchUpdateError;
+    }
     return json({ ok: true, acceptedByProvider, subscriptions: subscriptions.length });
   } catch (error) {
-    console.error("Avelixa push worker error:", error);
-    return json({ error: error instanceof Error ? error.message : "Push worker failed" }, 500);
+    if (dispatchClaimed && dispatchId) {
+      const retryAt = dispatchAttempts < 5
+        ? new Date(Date.now() + Math.min(60_000 * (2 ** (dispatchAttempts - 1)), 15 * 60_000)).toISOString()
+        : null;
+      await supabase.from("push_dispatch_queue").update({
+        status: retryAt ? "pending" : "failed",
+        next_attempt_at: retryAt,
+        last_error: "Push dispatch processing failed",
+        updated_at: new Date().toISOString(),
+      }).eq("id", dispatchId);
+    }
+    console.error("Avelixa push worker error:", error instanceof Error ? error.message : "Unknown push worker error");
+    return json({ error: "Push worker failed" }, 500);
   }
 });
