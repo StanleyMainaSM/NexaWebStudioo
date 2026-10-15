@@ -149,9 +149,12 @@ begin
     raise exception 'Invalid push subscription';
   end if;
 
-  delete from public.push_subscriptions
-  where endpoint = p_endpoint
-    and user_id <> current_user_id;
+  if exists (
+    select 1 from public.push_subscriptions
+    where endpoint = p_endpoint and user_id <> current_user_id
+  ) then
+    raise exception 'This device subscription belongs to another account; unsubscribe and enable notifications again';
+  end if;
 
   insert into public.push_subscriptions (
     user_id, endpoint, p256dh, auth, expiration_time, user_agent, updated_at
