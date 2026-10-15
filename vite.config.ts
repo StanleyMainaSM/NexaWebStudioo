@@ -15,40 +15,8 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
 
-      manifest: {
-        name: 'Avelixa Portal',
-        short_name: 'Avelixa',
-        description:
-          'Avelixa business portal for clients, operators, connectors, admins and owners.',
-        theme_color: '#09090b',
-        background_color: '#09090b',
-        display: 'standalone',
-        orientation: 'portrait-primary',
-
-        start_url: '/login',
-        scope: '/',
-
-        icons: [
-          {
-            src: '/pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any',
-          },
-          {
-            src: '/pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any',
-          },
-          {
-            src: '/pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable',
-          },
-        ],
-      },
+      // public/manifest.webmanifest is the single canonical manifest.
+      manifest: false,
 
       injectManifest: {
         globPatterns: [

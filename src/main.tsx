@@ -4,6 +4,8 @@ import { registerSW } from 'virtual:pwa-register';
 
 import App from './App.tsx';
 import ThemeToggle from './components/ThemeToggle';
+import PwaInstallPrompt from './components/PwaInstallPrompt';
+import './lib/pwaInstall';
 import { ThemeProvider } from './lib/theme';
 import './index.css';
 
@@ -41,6 +43,7 @@ createRoot(
     <ThemeProvider>
       <App />
       <ThemeToggle />
+      <PwaInstallPrompt />
     </ThemeProvider>
   </StrictMode>
 );
