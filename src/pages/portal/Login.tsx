@@ -277,6 +277,15 @@ export default function Login() {
       setError('');
 
       try {
+        const { data: { user: signedInUser }, error: userError } =
+          await supabase.auth.getUser();
+        if (userError) throw userError;
+        if (!signedInUser) {
+          setNotificationStatus('error');
+          setNotificationMessage('Sign in first, then enable notifications in Portal Settings.');
+          return;
+        }
+
         const permission =
           await requestPushNotificationPermission();
 

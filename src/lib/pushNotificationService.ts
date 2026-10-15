@@ -157,6 +157,24 @@ export async function subscribeToAvelixaPushNotifications(): Promise<PushSubscri
 
   let subscription = await activeRegistration.pushManager.getSubscription();
 
+  if (subscription) {
+    // Recreate stale endpoints and prevent a browser reused by another account
+    // from silently re-registering an endpoint that it no longer owns.
+    const { data: storedSubscription, error: lookupError } = await supabase
+      .from('push_subscriptions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('endpoint', subscription.endpoint)
+      .maybeSingle();
+    if (lookupError) {
+      throw new Error(`Unable to verify this device subscription: ${lookupError.message}`);
+    }
+    if (!storedSubscription) {
+      await subscription.unsubscribe();
+      subscription = null;
+    }
+  }
+
   if (!subscription) {
     const publicKey = await getVapidPublicKey();
     subscription = await activeRegistration.pushManager.subscribe({
@@ -171,43 +189,18 @@ export async function subscribeToAvelixaPushNotifications(): Promise<PushSubscri
     throw new Error('The browser created an incomplete Avelixa push subscription.');
   }
 
-  const { error: subscriptionError } = await supabase
-    .from('push_subscriptions')
-    .upsert(
-      {
-        user_id: user.id,
-        endpoint: subscriptionJson.endpoint,
-        p256dh: subscriptionJson.keys.p256dh,
-        auth: subscriptionJson.keys.auth,
-        expiration_time: subscription.expirationTime
-          ? new Date(subscription.expirationTime).toISOString()
-          : null,
-        user_agent: navigator.userAgent,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,endpoint' },
-    );
+  const { error: subscriptionError } = await supabase.rpc('register_push_subscription', {
+    p_endpoint: subscriptionJson.endpoint,
+    p_p256dh: subscriptionJson.keys.p256dh,
+    p_auth: subscriptionJson.keys.auth,
+    p_expiration_time: subscription.expirationTime
+      ? new Date(subscription.expirationTime).toISOString()
+      : null,
+    p_user_agent: navigator.userAgent,
+  });
 
   if (subscriptionError) {
     throw new Error(`Avelixa could not save this device subscription: ${subscriptionError.message}`);
-  }
-
-  const { error: preferenceError } = await supabase
-    .from('notification_preferences')
-    .upsert(
-      {
-        user_id: user.id,
-        push_notifications: true,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' },
-    );
-
-  if (preferenceError) {
-    console.warn(
-      'Avelixa push subscription was saved, but notification preferences could not be updated:',
-      preferenceError,
-    );
   }
 
   return subscription;
@@ -226,37 +219,31 @@ export async function unsubscribeFromAvelixaPushNotifications(): Promise<void> {
   }
 
   const endpoint = subscription.endpoint;
-  await subscription.unsubscribe();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError) {
+    throw new Error(`Unable to identify the signed-in Avelixa account: ${userError.message}`);
+  }
+  if (!user) {
+    throw new Error('Sign in before removing this device subscription.');
+  }
 
+  // Remove only this signed-in user's row. The database RLS policy remains
+  // the authority for ownership; never issue an endpoint-only delete.
   const { error: subscriptionError } = await supabase
     .from('push_subscriptions')
     .delete()
+    .eq('user_id', user.id)
     .eq('endpoint', endpoint);
 
   if (subscriptionError) {
-    console.error('Unable to remove Avelixa push subscription:', subscriptionError);
+    throw new Error(`Unable to remove Avelixa push subscription: ${subscriptionError.message}`);
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  await subscription.unsubscribe();
 
-  if (user) {
-    const { error: preferenceError } = await supabase
-      .from('notification_preferences')
-      .upsert(
-        {
-          user_id: user.id,
-          push_notifications: false,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' },
-      );
-
-    if (preferenceError) {
-      console.error('Unable to update Avelixa notification preferences:', preferenceError);
-    }
-  }
 }
 
 export async function initializeAvelixaPushNotifications(): Promise<{
@@ -267,6 +254,8 @@ export async function initializeAvelixaPushNotifications(): Promise<{
   if (!isPushSupported()) {
     throw new Error('This browser does not support Avelixa push notifications.');
   }
+
+  await getCurrentUser();
 
   let permission = Notification.permission;
 
