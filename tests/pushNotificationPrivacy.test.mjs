@@ -45,6 +45,8 @@ assert.match(serviceWorker, /candidate\.pathname\.startsWith\('\/portal\/'\)/,
   'notification clicks must remain inside the Avelixa portal');
 assert.match(serviceWorker, /You have a new message on Avelixa\./,
   'service worker must enforce generic message text even if payload contains previews');
+assert.doesNotMatch(service, /privateKey|SUPABASE_SERVICE_ROLE_KEY|x-avelixa-push-secret/,
+  'browser code must not contain privileged push credentials');
 assert.match(service, /rpc\('register_push_subscription'/,
   'subscription ownership must be derived from authenticated RPC identity');
 assert.match(service, /\.eq\('user_id', user\.id\)[\s\S]*\.eq\('endpoint', endpoint\)/,
