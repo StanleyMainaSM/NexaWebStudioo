@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BellRing, BellOff, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import {
@@ -17,7 +17,7 @@ export default function PushNotificationSettings() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!user?.id) {
       setState('off');
       return;
@@ -53,13 +53,11 @@ export default function PushNotificationSettings() {
     } catch {
       setState('off');
     }
-  };
+  }, [user?.id]);
 
   useEffect(() => {
-    let alive = true;
-    void refresh().finally(() => { if (!alive) return; });
-    return () => { alive = false; };
-  }, [user?.id]);
+    void refresh();
+  }, [refresh]);
 
   const enable = async () => {
     setBusy(true);
