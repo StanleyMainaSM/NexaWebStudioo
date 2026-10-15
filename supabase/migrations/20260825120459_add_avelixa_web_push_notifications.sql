@@ -39,7 +39,7 @@ create table if not exists public.push_dispatch_queue (
   status text not null default 'pending'
     check (status = any (array['pending'::text, 'processing'::text, 'processed'::text, 'failed'::text])),
   attempts integer not null default 0,
-  next_attempt_at timestamptz not null default now(),
+  next_attempt_at timestamptz default now(),
   last_error text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
