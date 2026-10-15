@@ -106,7 +106,7 @@ export default function PwaInstallPrompt() {
         <div className="mt-3 rounded-lg bg-zinc-900 p-3" role="status">
           <p className="text-sm font-medium">{guidance.heading}</p>
           <p className="mt-1 text-sm text-zinc-300">{guidance.steps}</p>
-          {!guidance.supported && <p className="mt-2 text-xs text-zinc-400">Native installation is not currently available in this browser. Notifications are configured separately.</p>}
+          {!guidance.supported && <p className="mt-2 text-xs text-zinc-400">Native installation is not currently available in this browser. Installing does not request notification permission.</p>}
         </div>
       )}
 
