@@ -1,16 +1,50 @@
 import { useEffect, useState } from 'react';
 import { Download, X } from 'lucide-react';
 import { getPwaInstallSnapshot, promptPwaInstall, subscribePwaInstall, type PwaInstallSnapshot } from '../lib/pwaInstall';
+
 function getInstallGuidance(): { heading: string; steps: string; supported: boolean } {
-  if (typeof navigator === 'undefined') return { heading: 'Install Avelixa', steps: 'Open Avelixa in a supported browser to check installation options.', supported: false };
+  if (typeof navigator === 'undefined') {
+    return { heading: 'Install Avelixa', steps: 'Open Avelixa in a supported browser to check installation options.', supported: false };
+  }
   const ua = navigator.userAgent;
   const ios = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
-  if (ios) return { heading: 'Add Avelixa to your Home Screen', steps: /Safari/i.test(ua) ? 'In Safari, tap Share, then “Add to Home Screen”.' : 'Open this page in Safari, tap Share, then “Add to Home Screen”.', supported: true };
-  if (/Android/i.test(ua)) return { heading: 'Install Avelixa', steps: 'In Chrome or Edge, open the browser menu and choose “Install app” or “Add to Home screen”. If it is not shown, this browser or page may not currently be eligible.', supported: true };
-  if (ua.includes('Edg/') || ua.includes('Edge/')) return { heading: 'Install Avelixa', steps: 'In Microsoft Edge, open Settings and more (⋯), then choose Apps → Install this site as an app, if available.', supported: true };
-  if (ua.includes('Chrome/') && !ua.includes('Edg/') && !ua.includes('OPR/')) return { heading: 'Install Avelixa', steps: 'In Chrome, select the install icon in the address bar or open the menu and choose “Install Avelixa”, if available.', supported: true };
-  return { heading: 'Installation not available here', steps: 'Open Avelixa in Chrome or Microsoft Edge on desktop/Android, or Safari on iPhone/iPad, to check the installation options. This browser may not support PWA installation.', supported: false };
+  if (ios) {
+    return {
+      heading: 'Add Avelixa to your Home Screen',
+      steps: /Safari/i.test(ua)
+        ? 'In Safari, tap Share, then “Add to Home Screen”.'
+        : 'Open this page in Safari, tap Share, then “Add to Home Screen”.',
+      supported: true,
+    };
+  }
+  if (/Android/i.test(ua)) {
+    return {
+      heading: 'Install Avelixa',
+      steps: 'Open this page in Chrome or Edge and use the browser menu’s “Install app” or “Add to Home screen” option if available.',
+      supported: true,
+    };
+  }
+  if (ua.includes('Edg/') || ua.includes('Edge/')) {
+    return {
+      heading: 'Install Avelixa',
+      steps: 'In Microsoft Edge, open Settings and more (⋯), then choose Apps → Install this site as an app, if available.',
+      supported: true,
+    };
+  }
+  if (ua.includes('Chrome/') && !ua.includes('Edg/') && !ua.includes('OPR/')) {
+    return {
+      heading: 'Install Avelixa',
+      steps: 'In Chrome, select the install icon in the address bar or open the menu and choose “Install Avelixa”, if available.',
+      supported: true,
+    };
+  }
+  return {
+    heading: 'Installation not available here',
+    steps: 'Open Avelixa in Chrome or Microsoft Edge on desktop/Android, or Safari on iPhone/iPad, to check the installation options. This browser may not support PWA installation.',
+    supported: false,
+  };
 }
+
 export default function PwaInstallPrompt() {
   const [snapshot, setSnapshot] = useState<PwaInstallSnapshot>(() => getPwaInstallSnapshot());
   const [expanded, setExpanded] = useState(false);
@@ -18,23 +52,70 @@ export default function PwaInstallPrompt() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const guidance = getInstallGuidance();
+
   useEffect(() => subscribePwaInstall(() => setSnapshot(getPwaInstallSnapshot())), []);
+
   if (snapshot.installed || !visible) return null;
+
   const startInstall = async () => {
-    if (!snapshot.promptAvailable) { setExpanded(true); return; }
-    setBusy(true); setMessage('');
+    if (!snapshot.promptAvailable) {
+      setExpanded(true);
+      return;
+    }
+    setBusy(true);
+    setMessage('');
     try {
       const outcome = await promptPwaInstall();
-      if (outcome === 'accepted') setMessage('Installation was accepted. Finish any confirmation shown by your browser.');
-      else if (outcome === 'dismissed') setMessage('Installation was dismissed. You can try again if your browser offers Install in its menu.');
-      else setExpanded(true);
-    } catch { setMessage('The browser could not open its installation prompt. Use the browser menu instructions below.'); setExpanded(true); }
-    finally { setBusy(false); }
+      if (outcome === 'accepted') {
+        setMessage('Installation was accepted. Finish any confirmation shown by your browser.');
+      } else if (outcome === 'dismissed') {
+        setMessage('Installation was cancelled. Avelixa has not been marked as installed.');
+      } else {
+        setExpanded(true);
+      }
+    } catch {
+      setMessage('The browser could not open its installation prompt. Use the installation options below.');
+      setExpanded(true);
+    } finally {
+      setBusy(false);
+    }
   };
-  return <aside aria-label="Install Avelixa" className="fixed bottom-4 right-4 z-[100] w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-zinc-700 bg-zinc-950 p-4 text-white shadow-2xl">
-    <div className="flex items-start gap-3"><span className="mt-0.5 rounded-lg bg-zinc-800 p-2" aria-hidden="true"><Download size={20} /></span><div className="min-w-0 flex-1"><p className="font-semibold">Install Avelixa</p><p className="mt-1 text-sm text-zinc-300">Use Avelixa like an app on this device.</p></div><button type="button" onClick={() => setVisible(false)} aria-label="Dismiss installation prompt" className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white"><X size={18} /></button></div>
-    <div className="mt-3 flex gap-2"><button type="button" disabled={busy} onClick={startInstall} className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-zinc-950 disabled:opacity-60">{busy ? 'Opening…' : snapshot.promptAvailable ? 'Install app' : 'How to install'}</button>{!expanded && !snapshot.promptAvailable && <button type="button" onClick={() => setExpanded(true)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200">Help</button>}</div>
-    {expanded && <div className="mt-3 rounded-lg bg-zinc-900 p-3" role="status"><p className="text-sm font-medium">{guidance.heading}</p><p className="mt-1 text-sm text-zinc-300">{guidance.steps}</p>{!guidance.supported && <p className="mt-2 text-xs text-zinc-400">Notifications are configured separately; installing does not request notification permission.</p>}</div>}
-    {message && <p role="status" className="mt-3 text-sm text-zinc-300">{message}</p>}
-  </aside>;
+
+  const showGuidance = expanded || !snapshot.promptAvailable;
+
+  return (
+    <aside aria-label="Install Avelixa" className="fixed bottom-4 right-4 z-[100] w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-zinc-700 bg-zinc-950 p-4 text-white shadow-2xl">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 rounded-lg bg-zinc-800 p-2" aria-hidden="true"><Download size={20} /></span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">Install Avelixa</p>
+          <p className="mt-1 text-sm text-zinc-300">Use Avelixa like an app on this device.</p>
+        </div>
+        <button type="button" onClick={() => setVisible(false)} aria-label="Dismiss installation prompt" className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white"><X size={18} /></button>
+      </div>
+
+      {snapshot.promptAvailable && (
+        <div className="mt-3">
+          <button type="button" disabled={busy} onClick={startInstall} className="w-full rounded-lg bg-white px-3 py-2.5 text-sm font-semibold text-zinc-950 disabled:opacity-60">
+            {busy ? 'Opening…' : 'Install Avelixa'}
+          </button>
+        </div>
+      )}
+
+      {showGuidance && (
+        <div className="mt-3 rounded-lg bg-zinc-900 p-3" role="status">
+          <p className="text-sm font-medium">{guidance.heading}</p>
+          <p className="mt-1 text-sm text-zinc-300">{guidance.steps}</p>
+          {!guidance.supported && <p className="mt-2 text-xs text-zinc-400">Native installation is not currently available in this browser. Notifications are configured separately.</p>}
+        </div>
+      )}
+
+      {snapshot.promptAvailable && !expanded && (
+        <button type="button" onClick={() => setExpanded(true)} className="mt-2 w-full text-left text-xs text-zinc-400 underline underline-offset-2">
+          Installation options
+        </button>
+      )}
+      {message && <p role="status" className="mt-3 text-sm text-zinc-300">{message}</p>}
+    </aside>
+  );
 }
