@@ -44,6 +44,12 @@ assert.doesNotMatch(settings, /Notification\.requestPermission\(\)/,
   'settings mount must not request notification permission automatically');
 assert.match(baseline, /create table if not exists public\.push_subscriptions/i,
   'the repository must recreate the existing production push subscription schema');
+assert.match(baseline, /create table if not exists public\.push_dispatch_queue/i,
+  'message notifications must have a durable outbox row before remote dispatch');
+assert.match(baseline, /exception when others then[\s\S]*durable queue row remains pending/i,
+  'a temporary pg_net enqueue failure must not abort message delivery');
+assert.match(worker, /from\("push_dispatch_queue"\)/,
+  'the trusted worker must claim and complete durable dispatch events');
 assert.match(baseline, /create table if not exists public\.push_deliveries/i,
   'the repository must recreate the existing production delivery ledger');
 assert.match(baseline, /enable row level security/i,
