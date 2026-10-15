@@ -58,10 +58,10 @@ assert.match(
   /rpc\(['"]register_push_subscription['"]/,
   'the real push subscription must be persisted through an authenticated owner-derived RPC',
 );
-assert.match(
+assert.doesNotMatch(
   canonical,
-  /from\('notification_preferences'\)/,
-  'the existing notification preference must be synchronized after subscription',
+  /from\(['"]notification_preferences['"]\)/,
+  'enabling or disabling one device must not toggle the account-wide preference for every device',
 );
 
 console.log('Push notification permission enablement contract: PASS');
