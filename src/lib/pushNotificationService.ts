@@ -157,6 +157,24 @@ export async function subscribeToAvelixaPushNotifications(): Promise<PushSubscri
 
   let subscription = await activeRegistration.pushManager.getSubscription();
 
+  if (subscription) {
+    // Recreate stale endpoints and prevent a browser reused by another account
+    // from silently re-registering an endpoint that it no longer owns.
+    const { data: storedSubscription, error: lookupError } = await supabase
+      .from('push_subscriptions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('endpoint', subscription.endpoint)
+      .maybeSingle();
+    if (lookupError) {
+      throw new Error(`Unable to verify this device subscription: ${lookupError.message}`);
+    }
+    if (!storedSubscription) {
+      await subscription.unsubscribe();
+      subscription = null;
+    }
+  }
+
   if (!subscription) {
     const publicKey = await getVapidPublicKey();
     subscription = await activeRegistration.pushManager.subscribe({
@@ -236,6 +254,8 @@ export async function initializeAvelixaPushNotifications(): Promise<{
   if (!isPushSupported()) {
     throw new Error('This browser does not support Avelixa push notifications.');
   }
+
+  await getCurrentUser();
 
   let permission = Notification.permission;
 
