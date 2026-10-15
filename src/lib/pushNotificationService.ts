@@ -171,22 +171,15 @@ export async function subscribeToAvelixaPushNotifications(): Promise<PushSubscri
     throw new Error('The browser created an incomplete Avelixa push subscription.');
   }
 
-  const { error: subscriptionError } = await supabase
-    .from('push_subscriptions')
-    .upsert(
-      {
-        user_id: user.id,
-        endpoint: subscriptionJson.endpoint,
-        p256dh: subscriptionJson.keys.p256dh,
-        auth: subscriptionJson.keys.auth,
-        expiration_time: subscription.expirationTime
-          ? new Date(subscription.expirationTime).toISOString()
-          : null,
-        user_agent: navigator.userAgent,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,endpoint' },
-    );
+  const { error: subscriptionError } = await supabase.rpc('register_push_subscription', {
+    p_endpoint: subscriptionJson.endpoint,
+    p_p256dh: subscriptionJson.keys.p256dh,
+    p_auth: subscriptionJson.keys.auth,
+    p_expiration_time: subscription.expirationTime
+      ? new Date(subscription.expirationTime).toISOString()
+      : null,
+    p_user_agent: navigator.userAgent,
+  });
 
   if (subscriptionError) {
     throw new Error(`Avelixa could not save this device subscription: ${subscriptionError.message}`);
@@ -251,22 +244,20 @@ export async function unsubscribeFromAvelixaPushNotifications(): Promise<void> {
 
   await subscription.unsubscribe();
 
-  {
-    const { error: preferenceError } = await supabase
-      .from('notification_preferences')
-      .upsert(
-        {
-          user_id: user.id,
-          push_notifications: false,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' },
-      );
+  const { error: preferenceError } = await supabase
+    .from('notification_preferences')
+    .upsert(
+      {
+        user_id: user.id,
+        push_notifications: false,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' },
+    );
 
-    if (preferenceError) {
-      console.error('Unable to update Avelixa notification preferences:', preferenceError);
-      throw new Error(`The device was unsubscribed, but the notification preference could not be saved: ${preferenceError.message}`);
-    }
+  if (preferenceError) {
+    console.error('Unable to update Avelixa notification preferences:', preferenceError);
+    throw new Error(`The device was unsubscribed, but the notification preference could not be saved: ${preferenceError.message}`);
   }
 }
 
