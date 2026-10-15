@@ -17,8 +17,10 @@ const login = read('src/pages/portal/Login.tsx');
 
 assert.match(worker, /Access-Control-Allow-Origin": "https:\/\/www\.avelixa\.co\.ke"/,
   'the push key endpoint must allow the production www origin');
-assert.match(worker, /isMessage \? "Avelixa"/,
-  'message push title must not expose sender or conversation details');
+assert.match(worker, /title: "Avelixa"/,
+  'push titles must not expose sender or conversation details');
+assert.doesNotMatch(worker, /notification\.title|notification\.content/,
+  'the worker must not read or forward sensitive notification text into push payloads');
 assert.match(worker, /You have a new message on Avelixa\./,
   'message push body must remain private by default');
 assert.match(worker, /next_attempt_at: retryAt/,
