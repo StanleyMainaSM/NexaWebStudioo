@@ -8,11 +8,18 @@ interface PushSubscriptionResponse {
   error?: string;
 }
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
-  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+  const buffer = new ArrayBuffer(rawData.length);
+  const bytes = new Uint8Array(buffer);
+
+  for (let index = 0; index < rawData.length; index += 1) {
+    bytes[index] = rawData.charCodeAt(index);
+  }
+
+  return buffer;
 }
 
 function isPushSupported(): boolean {
@@ -179,7 +186,7 @@ export async function subscribeToAvelixaPushNotifications(): Promise<PushSubscri
     const publicKey = await getVapidPublicKey();
     subscription = await activeRegistration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
+      applicationServerKey: urlBase64ToArrayBuffer(publicKey),
     });
   }
 

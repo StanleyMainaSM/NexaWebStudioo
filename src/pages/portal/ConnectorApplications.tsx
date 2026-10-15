@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Clock3, Loader2, UserPlus, XCircle, AlertTriangle, MailCheck, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Clock3, Loader2, UserPlus, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 type Application = {
@@ -105,11 +105,6 @@ export default function ConnectorApplications() {
       setProcessing(null);
     }
   };
-
-  const counts = applications.reduce((summary, application) => {
-    summary[application.status] = (summary[application.status] || 0) + 1;
-    return summary;
-  }, {} as Record<string, number>);
 
   return (
     <div className="space-y-8">

@@ -83,4 +83,44 @@ assert.ok(
   'notification helper baseline must sort before the dependent notification workflow migration'
 );
 
+
+const callSignalsBaselinePath = path.join(root, 'supabase', 'migrations', '20260923160000_restore_call_signals_baseline.sql');
+const callSignalsDependentPath = path.join(root, 'supabase', 'migrations', '20260923161018_communication_realtime_delivery_hardening.sql');
+
+assert.ok(fs.existsSync(callSignalsBaselinePath), 'call_signals baseline migration must exist');
+assert.ok(fs.existsSync(callSignalsDependentPath), 'call_signals realtime dependent migration must exist');
+
+const callSignalsBaseline = fs.readFileSync(callSignalsBaselinePath, 'utf8');
+const callSignalsDependent = fs.readFileSync(callSignalsDependentPath, 'utf8');
+
+assert.match(
+  callSignalsBaseline,
+  /create table if not exists public\.call_signals\s*\(/i,
+  'baseline must create the existing public.call_signals schema before realtime hardening'
+);
+assert.match(
+  callSignalsBaseline,
+  /alter table public\.call_signals enable row level security/i,
+  'call_signals baseline must enable RLS'
+);
+assert.match(
+  callSignalsBaseline,
+  /call_signals_insert_participant[\s\S]*with check/i,
+  'call_signals inserts must remain restricted to the authenticated call participant'
+);
+assert.match(
+  callSignalsBaseline,
+  /call_signals_select_remote_signals[\s\S]*sender_id <> \(select auth\.uid\(\)\)/i,
+  'call_signals reads must remain restricted to remote signals for authenticated call participants'
+);
+assert.match(
+  callSignalsDependent,
+  /alter publication supabase_realtime add table public\.call_signals/i,
+  'dependent migration must only publish the restored call_signals table'
+);
+assert.ok(
+  '20260923160000_restore_call_signals_baseline.sql' < '20260923161018_communication_realtime_delivery_hardening.sql',
+  'call_signals baseline must sort before its Realtime publication dependency'
+);
+
 console.log('Communication migration dependency regression: PASS');

@@ -5,17 +5,53 @@ import webpush from "npm:web-push@3.6.7";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, serviceRoleKey);
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://www.avelixa.co.ke",
-  "Vary": "Origin",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-avelixa-push-secret",
-  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-};
+const productionOrigin = "https://www.avelixa.co.ke";
+const defaultAllowedOrigins = [
+  productionOrigin,
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
 
-function json(data: unknown, status = 200) {
+function isValidAllowedOrigin(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    if (parsed.origin !== value || parsed.username || parsed.password) return false;
+    if (parsed.protocol === "https:") return true;
+    // Plain HTTP is permitted only for explicit loopback development origins.
+    return parsed.protocol === "http:" &&
+      ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+const configuredOrigins = (Deno.env.get("AVELIXA_PUSH_ALLOWED_ORIGINS") ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter((origin) => origin.length > 0 && isValidAllowedOrigin(origin));
+
+const allowedOrigins = new Set([
+  ...defaultAllowedOrigins,
+  ...configuredOrigins,
+]);
+
+function corsHeadersFor(req: Request): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Vary": "Origin",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-avelixa-push-secret",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+  };
+  const origin = req.headers.get("Origin");
+  if (origin && allowedOrigins.has(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  return headers;
+}
+
+function json(req: Request, data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json", ...corsHeaders },
+    headers: { "Content-Type": "application/json", ...corsHeadersFor(req) },
   });
 }
 
@@ -51,25 +87,31 @@ Deno.serve(async (req) => {
   let dispatchId: string | null = null;
   let dispatchClaimed = false;
   let dispatchAttempts = 0;
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const origin = req.headers.get("Origin");
+  if (origin && !allowedOrigins.has(origin)) {
+    return json(req, { error: "Origin not allowed" }, 403);
+  }
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeadersFor(req) });
+  }
 
   try {
     const secret = await getWorkerSecret();
-    if (!secret) return json({ error: "Push configuration unavailable" }, 500);
+    if (!secret) return json(req, { error: "Push configuration unavailable" }, 500);
 
     if (req.method === "GET") {
       const vapid = await ensureVapidKeys(secret);
-      return json({ publicKey: vapid.publicKey });
+      return json(req, { publicKey: vapid.publicKey });
     }
 
-    if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+    if (req.method !== "POST") return json(req, { error: "Method not allowed" }, 405);
 
     const incomingSecret = req.headers.get("x-avelixa-push-secret");
-    if (!incomingSecret || incomingSecret !== secret) return json({ error: "Unauthorized" }, 401);
+    if (!incomingSecret || incomingSecret !== secret) return json(req, { error: "Unauthorized" }, 401);
 
     const body = await req.json();
     const notificationId = body?.notification_id;
-    if (!notificationId) return json({ error: "notification_id is required" }, 400);
+    if (!notificationId) return json(req, { error: "notification_id is required" }, 400);
 
     const { data: notification, error: notificationError } = await supabase
       .from("notifications")
@@ -77,7 +119,7 @@ Deno.serve(async (req) => {
       .eq("id", notificationId)
       .maybeSingle();
     if (notificationError) throw notificationError;
-    if (!notification) return json({ ok: true, acceptedByProvider: 0, skipped: "notification_missing" });
+    if (!notification) return json(req, { ok: true, acceptedByProvider: 0, skipped: "notification_missing" });
 
     const { data: dispatch, error: dispatchLookupError } = await supabase
       .from("push_dispatch_queue")
@@ -92,7 +134,7 @@ Deno.serve(async (req) => {
         next_attempt_at: null,
         updated_at: new Date().toISOString(),
       }).eq("notification_id", notification.id);
-      return json({ ok: true, acceptedByProvider: 0, skipped: "no_recipient" });
+      return json(req, { ok: true, acceptedByProvider: 0, skipped: "no_recipient" });
     }
 
     if (dispatch && dispatch.status !== "processed" && dispatch.status !== "failed") {
@@ -100,7 +142,7 @@ Deno.serve(async (req) => {
         ? (!dispatch.next_attempt_at || new Date(dispatch.next_attempt_at).getTime() <= Date.now())
         : dispatch.status === "processing" &&
           Date.now() - new Date(dispatch.updated_at).getTime() >= 5 * 60_000;
-      if (!due) return json({ ok: true, acceptedByProvider: 0, skipped: "dispatch_not_due" });
+      if (!due) return json(req, { ok: true, acceptedByProvider: 0, skipped: "dispatch_not_due" });
       if (Number(dispatch.attempts || 0) >= 5) {
         await supabase.from("push_dispatch_queue").update({
           status: "failed",
@@ -108,7 +150,7 @@ Deno.serve(async (req) => {
           last_error: "Push dispatch retry limit reached",
           updated_at: new Date().toISOString(),
         }).eq("id", dispatch.id);
-        return json({ ok: true, acceptedByProvider: 0, skipped: "dispatch_retry_limit" });
+        return json(req, { ok: true, acceptedByProvider: 0, skipped: "dispatch_retry_limit" });
       }
       dispatchAttempts = Number(dispatch.attempts || 0) + 1;
       const { data: claimed, error: claimError } = await supabase
@@ -126,7 +168,7 @@ Deno.serve(async (req) => {
         .select("id")
         .maybeSingle();
       if (claimError) throw claimError;
-      if (!claimed?.id) return json({ ok: true, acceptedByProvider: 0, skipped: "dispatch_already_claimed" });
+      if (!claimed?.id) return json(req, { ok: true, acceptedByProvider: 0, skipped: "dispatch_already_claimed" });
       dispatchId = claimed.id;
       dispatchClaimed = true;
     }
@@ -156,7 +198,7 @@ Deno.serve(async (req) => {
         }).eq("id", dispatchId);
         if (error) throw error;
       }
-      return json({ ok: true, acceptedByProvider: 0, skipped: "no_subscription" });
+      return json(req, { ok: true, acceptedByProvider: 0, skipped: "no_subscription" });
     }
 
     const vapid = await ensureVapidKeys(secret);
@@ -309,7 +351,7 @@ Deno.serve(async (req) => {
       }).eq("id", dispatchId);
       if (dispatchUpdateError) throw dispatchUpdateError;
     }
-    return json({ ok: true, acceptedByProvider, subscriptions: subscriptions.length });
+    return json(req, { ok: true, acceptedByProvider, subscriptions: subscriptions.length });
   } catch (error) {
     if (dispatchClaimed && dispatchId) {
       const retryAt = dispatchAttempts < 5
@@ -323,6 +365,6 @@ Deno.serve(async (req) => {
       }).eq("id", dispatchId);
     }
     console.error("Avelixa push worker error:", error instanceof Error ? error.message : "Unknown push worker error");
-    return json({ error: "Push worker failed" }, 500);
+    return json(req, { error: "Push worker failed" }, 500);
   }
 });
