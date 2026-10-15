@@ -12,6 +12,16 @@ alter table public.push_deliveries
   alter column attempts set default 0;
 
 alter table public.push_deliveries
+  alter column subscription_id drop not null;
+
+alter table public.push_deliveries
+  drop constraint if exists push_deliveries_subscription_id_fkey;
+
+alter table public.push_deliveries
+  add constraint push_deliveries_subscription_id_fkey
+  foreign key (subscription_id) references public.push_subscriptions(id) on delete set null;
+
+alter table public.push_deliveries
   drop constraint if exists push_deliveries_status_check;
 
 update public.push_deliveries set status = 'accepted' where status = 'sent';
