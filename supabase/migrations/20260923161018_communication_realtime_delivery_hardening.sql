@@ -1,17 +1,14 @@
-do $
+do $$
 begin
-  -- Older/clean schema histories may not create call_signals until a later
-  -- migration. Only publish it when the relation exists.
-  if to_regclass('public.call_signals') is not null
-     and not exists (
-       select 1 from pg_publication_tables
-       where pubname = 'supabase_realtime'
-         and schemaname = 'public'
-         and tablename = 'call_signals'
-     ) then
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'call_signals'
+  ) then
     alter publication supabase_realtime add table public.call_signals;
   end if;
-end $;
+end $$;
 
 create or replace function public.broadcast_direct_message()
 returns trigger
