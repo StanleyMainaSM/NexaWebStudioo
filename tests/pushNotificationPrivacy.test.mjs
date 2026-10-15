@@ -21,6 +21,14 @@ assert.match(worker, /title: "Avelixa"/,
   'push titles must not expose sender or conversation details');
 assert.doesNotMatch(worker, /notification\.title|notification\.content/,
   'the worker must not read or forward sensitive notification text into push payloads');
+assert.match(worker, /title: "Avelixa"/,
+  'all push titles must be generic');
+assert.match(worker, /You have a new notification on Avelixa\./,
+  'non-message push payloads must not reveal notification content');
+assert.match(serviceWorker, /You have a new notification on Avelixa\./,
+  'service worker must enforce generic notification text for all push types');
+assert.match(worker, /subscription expired/,
+  'expired endpoint failures must be recorded before subscription cleanup');
 assert.match(worker, /You have a new message on Avelixa\./,
   'message push body must remain private by default');
 assert.match(worker, /next_attempt_at: retryAt/,
