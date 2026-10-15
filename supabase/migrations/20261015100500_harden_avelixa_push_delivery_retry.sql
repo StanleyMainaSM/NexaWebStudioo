@@ -46,11 +46,16 @@ alter table public.push_deliveries
 alter table public.push_deliveries
   drop constraint if exists push_deliveries_status_check;
 
-update public.push_deliveries set status = 'accepted' where status = 'sent';
+update public.push_deliveries
+  set provider_accepted_at = sent_at
+  where status = 'sent' and sent_at is not null and provider_accepted_at is null;
 
+-- Keep the legacy 'sent' value valid during the short schema/Edge Function
+-- rollout window; it means the provider accepted the request, not that a
+-- device displayed it. The new worker writes the clearer 'accepted' status.
 alter table public.push_deliveries
   add constraint push_deliveries_status_check
-  check (status = any (array['pending'::text, 'processing'::text, 'accepted'::text, 'failed'::text]));
+  check (status = any (array['pending'::text, 'processing'::text, 'accepted'::text, 'sent'::text, 'failed'::text]));
 
 create index if not exists push_deliveries_retry_due_idx
   on public.push_deliveries (next_attempt_at)
