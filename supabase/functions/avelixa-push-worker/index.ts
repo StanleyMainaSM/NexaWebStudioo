@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
       if (lookupError) throw lookupError;
 
       if (!existing && !dispatchClaimed) continue;
-      if (existing?.status === "accepted") continue;
+      if (existing?.status === "accepted" || existing?.status === "sent") continue;
       if (existing && Number(existing.attempts || 0) >= 5 && existing.status === "failed") continue;
       if (existing?.next_attempt_at && new Date(existing.next_attempt_at).getTime() > Date.now()) continue;
       if (existing?.status === "processing" && Date.now() - new Date(existing.updated_at).getTime() < 5 * 60_000) continue;
