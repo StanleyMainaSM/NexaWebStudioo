@@ -102,18 +102,33 @@ begin
         body := jsonb_build_object('notification_id', n.id)
       )
       from public.notifications n
-      where exists (
-        select 1
-        from public.push_deliveries d
-        where d.notification_id = n.id
-          and d.attempts < 5
-          and (
-            (d.status = 'failed'
-              and d.next_attempt_at is not null
-              and d.next_attempt_at <= now())
-            or (d.status = 'processing'
-              and d.updated_at <= now() - interval '5 minutes')
-          )
+      where (
+        exists (
+          select 1
+          from public.push_dispatch_queue q
+          where q.notification_id = n.id
+            and q.attempts < 5
+            and (
+              (q.status = 'pending'
+                and q.next_attempt_at is not null
+                and q.next_attempt_at <= now())
+              or (q.status = 'processing'
+                and q.updated_at <= now() - interval '5 minutes')
+            )
+        )
+        or exists (
+          select 1
+          from public.push_deliveries d
+          where d.notification_id = n.id
+            and d.attempts < 5
+            and (
+              (d.status = 'failed'
+                and d.next_attempt_at is not null
+                and d.next_attempt_at <= now())
+              or (d.status = 'processing'
+                and d.updated_at <= now() - interval '5 minutes')
+            )
+        )
       )
       and exists (
         select 1
