@@ -95,27 +95,27 @@ const callSignalsDependent = fs.readFileSync(callSignalsDependentPath, 'utf8');
 
 assert.match(
   callSignalsBaseline,
-  /create table if not exists public\\.call_signals\\s*\\(/i,
+  /create table if not exists public\.call_signals\s*\(/i,
   'baseline must create the existing public.call_signals schema before realtime hardening'
 );
 assert.match(
   callSignalsBaseline,
-  /alter table public\\.call_signals enable row level security/i,
+  /alter table public\.call_signals enable row level security/i,
   'call_signals baseline must enable RLS'
 );
 assert.match(
   callSignalsBaseline,
-  /call_signals_insert_participant[\\s\\S]*with check/i,
+  /call_signals_insert_participant[\s\S]*with check/i,
   'call_signals inserts must remain restricted to the authenticated call participant'
 );
 assert.match(
   callSignalsBaseline,
-  /call_signals_select_remote_signals[\\s\\S]*sender_id <> \\(select auth\\.uid\\(\\)\\)/i,
+  /call_signals_select_remote_signals[\s\S]*sender_id <> \(select auth\.uid\(\)\)/i,
   'call_signals reads must remain restricted to remote signals for authenticated call participants'
 );
 assert.match(
   callSignalsDependent,
-  /alter publication supabase_realtime add table public\\.call_signals/i,
+  /alter publication supabase_realtime add table public\.call_signals/i,
   'dependent migration must only publish the restored call_signals table'
 );
 assert.ok(
