@@ -49,17 +49,19 @@ self.addEventListener(
       };
     }
 
-    const title =
-      data.title ||
-      'Avelixa';
+    // Keep message notifications private on lock screens regardless of
+    // notification row contents. Detailed previews are not sent by default.
+    const isMessage = data.type === 'message';
+    const title = isMessage ? 'Avelixa' : (data.title || 'Avelixa');
+    const body = isMessage
+      ? 'You have a new message on Avelixa.'
+      : (data.body || 'You have a new Avelixa notification.');
 
-    const body =
-      data.body ||
-      'You have a new Avelixa notification.';
-
-    const url =
-      data.url ||
-      '/portal';
+    const url = isMessage
+      ? (typeof data.metadata?.conversation_id === 'string'
+          ? `/portal/messages?conversation=${encodeURIComponent(data.metadata.conversation_id)}`
+          : '/portal/messages')
+      : (data.url || '/portal');
 
     const options: NotificationOptions =
       {
@@ -100,9 +102,20 @@ self.addEventListener(
           }
         | undefined;
 
-    const targetUrl =
-      notificationData?.url ||
-      '/portal';
+    const rawTargetUrl = notificationData?.url || '/portal';
+    let targetUrl = '/portal';
+    try {
+      const candidate = new URL(rawTargetUrl, self.location.origin);
+      // Notifications may only navigate within Avelixa's portal routes.
+      if (
+        candidate.origin === self.location.origin &&
+        (candidate.pathname === '/portal' || candidate.pathname.startsWith('/portal/'))
+      ) {
+        targetUrl = candidate.pathname + candidate.search + candidate.hash;
+      }
+    } catch {
+      targetUrl = '/portal';
+    }
 
     event.waitUntil(
       (async () => {
