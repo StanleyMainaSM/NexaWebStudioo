@@ -52,10 +52,10 @@ self.addEventListener(
     // Keep message notifications private on lock screens regardless of
     // notification row contents. Detailed previews are not sent by default.
     const isMessage = data.type === 'message';
-    const title = isMessage ? 'Avelixa' : (data.title || 'Avelixa');
+    const title = 'Avelixa';
     const body = isMessage
       ? 'You have a new message on Avelixa.'
-      : (data.body || 'You have a new Avelixa notification.');
+      : 'You have a new notification on Avelixa.';
 
     const url = isMessage
       ? (typeof data.metadata?.conversation_id === 'string'
