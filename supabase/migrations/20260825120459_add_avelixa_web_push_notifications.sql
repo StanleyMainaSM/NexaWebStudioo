@@ -65,6 +65,7 @@ create policy push_subscriptions_delete_own
 revoke all on table public.push_subscriptions from anon, authenticated;
 grant select, insert, update, delete on table public.push_subscriptions to authenticated;
 revoke all on table public.push_deliveries from anon, authenticated;
+grant all on table public.push_subscriptions, public.push_deliveries to service_role;
 
 create or replace function public.get_push_worker_secret()
 returns text
