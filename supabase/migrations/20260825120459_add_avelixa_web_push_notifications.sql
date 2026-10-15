@@ -33,6 +33,22 @@ create table if not exists public.push_deliveries (
     unique (notification_id, subscription_id)
 );
 
+create table if not exists public.push_dispatch_queue (
+  id uuid primary key default gen_random_uuid(),
+  notification_id uuid not null unique references public.notifications(id) on delete cascade,
+  status text not null default 'pending'
+    check (status = any (array['pending'::text, 'processing'::text, 'processed'::text, 'failed'::text])),
+  attempts integer not null default 0,
+  next_attempt_at timestamptz not null default now(),
+  last_error text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists push_dispatch_queue_due_idx
+  on public.push_dispatch_queue(next_attempt_at)
+  where status = 'pending';
+
 create index if not exists push_subscriptions_user_id_idx
   on public.push_subscriptions(user_id);
 create index if not exists push_deliveries_notification_id_idx
@@ -40,6 +56,7 @@ create index if not exists push_deliveries_notification_id_idx
 
 alter table public.push_subscriptions enable row level security;
 alter table public.push_deliveries enable row level security;
+alter table public.push_dispatch_queue enable row level security;
 
 drop policy if exists push_subscriptions_select_own on public.push_subscriptions;
 create policy push_subscriptions_select_own
@@ -64,8 +81,8 @@ create policy push_subscriptions_delete_own
 
 revoke all on table public.push_subscriptions from anon, authenticated;
 grant select, insert, update, delete on table public.push_subscriptions to authenticated;
-revoke all on table public.push_deliveries from anon, authenticated;
-grant all on table public.push_subscriptions, public.push_deliveries to service_role;
+revoke all on table public.push_deliveries, public.push_dispatch_queue from anon, authenticated;
+grant all on table public.push_subscriptions, public.push_deliveries, public.push_dispatch_queue to service_role;
 
 create or replace function public.get_push_worker_secret()
 returns text
@@ -155,7 +172,14 @@ as $function$
 declare
   webhook_secret text;
 begin
+  insert into public.push_dispatch_queue(notification_id, status, attempts, next_attempt_at)
+  values (new.id, 'pending', 0, now())
+  on conflict (notification_id) do nothing;
+
   if new.user_id is null then
+    update public.push_dispatch_queue
+      set status = 'processed', next_attempt_at = null, updated_at = now()
+      where notification_id = new.id;
     return new;
   end if;
 
@@ -170,14 +194,19 @@ begin
     return new;
   end if;
 
-  perform net.http_post(
-    url := 'https://uhbyruktnhktjeuqsqut.supabase.co/functions/v1/avelixa-push-worker',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-avelixa-push-secret', webhook_secret
-    ),
-    body := jsonb_build_object('notification_id', new.id)
-  );
+  begin
+    perform net.http_post(
+      url := 'https://uhbyruktnhktjeuqsqut.supabase.co/functions/v1/avelixa-push-worker',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-avelixa-push-secret', webhook_secret
+      ),
+      body := jsonb_build_object('notification_id', new.id)
+    );
+  exception when others then
+    -- The durable queue row remains pending for the scheduled retry worker.
+    null;
+  end;
 
   return new;
 end;
