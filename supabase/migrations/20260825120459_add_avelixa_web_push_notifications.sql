@@ -21,7 +21,7 @@ create table if not exists public.push_subscriptions (
 create table if not exists public.push_deliveries (
   id uuid primary key default gen_random_uuid(),
   notification_id uuid not null references public.notifications(id) on delete cascade,
-  subscription_id uuid not null references public.push_subscriptions(id) on delete cascade,
+  subscription_id uuid references public.push_subscriptions(id) on delete set null,
   status text not null default 'pending'
     check (status = any (array['pending'::text, 'sent'::text, 'failed'::text])),
   attempts integer not null default 0,
