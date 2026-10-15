@@ -10,6 +10,8 @@ const service = read('src/lib/pushNotificationService.ts');
 const settings = read('src/components/portal/PushNotificationSettings.tsx');
 const migration = read('supabase/migrations/20261015100500_harden_avelixa_push_delivery_retry.sql');
 const conversation = read('src/pages/portal/CommunicationCenterV4.tsx');
+const protectedRoute = read('src/components/portal/ProtectedRoute.tsx');
+const login = read('src/pages/portal/Login.tsx');
 
 assert.match(worker, /Access-Control-Allow-Origin": "https:\/\/www\.avelixa\.co\.ke"/,
   'the push key endpoint must allow the production www origin');
@@ -47,5 +49,10 @@ assert.match(migration, /cron\.schedule\([\s\S]*avelixa-push-retry/,
   'failed push events must have a scheduled retry path');
 assert.match(conversation, /searchParams\.get\('conversation'\)/,
   'push clicks must select the target conversation when it is available');
+
+assert.match(protectedRoute, /location\\.pathname\\}\\$\\{location\\.search\\}/,
+  'authentication redirects must preserve the notification conversation query');
+assert.match(login, /if \\(!signedInUser\\)[\\s\\S]*Sign in first, then enable notifications/,
+  'the login page must not request push permission before authentication');
 
 console.log('Push notification privacy, ownership, retry and navigation contracts: PASS');
