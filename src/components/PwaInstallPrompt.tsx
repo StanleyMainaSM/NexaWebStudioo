@@ -52,26 +52,30 @@ export default function PwaInstallPrompt() {
   const [message, setMessage] = useState('');
   const guidance = getInstallGuidance();
 
-  useEffect(() => subscribePwaInstall(() => setSnapshot(getPwaInstallSnapshot())), []);
+  useEffect(() => {
+    const unsubscribe = subscribePwaInstall(() => setSnapshot(getPwaInstallSnapshot()));
+    // Re-read after subscribing so an event arriving between render and effect setup is not lost.
+    setSnapshot(getPwaInstallSnapshot());
+    return unsubscribe;
+  }, []);
 
   if (snapshot.installed || !visible) return null;
 
   const startInstall = async () => {
-    if (!snapshot.promptAvailable) {
-      setMessage('A direct installation prompt is not available in this browser. Follow the installation steps below.');
-      return;
-    }
+    // Do not gate this call on React state: the one-shot browser event may be newer
+    // than the last render. promptPwaInstall invokes prompt() synchronously if present.
     setBusy(true);
     setMessage('');
     try {
       const outcome = await promptPwaInstall();
+      if (outcome === 'unavailable') return;
       if (outcome === 'accepted') {
         setMessage('Installation was accepted. Finish any confirmation shown by your browser.');
       } else if (outcome === 'dismissed') {
         setMessage('Installation was cancelled. Avelixa has not been marked as installed.');
       }
     } catch {
-      setMessage('The browser could not open its installation prompt. Use the installation options below.');
+      setMessage('The browser could not open its installation prompt. Follow the steps below instead.');
     } finally {
       setBusy(false);
     }
@@ -96,8 +100,8 @@ export default function PwaInstallPrompt() {
 
       <div className="mt-3 rounded-lg bg-zinc-900 p-3" role="status">
         <p className="text-sm font-medium">{guidance.heading}</p>
+        {!snapshot.promptAvailable && !busy && !message && <p className="mt-1 text-xs text-zinc-400">Native installation isn’t available right now. Use these browser instructions instead.</p>}
         <p className="mt-1 text-sm text-zinc-300">{guidance.steps}</p>
-        {!snapshot.promptAvailable && <p className="mt-2 text-xs text-zinc-400">A direct installation prompt is not currently available in this browser. Installing does not request notification permission.</p>}
       </div>
       {message && <p role="status" className="mt-3 text-sm text-zinc-300">{message}</p>}
     </aside>

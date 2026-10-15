@@ -17,8 +17,6 @@ import {
   CheckCircle2,
   UserPlus,
   Users,
-  Download,
-  Smartphone,
   Bell,
 } from 'lucide-react';
 
@@ -33,20 +31,6 @@ import {
   initializeAvelixaPushNotifications,
   requestPushNotificationPermission,
 } from '../../lib/pushNotificationService';
-
-interface BeforeInstallPromptEvent
-  extends Event {
-  readonly platforms: string[];
-
-  readonly userChoice: Promise<{
-    outcome:
-      | 'accepted'
-      | 'dismissed';
-    platform: string;
-  }>;
-
-  prompt(): Promise<void>;
-}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -72,19 +56,6 @@ export default function Login() {
   const [
     resetLoading,
     setResetLoading,
-  ] = useState(false);
-
-  const [
-    deferredPrompt,
-    setDeferredPrompt,
-  ] =
-    useState<BeforeInstallPromptEvent | null>(
-      null
-    );
-
-  const [
-    isInstalled,
-    setIsInstalled,
   ] = useState(false);
 
   const [
@@ -129,9 +100,6 @@ export default function Login() {
           standalone
         );
 
-        if (standalone) {
-          setIsInstalled(true);
-        }
       };
 
     checkStandaloneMode();
@@ -155,43 +123,7 @@ export default function Login() {
       );
     }
 
-    const handleBeforeInstallPrompt =
-      (event: Event) => {
-        event.preventDefault();
-
-        setDeferredPrompt(
-          event as BeforeInstallPromptEvent
-        );
-      };
-
-    const handleAppInstalled =
-      () => {
-        setIsInstalled(true);
-        setDeferredPrompt(null);
-        setIsStandaloneApp(true);
-      };
-
-    window.addEventListener(
-      'beforeinstallprompt',
-      handleBeforeInstallPrompt
-    );
-
-    window.addEventListener(
-      'appinstalled',
-      handleAppInstalled
-    );
-
     return () => {
-      window.removeEventListener(
-        'beforeinstallprompt',
-        handleBeforeInstallPrompt
-      );
-
-      window.removeEventListener(
-        'appinstalled',
-        handleAppInstalled
-      );
-
       if (
         typeof standaloneMediaQuery.removeEventListener ===
         'function'
@@ -252,19 +184,6 @@ export default function Login() {
       );
     }
   }, []);
-
-  const handleInstallApp =
-    async () => {
-      if (!deferredPrompt) {
-        return;
-      }
-
-      deferredPrompt.prompt();
-
-      await deferredPrompt.userChoice;
-
-      setDeferredPrompt(null);
-    };
 
   const handleEnableNotifications =
     async () => {
@@ -847,60 +766,6 @@ export default function Login() {
 
                     Try Again
                   </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!isInstalled &&
-            deferredPrompt && (
-            <div className="mt-6 rounded-2xl border border-accent-400/20 bg-accent-400/5 p-4">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-accent-400/10 flex items-center justify-center shrink-0">
-                  <Download className="w-5 h-5 text-accent-400" />
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-sm font-semibold text-white">
-                    Install Avelixa App
-                  </h2>
-
-                  <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                    Install the Avelixa Portal on your device for quick access.
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={
-                      handleInstallApp
-                    }
-                    className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-400 text-black hover:bg-accent-300 transition-colors text-xs font-bold uppercase tracking-widest"
-                  >
-                    <Download className="w-4 h-4" />
-
-                    Install Avelixa
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!isInstalled &&
-            !deferredPrompt && (
-            <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
-                  <Smartphone className="w-5 h-5 text-accent-400" />
-                </div>
-
-                <div>
-                  <h2 className="text-sm font-semibold text-white">
-                    Avelixa App
-                  </h2>
-
-                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                    If your browser supports installation, the install option will appear here.
-                  </p>
                 </div>
               </div>
             </div>
