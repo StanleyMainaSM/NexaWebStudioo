@@ -37,11 +37,8 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Generate canonical dependency lockfile
-        run: |
-          npm install --no-audit --no-fund
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          node --input-type=commonjs -e "const fs=require('node:fs'); const b=Buffer.from(fs.readFileSync('package-lock.json')).toString('base64'); for(let i=0;i<b.length;i+=30000) console.log('LOCKFILE_B64_'+String(i/30000).padStart(3,'0')+'='+b.slice(i,i+30000)); console.log('LOCKFILE_B64_END='+b.length)"
+      - name: Clean dependency installation
+        run: npm ci --no-audit --no-fund
 
       - name: Theme system regression tests
         run: node --experimental-strip-types tests/theme.test.mjs
