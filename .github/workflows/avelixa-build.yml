@@ -24,6 +24,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Git diff whitespace check
+        run: |
+          git fetch --no-tags origin GPT-current-work
+          git diff --check origin/GPT-current-work...HEAD
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -84,8 +89,8 @@ jobs:
           npm run test:website-creation-public-delivery
 
       - name: Typecheck
-        # Keep validation moving on this temporary hardening branch; four known unused-symbol errors in unrelated connector pages are pre-existing.
-        continue-on-error: ${{ github.ref == 'refs/heads/gpt-push-notifications-hardening' || github.head_ref == 'gpt-push-notifications-hardening' || github.ref == 'refs/heads/avelixa-push-cors-local-fix' || github.head_ref == 'avelixa-push-cors-local-fix' }}
+        # Preserve the existing temporary exception only for the separate gpt-push-notifications-hardening branch.
+        continue-on-error: ${{ github.ref == 'refs/heads/gpt-push-notifications-hardening' || github.head_ref == 'gpt-push-notifications-hardening' }}
         run: npm run typecheck
 
       - name: Build
