@@ -9,6 +9,7 @@ const serviceWorker = read('src/sw.ts');
 const service = read('src/lib/pushNotificationService.ts');
 const settings = read('src/components/portal/PushNotificationSettings.tsx');
 const migration = read('supabase/migrations/20261015100500_harden_avelixa_push_delivery_retry.sql');
+const baseline = read('supabase/migrations/20260825120459_add_avelixa_web_push_notifications.sql');
 const conversation = read('src/pages/portal/CommunicationCenterV4.tsx');
 const protectedRoute = read('src/components/portal/ProtectedRoute.tsx');
 const login = read('src/pages/portal/Login.tsx');
@@ -41,6 +42,14 @@ assert.match(settings, /onClick=\{\(\) => void enable\(\)\}/,
   'permission must be requested from an explicit user action');
 assert.doesNotMatch(settings, /Notification\.requestPermission\(\)/,
   'settings mount must not request notification permission automatically');
+assert.match(baseline, /create table if not exists public\.push_subscriptions/i,
+  'the repository must recreate the existing production push subscription schema');
+assert.match(baseline, /create table if not exists public\.push_deliveries/i,
+  'the repository must recreate the existing production delivery ledger');
+assert.match(baseline, /enable row level security/i,
+  'push tables must keep RLS enabled');
+assert.match(baseline, /grant execute on function public\.get_push_worker_secret\(\) to service_role/i,
+  'the webhook secret getter must not be callable by browser roles');
 assert.match(migration, /current_user_id uuid := auth\.uid\(\)/,
   'subscription registration must derive the user from auth.uid()');
 assert.match(migration, /grant execute on function public\.register_push_subscription[\s\S]*to authenticated/i,
