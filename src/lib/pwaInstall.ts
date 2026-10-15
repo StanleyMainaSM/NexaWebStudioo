@@ -95,7 +95,10 @@ async function inspectInstallEnvironment(): Promise<void> {
   }
 }
 
-function notify(): void { listeners.forEach((listener) => listener()); }
+function notify(): void {
+  diagnostic('install-state-subscribers-notified', { promptAvailable: deferredPrompt !== null, subscriberCount: listeners.size });
+  listeners.forEach((listener) => listener());
+}
 
 function onBeforeInstallPrompt(event: Event): void {
   diagnosticState.eventEverReceived = true;
