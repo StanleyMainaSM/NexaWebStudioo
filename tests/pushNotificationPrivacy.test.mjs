@@ -15,8 +15,12 @@ const conversation = read('src/pages/portal/CommunicationCenterV4.tsx');
 const protectedRoute = read('src/components/portal/ProtectedRoute.tsx');
 const login = read('src/pages/portal/Login.tsx');
 
-assert.match(worker, /Access-Control-Allow-Origin": "https:\/\/www\.avelixa\.co\.ke"/,
-  'the push key endpoint must allow the production www origin');
+assert.match(worker, /productionOrigin = "https:\/\/www\.avelixa\.co\.ke"/,
+  'the push key endpoint must always allow the production www origin');
+assert.match(worker, /function corsHeadersFor\(req: Request\)/,
+  'CORS headers must be selected for each request origin');
+assert.doesNotMatch(worker, /Access-Control-Allow-Origin": "\\*"/,
+  'the push worker must never allow every browser origin');
 assert.match(worker, /title: "Avelixa"/,
   'push titles must not expose sender or conversation details');
 assert.doesNotMatch(worker, /notification\.title|notification\.content/,
