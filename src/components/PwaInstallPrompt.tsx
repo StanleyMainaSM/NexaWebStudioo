@@ -47,7 +47,6 @@ function getInstallGuidance(): { heading: string; steps: string; supported: bool
 
 export default function PwaInstallPrompt() {
   const [snapshot, setSnapshot] = useState<PwaInstallSnapshot>(() => getPwaInstallSnapshot());
-  const [expanded, setExpanded] = useState(false);
   const [visible, setVisible] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -70,18 +69,13 @@ export default function PwaInstallPrompt() {
         setMessage('Installation was accepted. Finish any confirmation shown by your browser.');
       } else if (outcome === 'dismissed') {
         setMessage('Installation was cancelled. Avelixa has not been marked as installed.');
-      } else {
-        setExpanded(true);
       }
     } catch {
       setMessage('The browser could not open its installation prompt. Use the installation options below.');
-      setExpanded(true);
     } finally {
       setBusy(false);
     }
   };
-
-  const showGuidance = true;
 
   return (
     <aside aria-label="Install Avelixa" className="fixed bottom-4 right-4 z-[100] w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-zinc-700 bg-zinc-950 p-4 text-white shadow-2xl">
@@ -100,19 +94,11 @@ export default function PwaInstallPrompt() {
         </button>
       </div>
 
-      {showGuidance && (
-        <div className="mt-3 rounded-lg bg-zinc-900 p-3" role="status">
-          <p className="text-sm font-medium">{guidance.heading}</p>
-          <p className="mt-1 text-sm text-zinc-300">{guidance.steps}</p>
-          {!guidance.supported && <p className="mt-2 text-xs text-zinc-400">Native installation is not currently available in this browser. Installing does not request notification permission.</p>}
-        </div>
-      )}
-
-      {snapshot.promptAvailable && !expanded && (
-        <button type="button" onClick={() => setExpanded(true)} className="mt-2 w-full text-left text-xs text-zinc-400 underline underline-offset-2">
-          Installation options
-        </button>
-      )}
+      <div className="mt-3 rounded-lg bg-zinc-900 p-3" role="status">
+        <p className="text-sm font-medium">{guidance.heading}</p>
+        <p className="mt-1 text-sm text-zinc-300">{guidance.steps}</p>
+        {!snapshot.promptAvailable && <p className="mt-2 text-xs text-zinc-400">A direct installation prompt is not currently available in this browser. Installing does not request notification permission.</p>}
+      </div>
       {message && <p role="status" className="mt-3 text-sm text-zinc-300">{message}</p>}
     </aside>
   );
