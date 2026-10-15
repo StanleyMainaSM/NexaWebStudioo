@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const root = process.cwd();
+const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
+const worker = read('supabase/functions/avelixa-push-worker/index.ts');
+const serviceWorker = read('src/sw.ts');
+const service = read('src/lib/pushNotificationService.ts');
+const settings = read('src/components/portal/PushNotificationSettings.tsx');
+const migration = read('supabase/migrations/20261015100500_harden_avelixa_push_delivery_retry.sql');
+const conversation = read('src/pages/portal/CommunicationCenterV4.tsx');
+
+assert.match(worker, /Access-Control-Allow-Origin": "https:\/\/www\.avelixa\.co\.ke"/,
+  'the push key endpoint must allow the production www origin');
+assert.match(worker, /isMessage \? "Avelixa"/,
+  'message push title must not expose sender or conversation details');
+assert.match(worker, /You have a new message on Avelixa\./,
+  'message push body must remain private by default');
+assert.match(worker, /next_attempt_at: retryAt/,
+  'provider failures must schedule bounded retry');
+assert.match(worker, /attempts < 5/,
+  'push retries must be bounded');
+assert.match(worker, /existing\?\.status === "sent"/,
+  'duplicate notification events must skip completed deliveries');
+assert.match(worker, /status: "processing"/,
+  'delivery attempts must be claimed before provider dispatch');
+assert.match(serviceWorker, /candidate\.origin === self\.location\.origin/,
+  'notification clicks must reject cross-origin navigation');
+assert.match(serviceWorker, /candidate\.pathname\.startsWith\('\/portal\/'\)/,
+  'notification clicks must remain inside the Avelixa portal');
+assert.match(serviceWorker, /You have a new message on Avelixa\./,
+  'service worker must enforce generic message text even if payload contains previews');
+assert.match(service, /rpc\('register_push_subscription'/,
+  'subscription ownership must be derived from authenticated RPC identity');
+assert.match(service, /\.eq\('user_id', user\.id\)[\s\S]*\.eq\('endpoint', endpoint\)/,
+  'unsubscribe must only delete the signed-in user’s subscription row');
+assert.match(settings, /onClick=\{\(\) => void enable\(\)\}/,
+  'permission must be requested from an explicit user action');
+assert.doesNotMatch(settings, /Notification\.requestPermission\(\)/,
+  'settings mount must not request notification permission automatically');
+assert.match(migration, /current_user_id uuid := auth\.uid\(\)/,
+  'subscription registration must derive the user from auth.uid()');
+assert.match(migration, /grant execute on function public\.register_push_subscription[\s\S]*to authenticated/i,
+  'subscription registration RPC must only be executable by authenticated users');
+assert.match(migration, /cron\.schedule\([\s\S]*avelixa-push-retry/,
+  'failed push events must have a scheduled retry path');
+assert.match(conversation, /searchParams\.get\('conversation'\)/,
+  'push clicks must select the target conversation when it is available');
+
+console.log('Push notification privacy, ownership, retry and navigation contracts: PASS');
