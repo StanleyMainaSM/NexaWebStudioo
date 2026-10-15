@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (lookupError) throw lookupError;
 
-      if (existing?.status === "sent") continue;
+      if (existing?.status === "accepted") continue;
       if (existing && Number(existing.attempts || 0) >= 5 && existing.status === "failed") continue;
       if (existing?.next_attempt_at && new Date(existing.next_attempt_at).getTime() > Date.now()) continue;
       if (existing?.status === "processing" && Date.now() - new Date(existing.updated_at).getTime() < 5 * 60_000) continue;
@@ -182,9 +182,10 @@ Deno.serve(async (req) => {
         );
         acceptedByProvider += 1;
         await supabase.from("push_deliveries").update({
-          status: "sent",
+          status: "accepted",
           attempts,
           sent_at: new Date().toISOString(),
+          provider_accepted_at: new Date().toISOString(),
           next_attempt_at: null,
           updated_at: new Date().toISOString(),
           last_error: null,
