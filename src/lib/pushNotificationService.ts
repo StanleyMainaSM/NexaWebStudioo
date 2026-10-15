@@ -185,24 +185,6 @@ export async function subscribeToAvelixaPushNotifications(): Promise<PushSubscri
     throw new Error(`Avelixa could not save this device subscription: ${subscriptionError.message}`);
   }
 
-  const { error: preferenceError } = await supabase
-    .from('notification_preferences')
-    .upsert(
-      {
-        user_id: user.id,
-        push_notifications: true,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' },
-    );
-
-  if (preferenceError) {
-    console.warn(
-      'Avelixa push subscription was saved, but notification preferences could not be updated:',
-      preferenceError,
-    );
-  }
-
   return subscription;
 }
 
@@ -244,21 +226,6 @@ export async function unsubscribeFromAvelixaPushNotifications(): Promise<void> {
 
   await subscription.unsubscribe();
 
-  const { error: preferenceError } = await supabase
-    .from('notification_preferences')
-    .upsert(
-      {
-        user_id: user.id,
-        push_notifications: false,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' },
-    );
-
-  if (preferenceError) {
-    console.error('Unable to update Avelixa notification preferences:', preferenceError);
-    throw new Error(`The device was unsubscribed, but the notification preference could not be saved: ${preferenceError.message}`);
-  }
 }
 
 export async function initializeAvelixaPushNotifications(): Promise<{
