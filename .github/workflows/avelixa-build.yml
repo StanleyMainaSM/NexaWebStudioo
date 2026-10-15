@@ -135,7 +135,9 @@ jobs:
           version: latest
 
       - name: Start local Supabase
-        run: supabase start
+        # The SQL migration suite needs Postgres, not every optional Supabase container.
+        # Excluding UI/HTTP/analytics services reduces image pulls and avoids registry rate limits.
+        run: supabase start --exclude studio,kong,inbucket,imgproxy,postgrest,gotrue,realtime,storage-api,postgres-meta,edge-runtime,logflare,vector,supavisor
 
       - name: Reset local database and apply all repository migrations
         run: supabase db reset --yes
