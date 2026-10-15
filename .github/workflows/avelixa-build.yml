@@ -15,6 +15,7 @@ on:
   pull_request:
     branches:
       - avelixa-current-work
+      - GPT-current-work
 
 jobs:
   build:
