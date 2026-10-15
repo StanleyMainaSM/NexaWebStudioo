@@ -50,9 +50,9 @@ assert.match(migration, /cron\.schedule\([\s\S]*avelixa-push-retry/,
 assert.match(conversation, /searchParams\.get\('conversation'\)/,
   'push clicks must select the target conversation when it is available');
 
-assert.match(protectedRoute, /location\\.pathname\\}\\$\\{location\\.search\\}/,
+assert.match(protectedRoute, /location\.pathname\}\$\{location\.search\}/,
   'authentication redirects must preserve the notification conversation query');
-assert.match(login, /if \\(!signedInUser\\)[\\s\\S]*Sign in first, then enable notifications/,
+assert.match(login, /if \(!signedInUser\)[\s\S]*Sign in first, then enable notifications/,
   'the login page must not request push permission before authentication');
 
 console.log('Push notification privacy, ownership, retry and navigation contracts: PASS');
