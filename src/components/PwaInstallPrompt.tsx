@@ -68,7 +68,10 @@ export default function PwaInstallPrompt() {
     setMessage('');
     try {
       const outcome = await promptPwaInstall();
-      if (outcome === 'unavailable') return;
+      if (outcome === 'unavailable') {
+        setMessage('Your browser has not offered a native installation prompt for this page. The button cannot force one; use the browser menu instructions below instead.');
+        return;
+      }
       if (outcome === 'accepted') {
         setMessage('Installation was accepted. Finish any confirmation shown by your browser.');
       } else if (outcome === 'dismissed') {
