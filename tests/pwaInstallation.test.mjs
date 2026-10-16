@@ -5,10 +5,10 @@ const root = process.cwd();
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
 const manifest = JSON.parse(read('public/manifest.webmanifest'));
 const vite = read('vite.config.ts'); const index = read('index.html');
-const installService = read('src/lib/pwaInstall.ts'); const installUi = read('src/components/PwaInstallPrompt.tsx'); const login = read('src/pages/portal/Login.tsx'); const main = read('src/main.tsx');
+const installService = read('src/lib/pwaInstall.ts'); const serviceWorker = read('src/sw.ts'); const installUi = read('src/components/PwaInstallPrompt.tsx'); const login = read('src/pages/portal/Login.tsx'); const main = read('src/main.tsx');
 const packageJson = JSON.parse(read('package.json'));
 assert.equal(manifest.name, 'Avelixa'); assert.equal(manifest.short_name, 'Avelixa');
-assert.equal(manifest.start_url, '/login'); assert.equal(manifest.scope, '/'); assert.equal(manifest.display, 'standalone');
+assert.equal(manifest.start_url, '/login'); assert.equal(manifest.scope, '/'); assert.equal(manifest.display, 'standalone'); assert.notEqual(manifest.prefer_related_applications, true, 'manifest must not opt out of web app installation');
 for (const [size, purpose] of [['192x192','any'],['192x192','maskable'],['512x512','any'],['512x512','maskable']]) assert.ok(manifest.icons.some((icon) => icon.sizes === size && icon.purpose === purpose), `manifest supports ${size} ${purpose}`);
 for (const icon of manifest.icons) { const iconPath=resolve(root,'public',icon.src.replace(/^\//,'')); assert.ok(existsSync(iconPath),`icon exists: ${icon.src}`); const bytes=readFileSync(iconPath); assert.deepEqual([...bytes.subarray(0,8)],[137,80,78,71,13,10,26,10],`${icon.src} is PNG`); assert.equal(bytes.readUInt32BE(16),Number(icon.sizes.split('x')[0])); assert.equal(bytes.readUInt32BE(20),Number(icon.sizes.split('x')[1])); }
 assert.match(vite,/manifest:\s*false/); assert.doesNotMatch(vite,/start_url:\s*['"]\/portal\/login['"]/);
