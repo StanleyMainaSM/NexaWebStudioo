@@ -178,16 +178,19 @@ export default function FinanceDashboard() {
         0
       );
 
-      const outstanding = invoices
-        .filter(
-          (invoice) =>
-            String(invoice.status || '').toLowerCase() !== 'paid'
-        )
-        .reduce(
-          (total, invoice) =>
-            total + Number(invoice.amount || 0),
-          0
-        );
+      const paidByInvoice = new Map<string, number>();
+      for (const payment of paidPayments) {
+        if (payment.invoice_id) {
+          paidByInvoice.set(
+            payment.invoice_id,
+            (paidByInvoice.get(payment.invoice_id) || 0) + Number(payment.amount || 0)
+          );
+        }
+      }
+      const outstanding = invoices.reduce((total, invoice) => {
+        if (['paid', 'completed'].includes(String(invoice.status || '').toLowerCase())) return total;
+        return total + Math.max(0, Number(invoice.amount || 0) - (paidByInvoice.get(invoice.id) || 0));
+      }, 0);
 
       const rows: Transaction[] = [
         ...payments.map((item) => ({
