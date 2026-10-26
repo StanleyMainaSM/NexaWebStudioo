@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
+import LeadFinanceManagement from './LeadFinanceManagement';
 import {
   FolderKanban,
   RefreshCw,
@@ -887,6 +888,7 @@ export default function AdminProjects() {
 
   return (
     <div className="space-y-8">
+      <LeadFinanceManagement />
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
         <div>
